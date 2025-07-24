@@ -1,16 +1,61 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Package, Users, DollarSign, AlertTriangle, Clock } from "lucide-react";
+import { useDashboard } from "@/hooks/useDashboard";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { formatDistanceToNow } from "date-fns";
 
 const Index = () => {
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
+  
+  const { dashboardStats, isLoading } = useDashboard(startDate, endDate);
+
+  const handleDateRangeChange = (start?: Date, end?: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to Rahedeen Productions inventory management system
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to Rahedeen Productions inventory management system
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to Rahedeen Productions inventory management system
+          </p>
+        </div>
+        <div className="w-full md:w-80">
+          <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -21,9 +66,9 @@ const Index = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳45,231</div>
+            <div className="text-2xl font-bold">৳{dashboardStats?.totalRevenue.toLocaleString() || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +20.1% from last month
+              {startDate && endDate ? "For selected period" : "All time"}
             </p>
           </CardContent>
         </Card>
@@ -34,9 +79,9 @@ const Index = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
+            <div className="text-2xl font-bold">{dashboardStats?.unitsSold.toLocaleString() || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +15% from last month
+              {startDate && endDate ? "For selected period" : "All time"}
             </p>
           </CardContent>
         </Card>
@@ -47,9 +92,9 @@ const Index = () => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">567</div>
+            <div className="text-2xl font-bold">{dashboardStats?.totalProducts || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +8 new this week
+              In inventory
             </p>
           </CardContent>
         </Card>
@@ -60,9 +105,9 @@ const Index = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">89</div>
+            <div className="text-2xl font-bold">{dashboardStats?.activeCustomers || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +12 this month
+              {startDate && endDate ? "For selected period" : "Total customers"}
             </p>
           </CardContent>
         </Card>
@@ -81,27 +126,23 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Cotton T-Shirt (Large)</p>
-                <p className="text-sm text-muted-foreground">SKU: CT-L-001</p>
-              </div>
-              <Badge variant="destructive">5 left</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Denim Jeans (Medium)</p>
-                <p className="text-sm text-muted-foreground">SKU: DJ-M-005</p>
-              </div>
-              <Badge variant="destructive">3 left</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Polo Shirt (Small)</p>
-                <p className="text-sm text-muted-foreground">SKU: PS-S-012</p>
-              </div>
-              <Badge variant="secondary">8 left</Badge>
-            </div>
+            {dashboardStats?.lowStockProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No low stock alerts</p>
+            ) : (
+              dashboardStats?.lowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{product.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {product.sku ? `SKU: ${product.sku}` : "No SKU"}
+                    </p>
+                  </div>
+                  <Badge variant={product.stock_quantity <= 5 ? "destructive" : "secondary"}>
+                    {product.stock_quantity} left
+                  </Badge>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -116,27 +157,21 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Rahman Traders</p>
-                <p className="text-sm text-muted-foreground">INV000123 - 5 days overdue</p>
-              </div>
-              <Badge variant="destructive">৳2,500</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Fashion Point</p>
-                <p className="text-sm text-muted-foreground">INV000125 - 2 days overdue</p>
-              </div>
-              <Badge variant="destructive">৳1,800</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Style House</p>
-                <p className="text-sm text-muted-foreground">INV000127 - Due today</p>
-              </div>
-              <Badge variant="secondary">৳3,200</Badge>
-            </div>
+            {dashboardStats?.pendingPayments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending payments</p>
+            ) : (
+              dashboardStats?.pendingPayments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{payment.customer_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {payment.invoice_number} - {formatDistanceToNow(new Date(payment.created_at))} ago
+                    </p>
+                  </div>
+                  <Badge variant="destructive">৳{payment.amount_due.toLocaleString()}</Badge>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
