@@ -1,11 +1,41 @@
-import { Plus, Users, Phone, Mail, Search, Filter, Eye } from "lucide-react";
+import { Plus, Users, Phone, Mail, Search, Filter, Eye, Edit, Trash2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useState } from "react";
+import { CustomerDialog } from "@/components/CustomerDialog";
 
 const Customers = () => {
+  const { customers, isLoading, deleteCustomer } = useCustomers();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+
+  const filteredCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.phone && customer.phone.includes(searchTerm)) ||
+    (customer.whatsapp && customer.whatsapp.includes(searchTerm))
+  );
+
+  const handleEdit = (customer) => {
+    setEditingCustomer(customer);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this customer?")) {
+      deleteCustomer.mutate(id);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingCustomer(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -15,7 +45,7 @@ const Customers = () => {
             Manage your customer database and relationships
           </p>
         </div>
-        <Button className="w-fit">
+        <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Add Customer
         </Button>
@@ -75,7 +105,12 @@ const Customers = () => {
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search customers..." className="pl-9" />
+          <Input 
+            placeholder="Search customers..." 
+            className="pl-9" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <Button variant="outline">
           <Filter className="mr-2 h-4 w-4" />
@@ -92,63 +127,102 @@ const Customers = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Total Orders</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>WhatsApp</TableHead>
+                <TableHead>Orders</TableHead>
                 <TableHead>Total Spent</TableHead>
-                <TableHead>Last Order</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[
-                { name: "John Doe", email: "john@example.com", phone: "+1-555-0123", orders: 12, spent: 1580.50, lastOrder: "2024-01-15", status: "Active" },
-                { name: "Jane Smith", email: "jane@example.com", phone: "+1-555-0124", orders: 8, spent: 945.25, lastOrder: "2024-01-12", status: "Active" },
-                { name: "Bob Johnson", email: "bob@example.com", phone: "+1-555-0125", orders: 3, spent: 320.00, lastOrder: "2023-12-28", status: "Inactive" },
-                { name: "Alice Brown", email: "alice@example.com", phone: "+1-555-0126", orders: 15, spent: 2100.75, lastOrder: "2024-01-14", status: "VIP" },
-                { name: "Charlie Wilson", email: "charlie@example.com", phone: "+1-555-0127", orders: 5, spent: 675.00, lastOrder: "2024-01-10", status: "Active" },
-              ].map((customer, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{customer.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {customer.email}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {customer.phone}
-                    </div>
-                  </TableCell>
-                  <TableCell>{customer.orders}</TableCell>
-                  <TableCell>${customer.spent.toFixed(2)}</TableCell>
-                  <TableCell>{customer.lastOrder}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={
-                        customer.status === "VIP" ? "default" : 
-                        customer.status === "Active" ? "secondary" : 
-                        "outline"
-                      }
-                    >
-                      {customer.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {isLoading ? (
+                [...Array(5)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const getStatus = () => {
+                    if (customer.total_spent > 5000) return "VIP";
+                    if (customer.order_count > 0) return "Active";
+                    return "Inactive";
+                  };
+                  
+                  const status = getStatus();
+                  
+                  return (
+                    <TableRow key={customer.id}>
+                      <TableCell className="font-medium">{customer.name}</TableCell>
+                      <TableCell>
+                        {customer.phone ? (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            {customer.phone}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {customer.whatsapp ? (
+                          <div className="flex items-center gap-2">
+                            <MessageCircle className="h-4 w-4 text-green-500" />
+                            {customer.whatsapp}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{customer.order_count}</TableCell>
+                      <TableCell>${customer.total_spent.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            status === "VIP" ? "default" : 
+                            status === "Active" ? "secondary" : 
+                            "outline"
+                          }
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDelete(customer.id)}
+                            disabled={deleteCustomer.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <CustomerDialog 
+        open={isDialogOpen} 
+        onOpenChange={handleCloseDialog}
+        customer={editingCustomer}
+      />
     </div>
   );
 };
