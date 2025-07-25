@@ -1,11 +1,30 @@
+import { useState } from "react";
 import { Plus, Archive, TrendingUp, TrendingDown, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProducts } from "@/hooks/useProducts";
+import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
+import { format } from "date-fns";
 
 const Inventory = () => {
+  const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const { products, isLoading } = useProducts();
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const totalProducts = products.length;
+  const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
+  const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
+  const totalValue = products.reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -15,7 +34,7 @@ const Inventory = () => {
             Track stock movements and manage inventory levels
           </p>
         </div>
-        <Button className="w-fit">
+        <Button onClick={() => setShowAdjustmentDialog(true)} className="w-fit">
           <Plus className="mr-2 h-4 w-4" />
           Adjust Stock
         </Button>
@@ -28,9 +47,9 @@ const Inventory = () => {
             <Archive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,254</div>
+            <div className="text-2xl font-bold">{totalProducts}</div>
             <p className="text-xs text-muted-foreground">
-              +5 new this week
+              Products in inventory
             </p>
           </CardContent>
         </Card>
@@ -40,7 +59,7 @@ const Inventory = () => {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">23</div>
+            <div className="text-2xl font-bold text-destructive">{lowStockProducts.length}</div>
             <p className="text-xs text-muted-foreground">
               Needs restocking
             </p>
@@ -52,7 +71,7 @@ const Inventory = () => {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">8</div>
+            <div className="text-2xl font-bold text-destructive">{outOfStockProducts.length}</div>
             <p className="text-xs text-muted-foreground">
               Urgent restocking
             </p>
@@ -64,7 +83,7 @@ const Inventory = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$89,432</div>
+            <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Current inventory value
             </p>
@@ -75,7 +94,12 @@ const Inventory = () => {
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search inventory..." className="pl-9" />
+          <Input 
+            placeholder="Search inventory..." 
+            className="pl-9"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <Button variant="outline">
           <Filter className="mr-2 h-4 w-4" />
@@ -88,48 +112,68 @@ const Inventory = () => {
           <CardTitle>Inventory Levels</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Current Stock</TableHead>
-                <TableHead>Min. Threshold</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[
-                { product: "T-Shirt Blue", sku: "TSH-001", stock: 45, threshold: 10, lastUpdated: "2024-01-15", status: "In Stock" },
-                { product: "Jeans Dark", sku: "JNS-002", stock: 8, threshold: 15, lastUpdated: "2024-01-14", status: "Low Stock" },
-                { product: "Sneakers White", sku: "SNK-003", stock: 0, threshold: 5, lastUpdated: "2024-01-13", status: "Out of Stock" },
-                { product: "Hoodie Gray", sku: "HOD-004", stock: 23, threshold: 10, lastUpdated: "2024-01-15", status: "In Stock" },
-                { product: "Cap Black", sku: "CAP-005", stock: 3, threshold: 8, lastUpdated: "2024-01-12", status: "Low Stock" },
-              ].map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{item.product}</TableCell>
-                  <TableCell>{item.sku}</TableCell>
-                  <TableCell>{item.stock}</TableCell>
-                  <TableCell>{item.threshold}</TableCell>
-                  <TableCell>{item.lastUpdated}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={
-                        item.status === "In Stock" ? "default" : 
-                        item.status === "Low Stock" ? "secondary" : 
-                        "destructive"
-                      }
-                    >
-                      {item.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Current Stock</TableHead>
+                  <TableHead>Min. Threshold</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      No products found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map((product) => {
+                    const status = product.stock_quantity === 0 
+                      ? "Out of Stock" 
+                      : product.stock_quantity <= product.low_stock_threshold 
+                        ? "Low Stock" 
+                        : "In Stock";
+                    
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.sku || "-"}</TableCell>
+                        <TableCell>{product.stock_quantity}</TableCell>
+                        <TableCell>{product.low_stock_threshold}</TableCell>
+                        <TableCell>{format(new Date(product.updated_at), "MMM dd, yyyy")}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              status === "In Stock" ? "default" : 
+                              status === "Low Stock" ? "secondary" : 
+                              "destructive"
+                            }
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <StockAdjustmentDialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog} />
     </div>
   );
 };

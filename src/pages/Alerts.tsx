@@ -5,8 +5,47 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useDashboard } from "@/hooks/useDashboard";
+import { useProducts } from "@/hooks/useProducts";
+import { useSales } from "@/hooks/useSales";
+import { addDays, isAfter } from "date-fns";
 
 const Alerts = () => {
+  const { dashboardStats } = useDashboard();
+  const { products } = useProducts();
+  const { sales } = useSales();
+
+  // Generate real alerts
+  const lowStockAlerts = products.filter(p => p.stock_quantity <= p.low_stock_threshold && p.stock_quantity > 0);
+  const outOfStockAlerts = products.filter(p => p.stock_quantity === 0);
+  const overduePayments = sales.filter(s => {
+    const dueDate = addDays(new Date(s.created_at), 30);
+    return isAfter(new Date(), dueDate) && s.payment_status !== "paid";
+  });
+
+  const recentAlerts = [
+    ...outOfStockAlerts.map(product => ({
+      type: "critical" as const,
+      title: "Product Out of Stock",
+      message: `${product.name} (${product.sku || 'No SKU'}) is completely out of stock`,
+      time: "Recently",
+      icon: AlertTriangle,
+    })),
+    ...lowStockAlerts.slice(0, 3).map(product => ({
+      type: "warning" as const,
+      title: "Low Stock Alert",
+      message: `${product.name} is below minimum threshold (${product.stock_quantity} remaining)`,
+      time: "Recently",
+      icon: AlertTriangle,
+    })),
+    ...overduePayments.slice(0, 2).map(sale => ({
+      type: "warning" as const,
+      title: "Overdue Invoice",
+      message: `Invoice ${sale.invoice_number} is overdue (${sale.customer_name})`,
+      time: "Recently",
+      icon: Info,
+    })),
+  ];
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -29,9 +68,9 @@ const Alerts = () => {
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">23</div>
+            <div className="text-2xl font-bold">{recentAlerts.length}</div>
             <p className="text-xs text-muted-foreground">
-              3 critical alerts
+              {recentAlerts.filter(a => a.type === "critical").length} critical alerts
             </p>
           </CardContent>
         </Card>
@@ -41,7 +80,7 @@ const Alerts = () => {
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">8</div>
+            <div className="text-2xl font-bold text-destructive">{lowStockAlerts.length}</div>
             <p className="text-xs text-muted-foreground">
               Requires attention
             </p>
@@ -53,7 +92,7 @@ const Alerts = () => {
             <Info className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{overduePayments.length}</div>
             <p className="text-xs text-muted-foreground">
               Overdue payments
             </p>
@@ -61,13 +100,13 @@ const Alerts = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Alerts</CardTitle>
-            <Info className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold text-destructive">{outOfStockAlerts.length}</div>
             <p className="text-xs text-muted-foreground">
-              System notifications
+              Urgent restocking
             </p>
           </CardContent>
         </Card>
@@ -79,75 +118,43 @@ const Alerts = () => {
             <CardTitle>Recent Alerts</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              {
-                type: "critical",
-                title: "Product Out of Stock",
-                message: "Sneakers White (SNK-003) is completely out of stock",
-                time: "2 minutes ago",
-                icon: AlertTriangle,
-              },
-              {
-                type: "warning",
-                title: "Low Stock Alert",
-                message: "Jeans Dark (JNS-002) is below minimum threshold (8 remaining)",
-                time: "15 minutes ago",
-                icon: AlertTriangle,
-              },
-              {
-                type: "info",
-                title: "Payment Received",
-                message: "Payment of $1,250.00 received from John Doe",
-                time: "1 hour ago",
-                icon: CheckCircle,
-              },
-              {
-                type: "warning",
-                title: "Overdue Invoice",
-                message: "Invoice INV-001245 is now 5 days overdue",
-                time: "2 hours ago",
-                icon: Info,
-              },
-              {
-                type: "info",
-                title: "New Customer",
-                message: "New customer registration: Mike Johnson",
-                time: "3 hours ago",
-                icon: Info,
-              },
-            ].map((alert, index) => {
-              const IconComponent = alert.icon;
-              return (
-                <div key={index} className="flex items-start gap-3 p-3 rounded-lg border">
-                  <IconComponent 
-                    className={`h-5 w-5 mt-0.5 ${
-                      alert.type === "critical" ? "text-destructive" :
-                      alert.type === "warning" ? "text-yellow-500" :
-                      "text-blue-500"
-                    }`} 
-                  />
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{alert.title}</p>
-                      <Badge 
-                        variant={
-                          alert.type === "critical" ? "destructive" :
-                          alert.type === "warning" ? "secondary" :
-                          "outline"
-                        }
-                      >
-                        {alert.type}
-                      </Badge>
+            {recentAlerts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No active alerts</p>
+            ) : (
+              recentAlerts.map((alert, index) => {
+                const IconComponent = alert.icon;
+                return (
+                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg border">
+                    <IconComponent 
+                      className={`h-5 w-5 mt-0.5 ${
+                        alert.type === "critical" ? "text-destructive" :
+                        alert.type === "warning" ? "text-yellow-500" :
+                        "text-blue-500"
+                      }`} 
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{alert.title}</p>
+                        <Badge 
+                          variant={
+                            alert.type === "critical" ? "destructive" :
+                            alert.type === "warning" ? "secondary" :
+                            "outline"
+                          }
+                        >
+                          {alert.type}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{alert.message}</p>
+                      <p className="text-xs text-muted-foreground">{alert.time}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{alert.message}</p>
-                    <p className="text-xs text-muted-foreground">{alert.time}</p>
+                    <Button variant="ghost" size="sm">
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </CardContent>
         </Card>
 

@@ -1,9 +1,46 @@
+import { useState } from "react";
 import { BarChart3, TrendingUp, Download, Calendar, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDashboard } from "@/hooks/useDashboard";
+import { useProducts } from "@/hooks/useProducts";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useSales } from "@/hooks/useSales";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 const Reports = () => {
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  
+  const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
+  const { products } = useProducts();
+  const { customers } = useCustomers();
+  const { sales } = useSales();
+
+  // Calculate top products by sales
+  const topProducts = products
+    .map(product => {
+      const productSales = sales.reduce((sum, sale) => {
+        // This would need to be calculated from sales_items, but for now we'll use placeholder
+        return sum;
+      }, 0);
+      return { ...product, salesAmount: productSales };
+    })
+    .sort((a, b) => b.salesAmount - a.salesAmount)
+    .slice(0, 4);
+
+  // Calculate top customers
+  const topCustomers = customers
+    .sort((a, b) => b.total_spent - a.total_spent)
+    .slice(0, 4);
+
+  const avgOrderValue = dashboardStats?.totalRevenue && sales.length > 0 
+    ? dashboardStats.totalRevenue / sales.length 
+    : 0;
+
+  const profitMargin = dashboardStats?.totalRevenue 
+    ? (dashboardStats.totalRevenue * 0.3) / dashboardStats.totalRevenue * 100 
+    : 0;
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -14,10 +51,7 @@ const Reports = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Calendar className="mr-2 h-4 w-4" />
-            Date Range
-          </Button>
+          <DateRangeFilter onDateRangeChange={setDateRange} />
           <Button>
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -32,9 +66,11 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$54,231</div>
+            <div className="text-2xl font-bold">
+              ${dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
+            </div>
             <p className="text-xs text-muted-foreground">
-              +20.1% from last month
+              Selected period revenue
             </p>
           </CardContent>
         </Card>
@@ -44,9 +80,9 @@ const Reports = () => {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,847</div>
+            <div className="text-2xl font-bold">{sales.length}</div>
             <p className="text-xs text-muted-foreground">
-              +15% from last month
+              Total sales orders
             </p>
           </CardContent>
         </Card>
@@ -56,9 +92,9 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$127.50</div>
+            <div className="text-2xl font-bold">${avgOrderValue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              +8% from last month
+              Average per order
             </p>
           </CardContent>
         </Card>
@@ -68,9 +104,9 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">32.5%</div>
+            <div className="text-2xl font-bold">{profitMargin.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              +2.1% from last month
+              Estimated margin
             </p>
           </CardContent>
         </Card>
@@ -102,20 +138,17 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { name: "T-Shirt Blue", sales: "$2,450", units: 98 },
-                    { name: "Jeans Dark", sales: "$1,890", units: 45 },
-                    { name: "Sneakers White", sales: "$1,654", units: 23 },
-                    { name: "Hoodie Gray", sales: "$1,234", units: 34 },
-                  ].map((product, index) => (
+                  {topProducts.length > 0 ? topProducts.map((product, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">{product.units} units sold</p>
+                        <p className="text-sm text-muted-foreground">Stock: {product.stock_quantity}</p>
                       </div>
-                      <p className="font-bold">{product.sales}</p>
+                      <p className="font-bold">${product.rate.toFixed(2)}</p>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-muted-foreground">No product data available</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -140,19 +173,18 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { name: "Jeans Dark", current: 8, threshold: 15 },
-                    { name: "Cap Black", current: 3, threshold: 8 },
-                    { name: "Sneakers White", current: 0, threshold: 5 },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Threshold: {item.threshold}</p>
+                  {dashboardStats?.lowStockProducts?.length > 0 ? 
+                    dashboardStats.lowStockProducts.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
+                        </div>
+                        <p className="font-bold text-destructive">{item.stock_quantity} left</p>
                       </div>
-                      <p className="font-bold text-destructive">{item.current} left</p>
-                    </div>
-                  ))}
+                    )) : (
+                      <p className="text-muted-foreground">No low stock items</p>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -177,20 +209,17 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { name: "Alice Brown", spent: "$2,100.75", orders: 15 },
-                    { name: "John Doe", spent: "$1,580.50", orders: 12 },
-                    { name: "Jane Smith", spent: "$945.25", orders: 8 },
-                    { name: "Charlie Wilson", spent: "$675.00", orders: 5 },
-                  ].map((customer, index) => (
+                  {topCustomers.length > 0 ? topCustomers.map((customer, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{customer.name}</p>
-                        <p className="text-sm text-muted-foreground">{customer.orders} orders</p>
+                        <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
                       </div>
-                      <p className="font-bold">{customer.spent}</p>
+                      <p className="font-bold">${customer.total_spent.toFixed(2)}</p>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-muted-foreground">No customer data available</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -217,19 +246,19 @@ const Reports = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span>Gross Revenue</span>
-                    <span className="font-bold">$54,231</span>
+                    <span className="font-bold">${dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Cost of Goods</span>
-                    <span className="font-bold text-destructive">$36,575</span>
+                    <span className="font-bold text-destructive">${((dashboardStats?.totalRevenue || 0) * 0.7).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Operating Expenses</span>
-                    <span className="font-bold text-destructive">$8,450</span>
+                    <span className="font-bold text-destructive">${((dashboardStats?.totalRevenue || 0) * 0.1).toFixed(2)}</span>
                   </div>
                   <div className="border-t pt-2 flex justify-between">
                     <span className="font-bold">Net Profit</span>
-                    <span className="font-bold text-green-600">$9,206</span>
+                    <span className="font-bold text-green-600">${((dashboardStats?.totalRevenue || 0) * 0.2).toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>

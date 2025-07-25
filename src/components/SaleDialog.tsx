@@ -1,0 +1,431 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Minus, Trash2 } from "lucide-react";
+import { useProducts } from "@/hooks/useProducts";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useSales } from "@/hooks/useSales";
+import { toast } from "sonner";
+
+interface SaleDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+interface SaleItem {
+  productId: string;
+  productName: string;
+  rate: number;
+  quantity: number;
+  total: number;
+}
+
+interface SaleFormData {
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerWhatsapp: string;
+  customerAddress: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  amountPaid: number;
+  discountPercent: number;
+  discountAmount: number;
+  items: SaleItem[];
+}
+
+export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
+  const { products } = useProducts();
+  const { customers } = useCustomers();
+  const { createSale } = useSales();
+  
+  const [formData, setFormData] = useState<SaleFormData>({
+    customerId: "",
+    customerName: "",
+    customerPhone: "",
+    customerWhatsapp: "",
+    customerAddress: "",
+    paymentMethod: "cash",
+    paymentStatus: "pending",
+    amountPaid: 0,
+    discountPercent: 0,
+    discountAmount: 0,
+    items: [],
+  });
+
+  const [selectedProductId, setSelectedProductId] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setFormData({
+        customerId: "",
+        customerName: "",
+        customerPhone: "",
+        customerWhatsapp: "",
+        customerAddress: "",
+        paymentMethod: "cash",
+        paymentStatus: "pending",
+        amountPaid: 0,
+        discountPercent: 0,
+        discountAmount: 0,
+        items: [],
+      });
+      setSelectedProductId("");
+    }
+  }, [open]);
+
+  const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
+  const discountAmount = formData.discountPercent > 0 
+    ? (subtotal * formData.discountPercent) / 100 
+    : formData.discountAmount;
+  const grandTotal = subtotal - discountAmount;
+  const amountDue = grandTotal - formData.amountPaid;
+
+  const handleCustomerSelect = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+      setFormData(prev => ({
+        ...prev,
+        customerId,
+        customerName: customer.name,
+        customerPhone: customer.phone || "",
+        customerWhatsapp: customer.whatsapp || "",
+        customerAddress: customer.address || "",
+      }));
+    }
+  };
+
+  const addProduct = () => {
+    if (!selectedProductId) return;
+    
+    const product = products.find(p => p.id === selectedProductId);
+    if (!product) return;
+
+    const existingItem = formData.items.find(item => item.productId === selectedProductId);
+    
+    if (existingItem) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map(item =>
+          item.productId === selectedProductId
+            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.rate }
+            : item
+        ),
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        items: [...prev.items, {
+          productId: product.id,
+          productName: product.name,
+          rate: product.rate,
+          quantity: 1,
+          total: product.rate,
+        }],
+      }));
+    }
+    
+    setSelectedProductId("");
+  };
+
+  const updateQuantity = (productId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.filter(item => item.productId !== productId),
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map(item =>
+          item.productId === productId
+            ? { ...item, quantity: newQuantity, total: newQuantity * item.rate }
+            : item
+        ),
+      }));
+    }
+  };
+
+  const removeItem = (productId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.productId !== productId),
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (formData.items.length === 0) {
+      toast.error("Please add at least one product");
+      return;
+    }
+
+    if (!formData.customerName.trim()) {
+      toast.error("Please enter customer name");
+      return;
+    }
+
+    try {
+      await createSale.mutateAsync({
+        customerId: formData.customerId || null,
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone || null,
+        customerWhatsapp: formData.customerWhatsapp || null,
+        customerAddress: formData.customerAddress || null,
+        paymentMethod: formData.paymentMethod,
+        paymentStatus: formData.paymentStatus,
+        amountPaid: formData.amountPaid,
+        discountPercent: formData.discountPercent,
+        discountAmount: discountAmount,
+        subtotal,
+        grandTotal,
+        amountDue,
+        items: formData.items.map(item => ({
+          product_id: item.productId,
+          product_name: item.productName,
+          quantity: item.quantity,
+          rate: item.rate,
+          total: item.total,
+        })),
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating sale:", error);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Sale</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Customer</Label>
+              <Select onValueChange={handleCustomerSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map(customer => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Customer Name</Label>
+              <Input
+                value={formData.customerName}
+                onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                placeholder="Enter customer name"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                value={formData.customerPhone}
+                onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                placeholder="Customer phone"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>WhatsApp</Label>
+              <Input
+                value={formData.customerWhatsapp}
+                onChange={(e) => setFormData(prev => ({ ...prev, customerWhatsapp: e.target.value }))}
+                placeholder="Customer WhatsApp"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Address</Label>
+            <Input
+              value={formData.customerAddress}
+              onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
+              placeholder="Customer address"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <Label>Add Products</Label>
+            <div className="flex gap-2">
+              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map(product => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name} - ${product.rate}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" onClick={addProduct} disabled={!selectedProductId}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {formData.items.length > 0 && (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Rate</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formData.items.map(item => (
+                      <TableRow key={item.productId}>
+                        <TableCell>{item.productName}</TableCell>
+                        <TableCell>${item.rate.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center">{item.quantity}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>${item.total.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem(item.productId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select value={formData.paymentMethod} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Payment Status</Label>
+              <Select value={formData.paymentStatus} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentStatus: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Discount (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={formData.discountPercent}
+                onChange={(e) => setFormData(prev => ({ ...prev, discountPercent: Number(e.target.value), discountAmount: 0 }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Amount Paid</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.amountPaid}
+                onChange={(e) => setFormData(prev => ({ ...prev, amountPaid: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount:</span>
+              <span>-${discountAmount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>Grand Total:</span>
+              <span>${grandTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Amount Paid:</span>
+              <span>${formData.amountPaid.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-destructive">
+              <span>Amount Due:</span>
+              <span>${amountDue.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createSale.isPending}>
+              {createSale.isPending ? "Creating..." : "Create Sale"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
