@@ -11,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 
 interface SimpleDateRangeFilterProps {
   onDateRangeChange: (startDate?: Date, endDate?: Date) => void;
@@ -18,7 +19,9 @@ interface SimpleDateRangeFilterProps {
 
 export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilterProps) {
   const [date, setDate] = useState<DateRange | undefined>();
+  const [tempDate, setTempDate] = useState<DateRange | undefined>();
   const [selectedPreset, setSelectedPreset] = useState<string>("all");
+  const [isOpen, setIsOpen] = useState(false);
 
   const presets = [
     { label: "All Time", value: "all", days: null },
@@ -32,30 +35,49 @@ export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilt
     
     if (preset.value === "all") {
       setDate(undefined);
+      setTempDate(undefined);
       onDateRangeChange();
+      setIsOpen(false);
     } else if (preset.value === "today") {
       const today = new Date();
-      setDate({ from: today, to: today });
+      const newRange = { from: today, to: today };
+      setDate(newRange);
+      setTempDate(newRange);
       onDateRangeChange(startOfDay(today), endOfDay(today));
+      setIsOpen(false);
     } else if (preset.days) {
       const endDate = new Date();
       const startDate = subDays(endDate, preset.days - 1);
-      setDate({ from: startDate, to: endDate });
+      const newRange = { from: startDate, to: endDate };
+      setDate(newRange);
+      setTempDate(newRange);
       onDateRangeChange(startOfDay(startDate), endOfDay(endDate));
+      setIsOpen(false);
     }
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
-    setDate(range);
+    setTempDate(range);
     setSelectedPreset("custom");
+  };
+
+  const handleApply = () => {
+    setDate(tempDate);
     
-    if (range?.from && range?.to) {
-      onDateRangeChange(startOfDay(range.from), endOfDay(range.to));
-    } else if (range?.from) {
-      onDateRangeChange(startOfDay(range.from), endOfDay(range.from));
+    if (tempDate?.from && tempDate?.to) {
+      onDateRangeChange(startOfDay(tempDate.from), endOfDay(tempDate.to));
+    } else if (tempDate?.from) {
+      onDateRangeChange(startOfDay(tempDate.from), endOfDay(tempDate.from));
     } else {
       onDateRangeChange();
     }
+    
+    setIsOpen(false);
+  };
+
+  const handleCancel = () => {
+    setTempDate(date);
+    setIsOpen(false);
   };
 
   const getDisplayText = () => {
@@ -75,7 +97,7 @@ export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilt
   };
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -83,6 +105,7 @@ export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilt
             "w-full md:w-auto justify-start text-left font-normal",
             "min-w-[200px]"
           )}
+          onClick={() => setIsOpen(true)}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {getDisplayText()}
@@ -103,15 +126,36 @@ export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilt
             ))}
           </div>
           
+          <Separator />
+          
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={date?.from}
-            selected={date}
+            defaultMonth={tempDate?.from || date?.from}
+            selected={tempDate}
             onSelect={handleDateSelect}
             numberOfMonths={2}
             className="p-3 pointer-events-auto"
           />
+          
+          <Separator />
+          
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleApply}
+              disabled={!tempDate?.from}
+            >
+              Apply
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
