@@ -83,7 +83,7 @@ const Inventory = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">৳{totalValue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Current inventory value
             </p>

@@ -114,7 +114,7 @@ const Products = () => {
                     <h3 className="font-semibold">{product.name}</h3>
                     {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold">${product.rate}</span>
+                      <span className="text-lg font-bold">৳{product.rate}</span>
                       <span className="text-sm">Stock: {product.stock_quantity}</span>
                     </div>
                     <div className="flex gap-2 mt-3">

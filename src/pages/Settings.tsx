@@ -183,7 +183,7 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="currency">Default Currency</Label>
-                <Input id="currency" defaultValue="USD ($)" />
+                <Input id="currency" defaultValue="BDT (৳)" />
               </div>
               <Button>Save System Settings</Button>
             </CardContent>

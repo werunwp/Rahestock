@@ -4,14 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Package, Users, DollarSign, AlertTriangle, Clock } from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
+import { useProfile } from "@/hooks/useProfile";
 import { formatDistanceToNow } from "date-fns";
+import { getTimeBasedGreeting } from "@/lib/time";
+import { formatCurrency } from "@/lib/currency";
 
 const Index = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   
   const { dashboardStats, isLoading } = useDashboard(startDate, endDate);
+  const { profile } = useProfile();
 
   const handleDateRangeChange = (start?: Date, end?: Date) => {
     setStartDate(start);
@@ -24,7 +28,7 @@ const Index = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome to Rahedeen Productions inventory management system
+            <Skeleton className="h-4 w-64" />
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -50,11 +54,11 @@ const Index = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome to Rahedeen Productions inventory management system
+            {getTimeBasedGreeting()}, {profile?.full_name || "User"}
           </p>
         </div>
-        <div className="w-full md:w-80">
-          <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
+        <div className="w-full md:w-auto">
+          <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />
         </div>
       </div>
 
@@ -66,7 +70,7 @@ const Index = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳{dashboardStats?.totalRevenue.toLocaleString() || 0}</div>
+            <div className="text-2xl font-bold">{formatCurrency(dashboardStats?.totalRevenue || 0)}</div>
             <p className="text-xs text-muted-foreground">
               {startDate && endDate ? "For selected period" : "All time"}
             </p>
@@ -101,7 +105,7 @@ const Index = () => {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -168,7 +172,7 @@ const Index = () => {
                       {payment.invoice_number} - {formatDistanceToNow(new Date(payment.created_at))} ago
                     </p>
                   </div>
-                  <Badge variant="destructive">৳{payment.amount_due.toLocaleString()}</Badge>
+                  <Badge variant="destructive">{formatCurrency(payment.amount_due)}</Badge>
                 </div>
               ))
             )}

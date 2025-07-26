@@ -273,7 +273,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                 <SelectContent>
                   {products.map(product => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.name} - ${product.rate}
+                      {product.name} - ৳{product.rate}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -299,7 +299,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                     {formData.items.map(item => (
                       <TableRow key={item.productId}>
                         <TableCell>{item.productName}</TableCell>
-                        <TableCell>${item.rate.toFixed(2)}</TableCell>
+                        <TableCell>৳{item.rate.toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Button
@@ -321,7 +321,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell>${item.total.toFixed(2)}</TableCell>
+                        <TableCell>৳{item.total.toFixed(2)}</TableCell>
                         <TableCell>
                           <Button
                             type="button"
@@ -396,23 +396,23 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>${subtotal.toFixed(2)}</span>
+              <span>৳{subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span>Discount:</span>
-              <span>-${discountAmount.toFixed(2)}</span>
+              <span>-৳{discountAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Grand Total:</span>
-              <span>${grandTotal.toFixed(2)}</span>
+              <span>৳{grandTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span>Amount Paid:</span>
-              <span>${formData.amountPaid.toFixed(2)}</span>
+              <span>৳{formData.amountPaid.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-destructive">
               <span>Amount Due:</span>
-              <span>${amountDue.toFixed(2)}</span>
+              <span>৳{amountDue.toFixed(2)}</span>
             </div>
           </div>
 

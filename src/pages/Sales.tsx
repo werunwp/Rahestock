@@ -50,7 +50,7 @@ const Sales = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
+              ৳{dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">
               Revenue in selected period
@@ -64,7 +64,7 @@ const Sales = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${dashboardStats?.pendingPayments?.reduce((sum, p) => sum + p.amount_due, 0)?.toFixed(2) || "0.00"}
+              ৳{dashboardStats?.pendingPayments?.reduce((sum, p) => sum + p.amount_due, 0)?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">
               {dashboardStats?.pendingPayments?.length || 0} invoices pending
@@ -139,7 +139,7 @@ const Sales = () => {
                       <TableCell className="font-medium">{sale.invoice_number}</TableCell>
                       <TableCell>{sale.customer_name}</TableCell>
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>${sale.grand_total?.toFixed(2)}</TableCell>
+                      <TableCell>৳{sale.grand_total?.toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge 
                           variant={

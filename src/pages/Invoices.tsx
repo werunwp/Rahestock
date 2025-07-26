@@ -159,7 +159,7 @@ const Invoices = () => {
                         <TableCell>{sale.customer_name}</TableCell>
                         <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                         <TableCell>{format(dueDate, "MMM dd, yyyy")}</TableCell>
-                        <TableCell>${sale.grand_total?.toFixed(2)}</TableCell>
+                        <TableCell>৳{sale.grand_total?.toFixed(2)}</TableCell>
                         <TableCell>
                           <Badge 
                             variant={

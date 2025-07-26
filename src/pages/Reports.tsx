@@ -67,7 +67,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
+              ৳{dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">
               Selected period revenue
@@ -92,7 +92,7 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${avgOrderValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">৳{avgOrderValue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               Average per order
             </p>
@@ -144,7 +144,7 @@ const Reports = () => {
                         <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">Stock: {product.stock_quantity}</p>
                       </div>
-                      <p className="font-bold">${product.rate.toFixed(2)}</p>
+                      <p className="font-bold">৳{product.rate.toFixed(2)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground">No product data available</p>
@@ -215,7 +215,7 @@ const Reports = () => {
                         <p className="font-medium">{customer.name}</p>
                         <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
                       </div>
-                      <p className="font-bold">${customer.total_spent.toFixed(2)}</p>
+                      <p className="font-bold">৳{customer.total_spent.toFixed(2)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground">No customer data available</p>
