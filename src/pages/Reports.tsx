@@ -51,7 +51,7 @@ const Reports = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <DateRangeFilter onDateRangeChange={setDateRange} />
+          <DateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
           <Button>
             <Download className="mr-2 h-4 w-4" />
             Export
