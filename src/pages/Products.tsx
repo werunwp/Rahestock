@@ -1,11 +1,12 @@
-import { Plus, Package, Search, Filter, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts } from "@/hooks/useProducts";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ProductDialog } from "@/components/ProductDialog";
+import { formatCurrency } from "@/lib/currency";
 
 const Products = () => {
   const { products, isLoading, deleteProduct } = useProducts();
@@ -17,6 +18,12 @@ const Products = () => {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const totalStockValue = useMemo(() => {
+    return products.reduce((total, product) => {
+      return total + (product.stock_quantity * (product.cost || product.rate));
+    }, 0);
+  }, [products]);
 
   const handleEdit = (product) => {
     setEditingProduct(product);
@@ -41,6 +48,9 @@ const Products = () => {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">
             Manage your product inventory and stock levels
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Total Stock Value: <span className="font-semibold text-foreground">{formatCurrency(totalStockValue)}</span>
           </p>
         </div>
         <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
@@ -92,40 +102,76 @@ const Products = () => {
             };
             
             const status = getStatus();
+            const stockValue = product.stock_quantity * (product.cost || product.rate);
             
             return (
-              <Card key={product.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <Package className="h-8 w-8 text-muted-foreground" />
+              <Card key={product.id} className="hover:shadow-lg transition-all duration-200 overflow-hidden">
+                <div className="relative">
+                  <div className="aspect-square w-full overflow-hidden bg-muted">
+                    {product.image_url ? (
+                      <img 
+                        src={product.image_url} 
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder.svg';
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                        <span className="text-4xl font-bold text-muted-foreground/50">
+                          {product.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute top-2 right-2">
                     <Badge 
                       variant={
                         status === "In Stock" ? "default" : 
                         status === "Low Stock" ? "secondary" : 
                         "destructive"
                       }
+                      className="shadow-md"
                     >
                       {status}
                     </Badge>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <h3 className="font-semibold">{product.name}</h3>
-                    {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold">৳{product.rate}</span>
-                      <span className="text-sm">Stock: {product.stock_quantity}</span>
+                </div>
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
+                      {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
+                      {(product.size || product.color) && (
+                        <div className="flex gap-2 mt-1">
+                          {product.size && <span className="text-xs bg-muted px-2 py-1 rounded-full">{product.size}</span>}
+                          {product.color && <span className="text-xs bg-muted px-2 py-1 rounded-full">{product.color}</span>}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
-                        <Edit className="h-3 w-3" />
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xl font-bold text-primary">{formatCurrency(product.rate)}</span>
+                        <span className="text-sm font-medium">Stock: {product.stock_quantity}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Stock Value: <span className="font-medium text-foreground">{formatCurrency(stockValue)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(product)} className="flex-1">
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleDelete(product.id)}
                         disabled={deleteProduct.isPending}
+                        className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

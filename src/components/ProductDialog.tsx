@@ -187,6 +187,28 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="image_url">Product Image URL</Label>
+            <Input
+              id="image_url"
+              value={formData.image_url}
+              onChange={(e) => handleChange("image_url", e.target.value)}
+              placeholder="https://example.com/image.jpg"
+            />
+            {formData.image_url && (
+              <div className="mt-2 flex justify-center">
+                <img 
+                  src={formData.image_url} 
+                  alt="Product preview" 
+                  className="h-20 w-20 object-cover rounded-md border"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
