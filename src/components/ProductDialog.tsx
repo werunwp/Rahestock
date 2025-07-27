@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProducts, Product, CreateProductData } from "@/hooks/useProducts";
 import { Loader2 } from "lucide-react";
+import { ImageUpload } from "./ImageUpload";
 
 interface ProductDialogProps {
   open: boolean;
@@ -188,25 +189,12 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="image_url">Product Image URL</Label>
-            <Input
-              id="image_url"
+            <Label htmlFor="image_url">Product Image</Label>
+            <ImageUpload
               value={formData.image_url}
-              onChange={(e) => handleChange("image_url", e.target.value)}
-              placeholder="https://example.com/image.jpg"
+              onChange={(url) => handleChange("image_url", url)}
+              onRemove={() => handleChange("image_url", "")}
             />
-            {formData.image_url && (
-              <div className="mt-2 flex justify-center">
-                <img 
-                  src={formData.image_url} 
-                  alt="Product preview" 
-                  className="h-20 w-20 object-cover rounded-md border"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           <DialogFooter>

@@ -1,0 +1,168 @@
+import { useState, useRef, useCallback } from "react";
+import { Upload, X, Image } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface ImageUploadProps {
+  value?: string;
+  onChange: (url: string) => void;
+  onRemove?: () => void;
+}
+
+export const ImageUpload = ({ value, onChange, onRemove }: ImageUploadProps) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast.error('File size should be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(data.path);
+
+      onChange(publicUrl);
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      uploadFile(files[0]);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      uploadFile(files[0]);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (value && onRemove) {
+      try {
+        // Extract filename from URL
+        const url = new URL(value);
+        const path = url.pathname.split('/').pop();
+        if (path) {
+          await supabase.storage.from('product-images').remove([path]);
+        }
+      } catch (error) {
+        console.error('Error removing file:', error);
+      }
+      onRemove();
+    }
+  };
+
+  if (value) {
+    return (
+      <div className="relative group">
+        <div className="relative w-full h-40 border-2 border-dashed border-muted rounded-lg overflow-hidden">
+          <img 
+            src={value} 
+            alt="Product image" 
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = '/placeholder.svg';
+            }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={handleRemove}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={`
+          relative w-full h-40 border-2 border-dashed rounded-lg transition-colors cursor-pointer
+          ${isDragOver ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'}
+          ${isUploading ? 'opacity-50 pointer-events-none' : ''}
+        `}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+          {isUploading ? (
+            <>
+              <Upload className="h-8 w-8 animate-pulse" />
+              <p className="text-sm mt-2">Uploading...</p>
+            </>
+          ) : (
+            <>
+              <Image className="h-8 w-8" />
+              <p className="text-sm mt-2 text-center px-2">
+                Drag and drop an image here, or click to select
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Max 5MB • PNG, JPG, WEBP
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+    </div>
+  );
+};
