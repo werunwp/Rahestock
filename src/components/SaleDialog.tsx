@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
@@ -58,6 +59,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   });
 
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
 
   useEffect(() => {
     if (!open) {
@@ -79,7 +81,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   }, [open]);
 
   const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
-  const discountAmount = formData.discountPercent > 0 
+  const discountAmount = discountType === "percentage" 
     ? (subtotal * formData.discountPercent) / 100 
     : formData.discountAmount;
   const grandTotal = subtotal - discountAmount;
@@ -300,27 +302,33 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                       <TableRow key={item.productId}>
                         <TableCell>{item.productName}</TableCell>
                         <TableCell>৳{item.rate.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center">{item.quantity}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                         <TableCell>
+                           <div className="flex items-center gap-2">
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                             >
+                               <Minus className="h-3 w-3" />
+                             </Button>
+                             <Input
+                               type="number"
+                               min="1"
+                               value={item.quantity}
+                               onChange={(e) => updateQuantity(item.productId, Number(e.target.value) || 1)}
+                               className="w-16 text-center"
+                             />
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                             >
+                               <Plus className="h-3 w-3" />
+                             </Button>
+                           </div>
+                         </TableCell>
                         <TableCell>৳{item.total.toFixed(2)}</TableCell>
                         <TableCell>
                           <Button
@@ -371,13 +379,32 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
             </div>
             
             <div className="space-y-2">
-              <Label>Discount (%)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Discount</Label>
+                <div className="flex items-center gap-2">
+                  <span className={discountType === "percentage" ? "font-medium" : "text-muted-foreground"}>%</span>
+                  <Switch
+                    checked={discountType === "fixed"}
+                    onCheckedChange={(checked) => setDiscountType(checked ? "fixed" : "percentage")}
+                  />
+                  <span className={discountType === "fixed" ? "font-medium" : "text-muted-foreground"}>৳</span>
+                </div>
+              </div>
               <Input
                 type="number"
                 min="0"
-                max="100"
-                value={formData.discountPercent}
-                onChange={(e) => setFormData(prev => ({ ...prev, discountPercent: Number(e.target.value), discountAmount: 0 }))}
+                step={discountType === "percentage" ? "1" : "0.01"}
+                max={discountType === "percentage" ? "100" : undefined}
+                value={discountType === "percentage" ? formData.discountPercent : formData.discountAmount}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (discountType === "percentage") {
+                    setFormData(prev => ({ ...prev, discountPercent: value, discountAmount: 0 }));
+                  } else {
+                    setFormData(prev => ({ ...prev, discountAmount: value, discountPercent: 0 }));
+                  }
+                }}
+                placeholder={discountType === "percentage" ? "Enter percentage" : "Enter amount"}
               />
             </div>
             
