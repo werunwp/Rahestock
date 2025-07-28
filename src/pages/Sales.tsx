@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSales } from "@/hooks/useSales";
 import { useDashboard } from "@/hooks/useDashboard";
 import { SaleDialog } from "@/components/SaleDialog";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { format } from "date-fns";
 
 const Sales = () => {
@@ -34,7 +34,7 @@ const Sales = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <DateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
+          <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
           <Button onClick={() => setShowSaleDialog(true)} className="w-fit">
             <Plus className="mr-2 h-4 w-4" />
             New Sale
