@@ -96,6 +96,19 @@ export const useProducts = () => {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
+      // Check if product has sales items
+      const { data: salesItems, error: salesError } = await supabase
+        .from("sales_items")
+        .select("id")
+        .eq("product_id", id)
+        .limit(1);
+      
+      if (salesError) throw salesError;
+      
+      if (salesItems && salesItems.length > 0) {
+        throw new Error("Cannot delete product as it has been sold. Consider setting stock to 0 instead.");
+      }
+      
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
     },
