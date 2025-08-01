@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt, Search, Filter, Eye } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSales } from "@/hooks/useSales";
 import { useDashboard } from "@/hooks/useDashboard";
 import { SaleDialog } from "@/components/SaleDialog";
+import { EditSaleDialog } from "@/components/EditSaleDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { format } from "date-fns";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   
@@ -24,6 +27,11 @@ const Sales = () => {
     sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sale.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleEditSale = (saleId: string) => {
+    setEditingSaleId(saleId);
+    setShowEditDialog(true);
+  };
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -152,9 +160,18 @@ const Sales = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditSale(sale.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -166,6 +183,11 @@ const Sales = () => {
       </Card>
 
       <SaleDialog open={showSaleDialog} onOpenChange={setShowSaleDialog} />
+      <EditSaleDialog 
+        open={showEditDialog} 
+        onOpenChange={setShowEditDialog}
+        saleId={editingSaleId}
+      />
     </div>
   );
 };
