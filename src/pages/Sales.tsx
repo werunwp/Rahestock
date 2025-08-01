@@ -12,6 +12,7 @@ import { SaleDialog } from "@/components/SaleDialog";
 import { EditSaleDialog } from "@/components/EditSaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
+import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
 
 const Sales = () => {
@@ -25,6 +26,7 @@ const Sales = () => {
   
   const { sales, isLoading } = useSales();
   const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
+  const { formatAmount } = useCurrency();
 
   const filteredSales = sales.filter(sale =>
     sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,7 +82,7 @@ const Sales = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ৳{dashboardStats?.totalRevenue?.toFixed(2) || "0.00"}
+              {formatAmount(dashboardStats?.totalRevenue || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Revenue in selected period
@@ -94,7 +96,7 @@ const Sales = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ৳{dashboardStats?.pendingPayments?.reduce((sum, p) => sum + p.amount_due, 0)?.toFixed(2) || "0.00"}
+              {formatAmount(dashboardStats?.pendingPayments?.reduce((sum, p) => sum + p.amount_due, 0) || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               {dashboardStats?.pendingPayments?.length || 0} invoices pending
@@ -169,7 +171,7 @@ const Sales = () => {
                       <TableCell className="font-medium">{sale.invoice_number}</TableCell>
                       <TableCell>{sale.customer_name}</TableCell>
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>৳{sale.grand_total?.toFixed(2)}</TableCell>
+                      <TableCell>{formatAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
                         <Badge 
                           variant={

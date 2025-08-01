@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProducts } from "@/hooks/useProducts";
+import { useCurrency } from "@/hooks/useCurrency";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { format, isAfter, isBefore, isEqual } from "date-fns";
@@ -17,6 +18,7 @@ const Inventory = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   
   const { products, isLoading } = useProducts();
+  const { formatAmount } = useCurrency();
 
   const filteredProducts = products.filter(product => {
     // Text search filter
@@ -113,7 +115,7 @@ const Inventory = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳{totalValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{formatAmount(totalValue)}</div>
             <p className="text-xs text-muted-foreground">
               Current inventory value
             </p>

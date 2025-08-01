@@ -9,6 +9,7 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useState, useMemo, useRef } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
 import { CustomerHistoryDialog } from "@/components/CustomerHistoryDialog";
+import { useCurrency } from "@/hooks/useCurrency";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { isWithinInterval, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 
 const Customers = () => {
   const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer } = useCustomers();
+  const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -366,10 +368,10 @@ const Customers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ৳{customers.length > 0 ? 
+              {formatAmount(customers.length > 0 ? 
                 (customers.reduce((sum, c) => sum + c.total_spent, 0) / 
-                customers.filter(c => c.order_count > 0).length || 1).toFixed(2) : 
-                '0.00'}
+                customers.filter(c => c.order_count > 0).length || 1) : 
+                0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Average spent per customer
@@ -465,7 +467,7 @@ const Customers = () => {
                         )}
                       </TableCell>
                       <TableCell>{customer.order_count}</TableCell>
-                      <TableCell>৳{customer.total_spent.toFixed(2)}</TableCell>
+                      <TableCell>{formatAmount(customer.total_spent)}</TableCell>
                       <TableCell>
                         <Select 
                           value={customer.status} 
