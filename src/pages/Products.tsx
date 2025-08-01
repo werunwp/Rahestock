@@ -52,59 +52,164 @@ const Products = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (!['xlsx', 'xls', 'csv'].includes(fileExtension || '')) {
+      toast.error("Please upload a valid XLSX or CSV file");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        let jsonData: any[] = [];
+
+        if (fileExtension === 'csv') {
+          // Handle CSV files
+          const text = e.target?.result as string;
+          const lines = text.split('\n');
+          const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line) {
+              const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+              const row: any = {};
+              headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+              });
+              jsonData.push(row);
+            }
+          }
+        } else {
+          // Handle XLSX/XLS files
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          jsonData = XLSX.utils.sheet_to_json(worksheet);
+        }
+
+        if (jsonData.length === 0) {
+          toast.error("No data found in the file");
+          return;
+        }
 
         let successCount = 0;
         let errorCount = 0;
+        let skippedCount = 0;
+        let processedCount = 0;
 
-        jsonData.forEach((row: any) => {
-          // Map the data to product structure
-          const productData = {
-            name: row.Name || row.name,
-            sku: row.SKU || row.sku || undefined,
-            rate: Number(row.Rate || row.rate) || 0,
-            cost: row.Cost || row.cost ? Number(row.Cost || row.cost) : undefined,
-            stock_quantity: Number(row['Stock Quantity'] || row.stock_quantity) || 0,
-            low_stock_threshold: Number(row['Low Stock Threshold'] || row.low_stock_threshold) || 10,
-            size: row.Size || row.size || undefined,
-            color: row.Color || row.color || undefined,
-          };
+        const processBatch = async (items: any[], batchIndex: number) => {
+          const batchPromises = items.map(async (row: any) => {
+            try {
+              // Map the data to product structure with flexible field matching
+              const productData = {
+                name: row.Name || row.name || row.PRODUCT_NAME || row['Product Name'] || '',
+                sku: row.SKU || row.sku || row['Product Code'] || row.code || undefined,
+                rate: parseFloat(row.Rate || row.rate || row.RATE || row.price || row.Price || '0') || 0,
+                cost: row.Cost || row.cost || row.COST ? parseFloat(row.Cost || row.cost || row.COST || '0') : undefined,
+                stock_quantity: parseInt(row['Stock Quantity'] || row.stock_quantity || row.stock || row.Stock || row.STOCK || '0') || 0,
+                low_stock_threshold: parseInt(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || '10') || 10,
+                size: row.Size || row.size || row.SIZE || undefined,
+                color: row.Color || row.color || row.COLOR || undefined,
+              };
 
-          // Validate required fields
-          if (productData.name && productData.rate > 0) {
-            createProduct.mutate(productData, {
-              onSuccess: () => successCount++,
-              onError: () => errorCount++,
-            });
-          } else {
-            errorCount++;
-          }
-        });
+              // Validate required fields
+              if (!productData.name || productData.name.trim() === '') {
+                errorCount++;
+                return;
+              }
 
-        // Show summary toast
+              if (productData.rate <= 0) {
+                errorCount++;
+                return;
+              }
+
+              // Check for duplicate products (by name or SKU)
+              const existingProduct = products.find(p => 
+                p.name.toLowerCase() === productData.name.toLowerCase() ||
+                (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase())
+              );
+
+              if (existingProduct) {
+                skippedCount++;
+                return;
+              }
+
+              // Create the product
+              return new Promise((resolve, reject) => {
+                createProduct.mutate(productData, {
+                  onSuccess: () => {
+                    successCount++;
+                    resolve(true);
+                  },
+                  onError: (error) => {
+                    console.error('Product creation error:', error);
+                    errorCount++;
+                    reject(error);
+                  },
+                });
+              });
+
+            } catch (error) {
+              console.error('Row processing error:', error);
+              errorCount++;
+            }
+          });
+
+          await Promise.allSettled(batchPromises);
+          processedCount += items.length;
+        };
+
+        // Process in batches to avoid overwhelming the server
+        const batchSize = 5;
+        const batches = [];
+        for (let i = 0; i < jsonData.length; i += batchSize) {
+          batches.push(jsonData.slice(i, i + batchSize));
+        }
+
+        // Process all batches
+        for (let i = 0; i < batches.length; i++) {
+          await processBatch(batches[i], i);
+          // Small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Show summary toast after processing
         setTimeout(() => {
-          if (successCount > 0 && errorCount === 0) {
-            toast.success(`Successfully imported ${successCount} products`);
-          } else if (successCount > 0 && errorCount > 0) {
-            toast.success(`Imported ${successCount} products. ${errorCount} failed due to invalid data`);
-          } else {
-            toast.error(`Failed to import products. Please check your file format and data`);
+          let message = '';
+          if (successCount > 0) {
+            message += `Successfully imported ${successCount} products. `;
           }
-        }, 1000);
+          if (skippedCount > 0) {
+            message += `Skipped ${skippedCount} duplicate products. `;
+          }
+          if (errorCount > 0) {
+            message += `${errorCount} products failed due to invalid data.`;
+          }
+
+          if (successCount > 0) {
+            toast.success(message || "Import completed successfully");
+          } else if (skippedCount > 0 && errorCount === 0) {
+            toast.info(message || "All products were duplicates and skipped");
+          } else {
+            toast.error(message || "Import failed. Please check your data format");
+          }
+        }, 500);
 
       } catch (error) {
-        toast.error("Failed to parse file. Please check the format");
+        console.error('File processing error:', error);
+        toast.error("Failed to parse file. Please check the format and try again");
       }
     };
 
-    reader.readAsArrayBuffer(file);
+    if (fileExtension === 'csv') {
+      reader.readAsText(file);
+    } else {
+      reader.readAsArrayBuffer(file);
+    }
+    
     // Reset file input
     event.target.value = '';
   };
