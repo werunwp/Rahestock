@@ -32,6 +32,13 @@ const Sales = () => {
     setEditingSaleId(saleId);
     setShowEditDialog(true);
   };
+
+  const handleCloseEditDialog = (open: boolean) => {
+    setShowEditDialog(open);
+    if (!open) {
+      setEditingSaleId(null);
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -185,7 +192,7 @@ const Sales = () => {
       <SaleDialog open={showSaleDialog} onOpenChange={setShowSaleDialog} />
       <EditSaleDialog 
         open={showEditDialog} 
-        onOpenChange={setShowEditDialog}
+        onOpenChange={handleCloseEditDialog}
         saleId={editingSaleId}
       />
     </div>

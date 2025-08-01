@@ -118,7 +118,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
     };
 
     loadSaleData();
-  }, [open, saleId, getSaleWithItems]);
+  }, [open, saleId]); // Removed getSaleWithItems from dependencies
 
   // Calculate totals
   const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
