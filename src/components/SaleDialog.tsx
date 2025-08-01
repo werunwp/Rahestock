@@ -415,9 +415,14 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
               <Input
                 type="number"
                 min="0"
+                max={grandTotal}
                 step="0.01"
                 value={formData.amountPaid}
-                onChange={(e) => setFormData(prev => ({ ...prev, amountPaid: Number(e.target.value) }))}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  const cappedValue = Math.min(value, grandTotal);
+                  setFormData(prev => ({ ...prev, amountPaid: cappedValue }));
+                }}
               />
             </div>
           </div>

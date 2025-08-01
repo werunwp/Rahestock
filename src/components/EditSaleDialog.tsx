@@ -416,9 +416,15 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
                   <Input
                     id="amount_paid"
                     type="number"
+                    min="0"
+                    max={grandTotal}
                     step="0.01"
                     value={formData.amount_paid}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount_paid: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      const cappedValue = Math.min(value, grandTotal);
+                      setFormData(prev => ({ ...prev, amount_paid: cappedValue }));
+                    }}
                     placeholder="0.00"
                   />
                 </div>
