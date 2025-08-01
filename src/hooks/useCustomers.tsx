@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 export interface Customer {
   id: string;
@@ -32,6 +33,43 @@ export const useCustomers = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Set up real-time subscriptions for customers and sales
+  useEffect(() => {
+    if (!user) return;
+
+    const customersChannel = supabase
+      .channel('customers-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'customers'
+        },
+        () => {
+          // Invalidate customers query when customers table changes
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales'
+        },
+        () => {
+          // Invalidate customers query when sales change (affects customer stats)
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(customersChannel);
+    };
+  }, [user, queryClient]);
+
   const {
     data: customers = [],
     isLoading,
@@ -46,65 +84,13 @@ export const useCustomers = () => {
 
       if (error) throw error;
 
-      // Update customer status based on last purchase date and sales data
-      const updatedCustomers = await Promise.all(
-        (customersData || []).map(async (customer) => {
-          // Get the latest sale for this customer
-          const { data: latestSale } = await supabase
-            .from("sales")
-            .select("created_at")
-            .eq("customer_id", customer.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const lastPurchaseDate = latestSale?.created_at;
-          let calculatedStatus = customer.status;
-
-          if (lastPurchaseDate) {
-            const daysSinceLastPurchase = Math.floor(
-              (new Date().getTime() - new Date(lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24)
-            );
-
-            // Calculate what the status should be based on purchase history
-            let autoStatus: string;
-            if (daysSinceLastPurchase <= 30) {
-              autoStatus = "active";
-            } else if (daysSinceLastPurchase <= 60) {
-              autoStatus = "neutral";
-            } else {
-              autoStatus = "inactive";
-            }
-
-            // Only update status automatically if last_purchase_date changed or no manual update in last 5 minutes
-            const customerUpdatedAt = new Date(customer.updated_at).getTime();
-            const fiveMinutesAgo = new Date().getTime() - (5 * 60 * 1000);
-            const isRecentManualUpdate = customerUpdatedAt > fiveMinutesAgo;
-
-            // Update only if purchase date changed and no recent manual update, or if it's the first time setting the date
-            if (lastPurchaseDate !== customer.last_purchase_date && !isRecentManualUpdate) {
-              calculatedStatus = autoStatus;
-              
-              await supabase
-                .from("customers")
-                .update({ 
-                  last_purchase_date: lastPurchaseDate 
-                })
-                .eq("id", customer.id);
-            }
-          }
-
-          return {
-            ...customer,
-            status: calculatedStatus,
-            last_purchase_date: lastPurchaseDate
-          } as Customer;
-        })
-      );
-
-      return updatedCustomers;
+      // Since triggers now handle the automatic updates, we just return the data
+      // The database will keep order_count, total_spent, and last_purchase_date in sync
+      return customersData as Customer[];
     },
     enabled: !!user,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds as backup
   });
 
   const createCustomer = useMutation({
