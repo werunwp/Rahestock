@@ -72,7 +72,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Customer" : "Add New Customer"}</DialogTitle>
           <DialogDescription>

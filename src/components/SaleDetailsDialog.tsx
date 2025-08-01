@@ -107,7 +107,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
   if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <div className="flex items-center justify-center p-8">
             <div className="text-center">Loading sale details...</div>
           </div>
@@ -119,7 +119,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
   if (!saleData) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <div className="flex items-center justify-center p-8">
             <div className="text-center">No sale data found</div>
           </div>
@@ -130,7 +130,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Sale Details - {saleData.invoice_number}</DialogTitle>
         </DialogHeader>

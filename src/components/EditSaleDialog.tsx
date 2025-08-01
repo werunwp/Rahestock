@@ -237,7 +237,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
   if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <div className="flex items-center justify-center p-8">
             <div className="text-center">Loading sale data...</div>
           </div>
@@ -248,7 +248,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Edit Sale</DialogTitle>
         </DialogHeader>

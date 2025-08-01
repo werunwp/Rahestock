@@ -81,7 +81,7 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Product" : "Add New Product"}</DialogTitle>
           <DialogDescription>
