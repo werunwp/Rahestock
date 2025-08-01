@@ -59,27 +59,35 @@ export const useCustomers = () => {
             .maybeSingle();
 
           const lastPurchaseDate = latestSale?.created_at;
-          let newStatus = customer.status;
+          let calculatedStatus = customer.status;
 
           if (lastPurchaseDate) {
             const daysSinceLastPurchase = Math.floor(
               (new Date().getTime() - new Date(lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24)
             );
 
+            // Calculate what the status should be based on purchase history
+            let autoStatus: string;
             if (daysSinceLastPurchase <= 30) {
-              newStatus = "active";
+              autoStatus = "active";
             } else if (daysSinceLastPurchase <= 60) {
-              newStatus = "neutral";
+              autoStatus = "neutral";
             } else {
-              newStatus = "inactive";
+              autoStatus = "inactive";
             }
 
-            // Update customer record if status or last_purchase_date changed
-            if (newStatus !== customer.status || lastPurchaseDate !== customer.last_purchase_date) {
+            // Only update status automatically if last_purchase_date changed or no manual update in last 5 minutes
+            const customerUpdatedAt = new Date(customer.updated_at).getTime();
+            const fiveMinutesAgo = new Date().getTime() - (5 * 60 * 1000);
+            const isRecentManualUpdate = customerUpdatedAt > fiveMinutesAgo;
+
+            // Update only if purchase date changed and no recent manual update, or if it's the first time setting the date
+            if (lastPurchaseDate !== customer.last_purchase_date && !isRecentManualUpdate) {
+              calculatedStatus = autoStatus;
+              
               await supabase
                 .from("customers")
                 .update({ 
-                  status: newStatus, 
                   last_purchase_date: lastPurchaseDate 
                 })
                 .eq("id", customer.id);
@@ -88,7 +96,7 @@ export const useCustomers = () => {
 
           return {
             ...customer,
-            status: newStatus,
+            status: calculatedStatus,
             last_purchase_date: lastPurchaseDate
           } as Customer;
         })
