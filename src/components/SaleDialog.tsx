@@ -89,6 +89,17 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   const grandTotal = subtotal - discountAmount;
   const amountDue = grandTotal - formData.amountPaid;
 
+  // Auto-update payment status based on amount paid
+  useEffect(() => {
+    if (formData.amountPaid === 0) {
+      setFormData(prev => ({ ...prev, paymentStatus: "pending" }));
+    } else if (formData.amountPaid >= grandTotal) {
+      setFormData(prev => ({ ...prev, paymentStatus: "paid" }));
+    } else {
+      setFormData(prev => ({ ...prev, paymentStatus: "partial" }));
+    }
+  }, [formData.amountPaid, grandTotal]);
+
   const handleCustomerSelect = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
     if (customer) {
