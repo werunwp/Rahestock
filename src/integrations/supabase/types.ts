@@ -62,6 +62,30 @@ export type Database = {
         }
         Relationships: []
       }
+      dismissed_alerts: {
+        Row: {
+          alert_id: string
+          created_at: string
+          dismissed_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          created_at?: string
+          dismissed_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          alert_id?: string
+          created_at?: string
+          dismissed_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inventory_logs: {
         Row: {
           created_at: string | null

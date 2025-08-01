@@ -10,12 +10,15 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useSales } from "@/hooks/useSales";
 import { useCustomers } from "@/hooks/useCustomers";
+import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/currency";
 import { addDays, isAfter, format, differenceInDays, differenceInHours } from "date-fns";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Alerts = () => {
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [alertSettings, setAlertSettings] = useState({
     lowStock: true,
     payments: true,
@@ -24,22 +27,44 @@ const Alerts = () => {
     email: false,
   });
 
+  const { user } = useAuth();
   const { dashboardStats } = useDashboard();
   const { products } = useProducts();
   const { sales } = useSales();
   const { customers } = useCustomers();
 
-  // Load alert settings from localStorage on component mount
+  // Load dismissed alerts from database and alert settings from localStorage on component mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem('alertSettings');
-    if (savedSettings) {
+    const loadData = async () => {
       try {
-        setAlertSettings(JSON.parse(savedSettings));
+        // Load alert settings from localStorage
+        const savedSettings = localStorage.getItem('alertSettings');
+        if (savedSettings) {
+          setAlertSettings(JSON.parse(savedSettings));
+        }
+
+        // Load dismissed alerts from database if user is authenticated
+        if (user) {
+          const { data: dismissedData, error } = await supabase
+            .from('dismissed_alerts')
+            .select('alert_id')
+            .eq('user_id', user.id);
+
+          if (error) {
+            console.error('Failed to load dismissed alerts:', error);
+          } else {
+            setDismissedAlerts(dismissedData?.map(item => item.alert_id) || []);
+          }
+        }
       } catch (error) {
-        console.error('Failed to parse saved alert settings:', error);
+        console.error('Failed to load data:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, []);
+    };
+
+    loadData();
+  }, [user]);
 
   // Save alert settings to localStorage whenever they change
   useEffect(() => {
@@ -207,15 +232,62 @@ const Alerts = () => {
   const customerAlerts = allAlerts.filter(a => a.category === "customer");
 
   // Handler functions
-  const handleDismissAlert = (alertId: string) => {
-    setDismissedAlerts(prev => [...prev, alertId]);
-    toast.success("Alert dismissed");
+  const handleDismissAlert = async (alertId: string) => {
+    if (!user) return;
+    
+    try {
+      // Save to database
+      const { error } = await supabase
+        .from('dismissed_alerts')
+        .insert({
+          user_id: user.id,
+          alert_id: alertId
+        });
+
+      if (error) {
+        console.error('Failed to dismiss alert:', error);
+        toast.error("Failed to dismiss alert");
+        return;
+      }
+
+      // Update local state
+      setDismissedAlerts(prev => [...prev, alertId]);
+      toast.success("Alert dismissed");
+    } catch (error) {
+      console.error('Failed to dismiss alert:', error);
+      toast.error("Failed to dismiss alert");
+    }
   };
 
-  const handleMarkAllRead = () => {
-    const allAlertIds = allAlerts.map(alert => alert.id);
-    setDismissedAlerts(prev => [...prev, ...allAlertIds]);
-    toast.success("All alerts marked as read");
+  const handleMarkAllRead = async () => {
+    if (!user || allAlerts.length === 0) return;
+    
+    try {
+      const allAlertIds = allAlerts.map(alert => alert.id);
+      
+      // Save all alerts to database
+      const dismissedEntries = allAlertIds.map(alertId => ({
+        user_id: user.id,
+        alert_id: alertId
+      }));
+
+      const { error } = await supabase
+        .from('dismissed_alerts')
+        .insert(dismissedEntries);
+
+      if (error) {
+        console.error('Failed to mark alerts as read:', error);
+        toast.error("Failed to mark alerts as read");
+        return;
+      }
+
+      // Update local state
+      setDismissedAlerts(prev => [...prev, ...allAlertIds]);
+      toast.success("All alerts marked as read");
+    } catch (error) {
+      console.error('Failed to mark alerts as read:', error);
+      toast.error("Failed to mark alerts as read");
+    }
   };
 
   const handleToggleSetting = (setting: keyof typeof alertSettings) => {
