@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useSales } from "@/hooks/useSales";
+import { useCurrency } from "@/hooks/useCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
   const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { getSaleWithItems } = useSales();
+  const { formatAmount } = useCurrency();
 
   useEffect(() => {
     if (!open || !saleId) {
@@ -224,8 +226,8 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                     <TableRow key={item.id}>
                       <TableCell>{item.product_name}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
-                      <TableCell>৳{item.rate.toFixed(2)}</TableCell>
-                      <TableCell>৳{item.total.toFixed(2)}</TableCell>
+                      <TableCell>{formatAmount(item.rate)}</TableCell>
+                      <TableCell>{formatAmount(item.total)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -242,27 +244,27 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>৳{saleData.subtotal.toFixed(2)}</span>
+                  <span>{formatAmount(saleData.subtotal)}</span>
                 </div>
                 {saleData.discount_amount > 0 && (
                   <div className="flex justify-between">
                     <span>Discount ({saleData.discount_percent}%):</span>
-                    <span>-৳{saleData.discount_amount.toFixed(2)}</span>
+                    <span>-{formatAmount(saleData.discount_amount)}</span>
                   </div>
                 )}
                 <Separator />
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Grand Total:</span>
-                  <span>৳{saleData.grand_total.toFixed(2)}</span>
+                  <span>{formatAmount(saleData.grand_total)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Amount Paid:</span>
-                  <span>৳{saleData.amount_paid.toFixed(2)}</span>
+                  <span>{formatAmount(saleData.amount_paid)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Amount Due:</span>
                   <span className={saleData.amount_due > 0 ? "text-destructive" : "text-green-600"}>
-                    ৳{saleData.amount_due.toFixed(2)}
+                    {formatAmount(saleData.amount_due)}
                   </span>
                 </div>
                 <div className="flex justify-between">

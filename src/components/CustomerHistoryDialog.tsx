@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShoppingCart, DollarSign, Calendar } from "lucide-react";
 import { format } from "date-fns";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface CustomerHistoryDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface SaleItem {
 export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: CustomerHistoryDialogProps) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { formatAmount } = useCurrency();
 
   useEffect(() => {
     if (open && customer) {
@@ -129,7 +131,7 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">৳{totalSpent.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">{formatAmount(totalSpent)}</div>
                 </CardContent>
               </Card>
               
@@ -140,7 +142,7 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    ৳{totalOrders > 0 ? (totalSpent / totalOrders).toFixed(2) : '0.00'}
+                    {formatAmount(totalOrders > 0 ? totalSpent / totalOrders : 0)}
                   </div>
                 </CardContent>
               </Card>
@@ -174,7 +176,7 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                             </p>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold">৳{sale.grand_total.toFixed(2)}</div>
+                            <div className="text-lg font-bold">{formatAmount(sale.grand_total)}</div>
                             <div className="flex gap-2">
                               <Badge 
                                 variant={sale.payment_status === 'paid' ? 'default' : 'secondary'}
@@ -203,8 +205,8 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                               <TableRow key={item.id}>
                                 <TableCell>{item.product_name}</TableCell>
                                 <TableCell>{item.quantity}</TableCell>
-                                <TableCell>৳{item.rate.toFixed(2)}</TableCell>
-                                <TableCell>৳{item.total.toFixed(2)}</TableCell>
+                                <TableCell>{formatAmount(item.rate)}</TableCell>
+                                <TableCell>{formatAmount(item.total)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

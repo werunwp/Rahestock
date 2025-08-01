@@ -11,7 +11,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useSales } from "@/hooks/useSales";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAuth } from "@/hooks/useAuth";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 import { addDays, isAfter, format, differenceInDays, differenceInHours } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ const Alerts = () => {
   const { products } = useProducts();
   const { sales } = useSales();
   const { customers } = useCustomers();
+  const { formatAmount } = useCurrency();
 
   // Load dismissed alerts from database and alert settings from localStorage on component mount
   useEffect(() => {
@@ -141,7 +142,7 @@ const Alerts = () => {
             type: daysOverdue > 15 ? "critical" as const : "warning" as const,
             category: "payment",
             title: "Overdue Invoice",
-            message: `Invoice ${sale.invoice_number} is ${daysOverdue} days overdue (${sale.customer_name}) - ${formatCurrency(sale.amount_due || 0)} due`,
+            message: `Invoice ${sale.invoice_number} is ${daysOverdue} days overdue (${sale.customer_name}) - ${formatAmount(sale.amount_due || 0)} due`,
             time: sale.created_at,
             icon: Info,
             actionable: true,
@@ -159,7 +160,7 @@ const Alerts = () => {
             type: "info" as const,
             category: "payment",
             title: "Large Pending Payment",
-            message: `Invoice ${sale.invoice_number} has a large pending amount: ${formatCurrency(sale.amount_due || 0)}`,
+            message: `Invoice ${sale.invoice_number} has a large pending amount: ${formatAmount(sale.amount_due || 0)}`,
             time: sale.created_at,
             icon: TrendingUp,
             actionable: true,
@@ -203,7 +204,7 @@ const Alerts = () => {
             type: "info" as const,
             category: "customer",
             title: "VIP Customer Activity",
-            message: `${customer.name} (spent ${formatCurrency(customer.total_spent || 0)}) made a recent purchase`,
+            message: `${customer.name} (spent ${formatAmount(customer.total_spent || 0)}) made a recent purchase`,
             time: customer.last_purchase_date!,
             icon: TrendingUp,
             actionable: false,

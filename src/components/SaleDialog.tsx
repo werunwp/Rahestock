@@ -10,6 +10,7 @@ import { Plus, Minus, Trash2 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
+import { useCurrency } from "@/hooks/useCurrency";
 import { toast } from "sonner";
 
 interface SaleDialogProps {
@@ -43,6 +44,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   const { products } = useProducts();
   const { customers } = useCustomers();
   const { createSale } = useSales();
+  const { formatAmount, currencySymbol } = useCurrency();
   
   const [formData, setFormData] = useState<SaleFormData>({
     customerId: "",
@@ -275,7 +277,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                 <SelectContent>
                   {products.map(product => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.name} - ৳{product.rate}
+                      {product.name} - {currencySymbol}{product.rate}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -301,35 +303,35 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                     {formData.items.map(item => (
                       <TableRow key={item.productId}>
                         <TableCell>{item.productName}</TableCell>
-                        <TableCell>৳{item.rate.toFixed(2)}</TableCell>
+                        <TableCell>{formatAmount(item.rate)}</TableCell>
                          <TableCell>
-                           <div className="flex items-center gap-2">
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                             >
-                               <Minus className="h-3 w-3" />
-                             </Button>
-                             <Input
-                               type="number"
-                               min="1"
-                               value={item.quantity}
-                               onChange={(e) => updateQuantity(item.productId, Number(e.target.value) || 1)}
-                               className="w-16 text-center"
-                             />
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                             >
-                               <Plus className="h-3 w-3" />
-                             </Button>
-                           </div>
-                         </TableCell>
-                        <TableCell>৳{item.total.toFixed(2)}</TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => updateQuantity(item.productId, Number(e.target.value) || 1)}
+                                className="w-16 text-center"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                         <TableCell>{formatAmount(item.total)}</TableCell>
                         <TableCell>
                           <Button
                             type="button"
@@ -387,7 +389,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                     checked={discountType === "fixed"}
                     onCheckedChange={(checked) => setDiscountType(checked ? "fixed" : "percentage")}
                   />
-                  <span className={discountType === "fixed" ? "font-medium" : "text-muted-foreground"}>৳</span>
+                  <span className={discountType === "fixed" ? "font-medium" : "text-muted-foreground"}>{currencySymbol}</span>
                 </div>
               </div>
               <Input
@@ -423,23 +425,23 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>৳{subtotal.toFixed(2)}</span>
+              <span>{formatAmount(subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Discount:</span>
-              <span>-৳{discountAmount.toFixed(2)}</span>
+              <span>-{formatAmount(discountAmount)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Grand Total:</span>
-              <span>৳{grandTotal.toFixed(2)}</span>
+              <span>{formatAmount(grandTotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Amount Paid:</span>
-              <span>৳{formData.amountPaid.toFixed(2)}</span>
+              <span>{formatAmount(formData.amountPaid)}</span>
             </div>
             <div className="flex justify-between font-bold text-destructive">
               <span>Amount Due:</span>
-              <span>৳{amountDue.toFixed(2)}</span>
+              <span>{formatAmount(amountDue)}</span>
             </div>
           </div>
 

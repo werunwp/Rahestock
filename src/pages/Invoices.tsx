@@ -10,7 +10,7 @@ import { useSales } from "@/hooks/useSales";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { SaleDialog } from "@/components/SaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
 import { downloadInvoicePDF, printInvoicePDF } from "@/lib/invoicePdf";
@@ -23,6 +23,7 @@ const Invoices = () => {
   
   const { sales, isLoading, getSaleWithItems } = useSales();
   const { businessSettings } = useBusinessSettings();
+  const { formatAmount } = useCurrency();
 
   const filteredSales = sales.filter(sale =>
     sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,7 +84,7 @@ const Invoices = () => {
             <FileText className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(outstandingAmount)}</div>
+            <div className="text-2xl font-bold text-destructive">{formatAmount(outstandingAmount)}</div>
             <p className="text-xs text-muted-foreground">
               {sales.filter(s => s.payment_status !== "paid").length} pending invoices
             </p>
@@ -95,7 +96,7 @@ const Invoices = () => {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(thisMonthRevenue)}</div>
+            <div className="text-2xl font-bold">{formatAmount(thisMonthRevenue)}</div>
             <p className="text-xs text-muted-foreground">
               Month to date revenue
             </p>
@@ -167,7 +168,7 @@ const Invoices = () => {
                         <TableCell>{sale.customer_name}</TableCell>
                         <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                         <TableCell>{format(dueDate, "MMM dd, yyyy")}</TableCell>
-                        <TableCell>{formatCurrency(sale.grand_total || 0)}</TableCell>
+                        <TableCell>{formatAmount(sale.grand_total || 0)}</TableCell>
                         <TableCell>
                           <Badge 
                             variant={

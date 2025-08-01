@@ -11,6 +11,7 @@ import { Trash2, Plus } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales, type UpdateSaleData } from "@/hooks/useSales";
+import { useCurrency } from "@/hooks/useCurrency";
 import { toast } from "sonner";
 
 interface EditSaleDialogProps {
@@ -65,6 +66,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
   const { products } = useProducts();
   const { customers } = useCustomers();
   const { updateSale, getSaleWithItems } = useSales();
+  const { formatAmount, currencySymbol } = useCurrency();
 
   useEffect(() => {
     if (!open || !saleId) {
@@ -322,7 +324,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
                   <SelectContent>
                     {products.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
-                        {product.name} - ৳{product.rate} (Stock: {product.stock_quantity})
+                        {product.name} - {currencySymbol}{product.rate} (Stock: {product.stock_quantity})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -364,8 +366,8 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
                             className="w-20"
                           />
                         </TableCell>
-                        <TableCell>৳{item.rate.toFixed(2)}</TableCell>
-                        <TableCell>৳{item.total.toFixed(2)}</TableCell>
+                        <TableCell>{formatAmount(item.rate)}</TableCell>
+                        <TableCell>{formatAmount(item.total)}</TableCell>
                         <TableCell>
                           <Button
                             type="button"
@@ -483,24 +485,24 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
                 <div className="space-y-2 pt-4 border-t">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>৳{subtotal.toFixed(2)}</span>
+                    <span>{formatAmount(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Discount:</span>
-                    <span>-৳{discountAmount.toFixed(2)}</span>
+                    <span>-{formatAmount(discountAmount)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Grand Total:</span>
-                    <span>৳{grandTotal.toFixed(2)}</span>
+                    <span>{formatAmount(grandTotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Amount Paid:</span>
-                    <span>৳{formData.amount_paid.toFixed(2)}</span>
+                    <span>{formatAmount(formData.amount_paid)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Amount Due:</span>
                     <Badge variant={amountDue > 0 ? "destructive" : "default"}>
-                      ৳{amountDue.toFixed(2)}
+                      {formatAmount(amountDue)}
                     </Badge>
                   </div>
                 </div>

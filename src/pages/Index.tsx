@@ -8,7 +8,7 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { useProfile } from "@/hooks/useProfile";
 import { formatDistanceToNow } from "date-fns";
 import { getTimeBasedGreeting } from "@/lib/time";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const Index = () => {
   const [startDate, setStartDate] = useState<Date>();
@@ -16,6 +16,7 @@ const Index = () => {
   
   const { dashboardStats, isLoading } = useDashboard(startDate, endDate);
   const { profile } = useProfile();
+  const { formatAmount } = useCurrency();
 
   const handleDateRangeChange = (start?: Date, end?: Date) => {
     setStartDate(start);
@@ -70,7 +71,7 @@ const Index = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(dashboardStats?.totalRevenue || 0)}</div>
+            <div className="text-2xl font-bold">{formatAmount(dashboardStats?.totalRevenue || 0)}</div>
             <p className="text-xs text-muted-foreground">
               {startDate && endDate ? "For selected period" : "All time"}
             </p>
@@ -172,7 +173,7 @@ const Index = () => {
                       {payment.invoice_number} - {formatDistanceToNow(new Date(payment.created_at))} ago
                     </p>
                   </div>
-                  <Badge variant="destructive">{formatCurrency(payment.amount_due)}</Badge>
+                  <Badge variant="destructive">{formatAmount(payment.amount_due)}</Badge>
                 </div>
               ))
             )}
