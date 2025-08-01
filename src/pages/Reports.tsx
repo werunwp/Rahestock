@@ -7,7 +7,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 
 const Reports = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
@@ -51,7 +51,7 @@ const Reports = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <DateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
+          <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
           <Button>
             <Download className="mr-2 h-4 w-4" />
             Export
