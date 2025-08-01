@@ -243,10 +243,14 @@ const Customers = () => {
                       </TableCell>
                       <TableCell>
                         {customer.whatsapp ? (
-                          <div className="flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-green-500" />
-                            {customer.whatsapp}
-                          </div>
+                          <a
+                            href={`https://wa.me/${customer.whatsapp.replace(/[^\d]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 transition-colors"
+                          >
+                            <MessageCircle className="h-4 w-4 text-white" />
+                          </a>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
