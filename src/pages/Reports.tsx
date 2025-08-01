@@ -10,18 +10,23 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
+import { SalesTrendFilter, SalesTrendPeriod, SalesTrendRange } from "@/components/SalesTrendFilter";
 import { formatCurrency } from "@/lib/currency";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, startOfYear } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, eachYearOfInterval, startOfYear, endOfYear, subDays, subMonths, subYears } from "date-fns";
 
 const Reports = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [salesTrendPeriod, setSalesTrendPeriod] = useState<SalesTrendPeriod>("daily");
+  const [salesTrendRange, setSalesTrendRange] = useState<SalesTrendRange>("last30days");
+  const [salesCustomStart, setSalesCustomStart] = useState<Date>();
+  const [salesCustomEnd, setSalesCustomEnd] = useState<Date>();
   
   const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
   const { products } = useProducts();
   const { customers } = useCustomers();
   const { sales } = useSales();
 
-  // Calculate sales analytics
+  // Calculate sales analytics with separate trend filtering
   const salesAnalytics = useMemo(() => {
     if (!sales?.length) return { topProducts: [], salesTrend: [], totalSalesItems: 0 };
 
@@ -30,16 +35,13 @@ const Reports = () => {
     let totalSalesItems = 0;
 
     sales.forEach(sale => {
-      // For each sale, we need to estimate product sales since we don't have direct access to sales_items
-      // We'll use a simplified approach based on sales data
       totalSalesItems += sale.grand_total || 0;
     });
 
     // Calculate top products based on remaining stock and sales value
     const topProducts = products
       .map(product => {
-        // Estimate sales based on initial stock vs current stock (simplified)
-        const estimatedSold = Math.max(0, 100 - product.stock_quantity); // Assume initial stock was higher
+        const estimatedSold = Math.max(0, 100 - product.stock_quantity);
         const salesValue = estimatedSold * product.rate;
         return { 
           ...product, 
@@ -50,25 +52,104 @@ const Reports = () => {
       .sort((a, b) => b.salesAmount - a.salesAmount)
       .slice(0, 5);
 
-    // Generate sales trend data
-    const now = new Date();
-    const last30Days = eachDayOfInterval({
-      start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-      end: now
-    });
+    // Generate sales trend data based on selected period and range
+    const getSalesTrendData = () => {
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = now;
+      let intervals: Date[] = [];
 
-    const salesTrend = last30Days.map(date => {
-      const dayStr = format(date, 'MMM dd');
-      const daySales = sales.filter(sale => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate.toDateString() === date.toDateString();
+      // Determine date range
+      if (salesTrendRange === "custom" && salesCustomStart && salesCustomEnd) {
+        startDate = salesCustomStart;
+        endDate = salesCustomEnd;
+      } else {
+        switch (salesTrendRange) {
+          case "last30days":
+            startDate = subDays(now, 30);
+            break;
+          case "last6months":
+            startDate = subMonths(now, 6);
+            break;
+          case "last12months":
+            startDate = subMonths(now, 12);
+            break;
+          case "currentYear":
+            startDate = startOfYear(now);
+            endDate = endOfYear(now);
+            break;
+          case "lastYear":
+            startDate = startOfYear(subYears(now, 1));
+            endDate = endOfYear(subYears(now, 1));
+            break;
+          default:
+            startDate = subDays(now, 30);
+        }
+      }
+
+      // Generate intervals based on period
+      switch (salesTrendPeriod) {
+        case "daily":
+          intervals = eachDayOfInterval({ start: startDate, end: endDate });
+          break;
+        case "monthly":
+          intervals = eachMonthOfInterval({ start: startDate, end: endDate });
+          break;
+        case "yearly":
+          intervals = eachYearOfInterval({ start: startDate, end: endDate });
+          break;
+      }
+
+      return intervals.map(date => {
+        let dateStr: string;
+        let matchingFilter: (saleDate: Date) => boolean;
+
+        switch (salesTrendPeriod) {
+          case "daily":
+            dateStr = format(date, 'MMM dd');
+            matchingFilter = (saleDate) => saleDate.toDateString() === date.toDateString();
+            break;
+          case "monthly":
+            dateStr = format(date, 'MMM yyyy');
+            matchingFilter = (saleDate) => 
+              saleDate.getFullYear() === date.getFullYear() && 
+              saleDate.getMonth() === date.getMonth();
+            break;
+          case "yearly":
+            dateStr = format(date, 'yyyy');
+            matchingFilter = (saleDate) => saleDate.getFullYear() === date.getFullYear();
+            break;
+          default:
+            dateStr = format(date, 'MMM dd');
+            matchingFilter = (saleDate) => saleDate.toDateString() === date.toDateString();
+        }
+
+        const periodSales = sales.filter(sale => {
+          const saleDate = new Date(sale.created_at);
+          return matchingFilter(saleDate);
+        });
+
+        const revenue = periodSales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
+        return { date: dateStr, revenue, orders: periodSales.length };
       });
-      const revenue = daySales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
-      return { date: dayStr, revenue, orders: daySales.length };
-    });
+    };
+
+    const salesTrend = getSalesTrendData();
 
     return { topProducts, salesTrend, totalSalesItems };
-  }, [sales, products]);
+  }, [sales, products, salesTrendPeriod, salesTrendRange, salesCustomStart, salesCustomEnd]);
+
+  const handleSalesTrendFilterChange = (
+    period: SalesTrendPeriod, 
+    range: SalesTrendRange, 
+    customStart?: Date, 
+    customEnd?: Date
+  ) => {
+    setSalesTrendPeriod(period);
+    setSalesTrendRange(range);
+    setSalesCustomStart(customStart);
+    setSalesCustomEnd(customEnd);
+  };
 
   // Calculate top customers
   const topCustomers = customers
@@ -207,10 +288,11 @@ const Reports = () => {
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
+          <SalesTrendFilter onFilterChange={handleSalesTrendFilterChange} />
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Sales Trend</CardTitle>
+                <CardTitle>Sales Trend - {salesTrendPeriod.charAt(0).toUpperCase() + salesTrendPeriod.slice(1)} View</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <ChartContainer
