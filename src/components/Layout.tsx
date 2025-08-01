@@ -29,11 +29,11 @@ export const Layout = ({ children }: LayoutProps) => {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4">
-            <SidebarTrigger className="mr-2" />
+          <header className="h-14 flex items-center justify-between border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4">
             <div className="flex-1">
               <h1 className="font-semibold">Rahedeen Productions</h1>
             </div>
+            <SidebarTrigger className="md:hidden" />
           </header>
           <main className="flex-1 p-4 md:p-6">
             {children}
