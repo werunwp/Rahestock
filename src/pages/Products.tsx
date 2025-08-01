@@ -1,4 +1,4 @@
-import { Plus, Search, Filter, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useState, useMemo } from "react";
 import { ProductDialog } from "@/components/ProductDialog";
 import { formatCurrency } from "@/lib/currency";
+import * as XLSX from "xlsx";
 
 const Products = () => {
   const { products, isLoading, deleteProduct } = useProducts();
@@ -41,6 +42,36 @@ const Products = () => {
     setEditingProduct(null);
   };
 
+  const handleExport = () => {
+    // Prepare data for export
+    const exportData = products.map(product => ({
+      Name: product.name,
+      SKU: product.sku || '',
+      Rate: product.rate,
+      Cost: product.cost || '',
+      'Stock Quantity': product.stock_quantity,
+      'Low Stock Threshold': product.low_stock_threshold,
+      Size: product.size || '',
+      Color: product.color || '',
+      'Stock Value': product.stock_quantity * (product.cost || product.rate),
+      Status: product.stock_quantity === 0 ? 'Out of Stock' : 
+              product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
+      'Created At': new Date(product.created_at).toLocaleDateString(),
+      'Updated At': new Date(product.updated_at).toLocaleDateString()
+    }));
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+
+    // Generate filename with current date
+    const filename = `products_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    // Download file
+    XLSX.writeFile(wb, filename);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -60,6 +91,15 @@ const Products = () => {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <Button 
+          variant="outline" 
+          onClick={handleExport}
+          disabled={!products.length}
+          className="w-fit"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export
+        </Button>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
