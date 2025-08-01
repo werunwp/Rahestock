@@ -1,24 +1,41 @@
-import { Plus, Users, Phone, Mail, Search, Filter, Eye, Edit, Trash2, MessageCircle } from "lucide-react";
+import { Plus, Users, Phone, Search, Edit, Trash2, MessageCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
+import { isWithinInterval, parseISO } from "date-fns";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const Customers = () => {
   const { customers, isLoading, deleteCustomer } = useCustomers();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.phone && customer.phone.includes(searchTerm)) ||
-    (customer.whatsapp && customer.whatsapp.includes(searchTerm))
-  );
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(customer => {
+      // Search filter
+      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (customer.phone && customer.phone.includes(searchTerm)) ||
+        (customer.whatsapp && customer.whatsapp.includes(searchTerm));
+
+      // Date filter
+      const matchesDate = !startDate || !endDate || isWithinInterval(parseISO(customer.created_at), {
+        start: startDate,
+        end: endDate,
+      });
+
+      return matchesSearch && matchesDate;
+    });
+  }, [customers, searchTerm, startDate, endDate]);
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
@@ -36,6 +53,39 @@ const Customers = () => {
     setEditingCustomer(null);
   };
 
+  const handleDateRangeChange = (start?: Date, end?: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+  };
+
+  const handleExport = () => {
+    try {
+      const exportData = filteredCustomers.map(customer => ({
+        Name: customer.name,
+        Phone: customer.phone || '',
+        WhatsApp: customer.whatsapp || '',
+        Address: customer.address || '',
+        'Order Count': customer.order_count,
+        'Total Spent': customer.total_spent,
+        Tags: customer.tags?.join(', ') || '',
+        'Created At': new Date(customer.created_at).toLocaleDateString(),
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
+      
+      // Auto-size columns
+      const cols = Object.keys(exportData[0] || {}).map(() => ({ wch: 15 }));
+      worksheet['!cols'] = cols;
+      
+      XLSX.writeFile(workbook, `customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Customer data exported successfully");
+    } catch (error) {
+      toast.error("Failed to export customer data");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -45,10 +95,16 @@ const Customers = () => {
             Manage your customer database and relationships
           </p>
         </div>
-        <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -121,10 +177,7 @@ const Customers = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
-        </Button>
+        <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />
       </div>
 
       <Card>
