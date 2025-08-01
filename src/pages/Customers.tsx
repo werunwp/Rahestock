@@ -96,6 +96,7 @@ const Customers = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />
           <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -177,7 +178,6 @@ const Customers = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />
       </div>
 
       <Card>
