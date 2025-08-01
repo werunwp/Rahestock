@@ -119,56 +119,58 @@ const Inventory = () => {
               ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Current Stock</TableHead>
-                  <TableHead>Min. Threshold</TableHead>
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.length === 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No products found
-                    </TableCell>
+                    <TableHead className="min-w-[150px]">Product</TableHead>
+                    <TableHead className="min-w-[100px]">SKU</TableHead>
+                    <TableHead className="min-w-[120px]">Current Stock</TableHead>
+                    <TableHead className="min-w-[120px]">Min. Threshold</TableHead>
+                    <TableHead className="min-w-[120px]">Last Updated</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
                   </TableRow>
-                ) : (
-                  filteredProducts.map((product) => {
-                    const status = product.stock_quantity === 0 
-                      ? "Out of Stock" 
-                      : product.stock_quantity <= product.low_stock_threshold 
-                        ? "Low Stock" 
-                        : "In Stock";
-                    
-                    return (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.sku || "-"}</TableCell>
-                        <TableCell>{product.stock_quantity}</TableCell>
-                        <TableCell>{product.low_stock_threshold}</TableCell>
-                        <TableCell>{format(new Date(product.updated_at), "MMM dd, yyyy")}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              status === "In Stock" ? "default" : 
-                              status === "Low Stock" ? "secondary" : 
-                              "destructive"
-                            }
-                          >
-                            {status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        No products found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredProducts.map((product) => {
+                      const status = product.stock_quantity === 0 
+                        ? "Out of Stock" 
+                        : product.stock_quantity <= product.low_stock_threshold 
+                          ? "Low Stock" 
+                          : "In Stock";
+                      
+                      return (
+                        <TableRow key={product.id}>
+                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell>{product.sku || "-"}</TableCell>
+                          <TableCell>{product.stock_quantity}</TableCell>
+                          <TableCell>{product.low_stock_threshold}</TableCell>
+                          <TableCell>{format(new Date(product.updated_at), "MMM dd, yyyy")}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                status === "In Stock" ? "default" : 
+                                status === "Low Stock" ? "secondary" : 
+                                "destructive"
+                              }
+                            >
+                              {status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

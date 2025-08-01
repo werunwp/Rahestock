@@ -129,68 +129,70 @@ const Invoices = () => {
               ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSales.length === 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      No invoices found
-                    </TableCell>
+                    <TableHead className="min-w-[120px]">Invoice #</TableHead>
+                    <TableHead className="min-w-[150px]">Customer</TableHead>
+                    <TableHead className="min-w-[100px]">Date</TableHead>
+                    <TableHead className="min-w-[100px]">Due Date</TableHead>
+                    <TableHead className="min-w-[100px]">Amount</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="min-w-[120px]">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredSales.map((sale) => {
-                    const dueDate = addDays(new Date(sale.created_at), 30);
-                    const isOverdue = new Date() > dueDate && sale.payment_status !== "paid";
-                    
-                    return (
-                      <TableRow key={sale.id}>
-                        <TableCell className="font-medium">{sale.invoice_number}</TableCell>
-                        <TableCell>{sale.customer_name}</TableCell>
-                        <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
-                        <TableCell>{format(dueDate, "MMM dd, yyyy")}</TableCell>
-                        <TableCell>৳{sale.grand_total?.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              sale.payment_status === "paid" ? "default" : 
-                              isOverdue ? "destructive" :
-                              sale.payment_status === "partial" ? "secondary" : 
-                              "outline"
-                            }
-                          >
-                            {isOverdue ? "Overdue" : sale.payment_status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Printer className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredSales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        No invoices found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredSales.map((sale) => {
+                      const dueDate = addDays(new Date(sale.created_at), 30);
+                      const isOverdue = new Date() > dueDate && sale.payment_status !== "paid";
+                      
+                      return (
+                        <TableRow key={sale.id}>
+                          <TableCell className="font-medium">{sale.invoice_number}</TableCell>
+                          <TableCell>{sale.customer_name}</TableCell>
+                          <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
+                          <TableCell>{format(dueDate, "MMM dd, yyyy")}</TableCell>
+                          <TableCell>৳{sale.grand_total?.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                sale.payment_status === "paid" ? "default" : 
+                                isOverdue ? "destructive" :
+                                sale.payment_status === "partial" ? "secondary" : 
+                                "outline"
+                              }
+                            >
+                              {isOverdue ? "Overdue" : sale.payment_status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 flex-wrap">
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

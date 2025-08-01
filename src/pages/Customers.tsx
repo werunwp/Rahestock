@@ -123,98 +123,100 @@ const Customers = () => {
           <CardTitle>Customer List</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Orders</TableHead>
-                <TableHead>Total Spent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                [...Array(5)].map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                filteredCustomers.map((customer) => {
-                  const getStatus = () => {
-                    if (customer.total_spent > 5000) return "VIP";
-                    if (customer.order_count > 0) return "Active";
-                    return "Inactive";
-                  };
-                  
-                  const status = getStatus();
-                  
-                  return (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>
-                        {customer.phone ? (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            {customer.phone}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {customer.whatsapp ? (
-                          <div className="flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-green-500" />
-                            {customer.whatsapp}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{customer.order_count}</TableCell>
-                      <TableCell>৳{customer.total_spent.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            status === "VIP" ? "default" : 
-                            status === "Active" ? "secondary" : 
-                            "outline"
-                          }
-                        >
-                          {status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleDelete(customer.id)}
-                            disabled={deleteCustomer.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[150px]">Name</TableHead>
+                  <TableHead className="min-w-[140px]">Phone</TableHead>
+                  <TableHead className="min-w-[140px]">WhatsApp</TableHead>
+                  <TableHead className="min-w-[80px]">Orders</TableHead>
+                  <TableHead className="min-w-[120px]">Total Spent</TableHead>
+                  <TableHead className="min-w-[80px]">Status</TableHead>
+                  <TableHead className="min-w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  [...Array(5)].map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                      <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  ))
+                ) : (
+                  filteredCustomers.map((customer) => {
+                    const getStatus = () => {
+                      if (customer.total_spent > 5000) return "VIP";
+                      if (customer.order_count > 0) return "Active";
+                      return "Inactive";
+                    };
+                    
+                    const status = getStatus();
+                    
+                    return (
+                      <TableRow key={customer.id}>
+                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell>
+                          {customer.phone ? (
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                              <span className="truncate">{customer.phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {customer.whatsapp ? (
+                            <div className="flex items-center gap-2">
+                              <MessageCircle className="h-4 w-4 text-green-500" />
+                              <span className="truncate">{customer.whatsapp}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{customer.order_count}</TableCell>
+                        <TableCell>৳{customer.total_spent.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              status === "VIP" ? "default" : 
+                              status === "Active" ? "secondary" : 
+                              "outline"
+                            }
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDelete(customer.id)}
+                              disabled={deleteCustomer.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

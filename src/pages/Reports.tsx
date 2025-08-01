@@ -113,7 +113,7 @@ const Reports = () => {
       </div>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
           <TabsTrigger value="sales">Sales Report</TabsTrigger>
           <TabsTrigger value="inventory">Inventory Report</TabsTrigger>
           <TabsTrigger value="customers">Customer Report</TabsTrigger>
