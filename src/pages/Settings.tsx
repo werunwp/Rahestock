@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { currencyOptions, getCurrencySymbol } from "@/lib/currencySymbols";
 import { useState, useEffect } from "react";
 
 const Settings = () => {
@@ -28,7 +29,6 @@ const Settings = () => {
   });
 
   const [systemForm, setSystemForm] = useState({
-    currency_symbol: '৳',
     currency_code: 'BDT',
     timezone: 'Asia/Dhaka',
     date_format: 'dd/MM/yyyy',
@@ -53,7 +53,6 @@ const Settings = () => {
   useEffect(() => {
     if (systemSettings) {
       setSystemForm({
-        currency_symbol: systemSettings.currency_symbol || '৳',
         currency_code: systemSettings.currency_code || 'BDT',
         timezone: systemSettings.timezone || 'Asia/Dhaka',
         date_format: systemSettings.date_format || 'dd/MM/yyyy',
@@ -323,60 +322,17 @@ const Settings = () => {
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="currencySymbol">Currency Symbol</Label>
-                  <Input 
-                    id="currencySymbol" 
-                    value={systemForm.currency_symbol}
-                    onChange={(e) => setSystemForm(prev => ({ ...prev, currency_symbol: e.target.value }))}
-                    placeholder="৳" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currencyCode">Currency Code</Label>
+                  <Label htmlFor="currencyCode">Currency <span className="text-muted-foreground">({getCurrencySymbol(systemForm.currency_code)})</span></Label>
                   <Select value={systemForm.currency_code} onValueChange={(value) => setSystemForm(prev => ({ ...prev, currency_code: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="BDT">BDT - Bangladeshi Taka</SelectItem>
-                      <SelectItem value="USD">USD - US Dollar</SelectItem>
-                      <SelectItem value="EUR">EUR - Euro</SelectItem>
-                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                      <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                      <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                      <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                      <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                      <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                      <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
-                      <SelectItem value="SEK">SEK - Swedish Krona</SelectItem>
-                      <SelectItem value="NOK">NOK - Norwegian Krone</SelectItem>
-                      <SelectItem value="DKK">DKK - Danish Krone</SelectItem>
-                      <SelectItem value="PLN">PLN - Polish Złoty</SelectItem>
-                      <SelectItem value="CZK">CZK - Czech Koruna</SelectItem>
-                      <SelectItem value="HUF">HUF - Hungarian Forint</SelectItem>
-                      <SelectItem value="RUB">RUB - Russian Ruble</SelectItem>
-                      <SelectItem value="TRY">TRY - Turkish Lira</SelectItem>
-                      <SelectItem value="ZAR">ZAR - South African Rand</SelectItem>
-                      <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
-                      <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
-                      <SelectItem value="ARS">ARS - Argentine Peso</SelectItem>
-                      <SelectItem value="CLP">CLP - Chilean Peso</SelectItem>
-                      <SelectItem value="COP">COP - Colombian Peso</SelectItem>
-                      <SelectItem value="PEN">PEN - Peruvian Sol</SelectItem>
-                      <SelectItem value="KRW">KRW - South Korean Won</SelectItem>
-                      <SelectItem value="THB">THB - Thai Baht</SelectItem>
-                      <SelectItem value="MYR">MYR - Malaysian Ringgit</SelectItem>
-                      <SelectItem value="SGD">SGD - Singapore Dollar</SelectItem>
-                      <SelectItem value="PHP">PHP - Philippine Peso</SelectItem>
-                      <SelectItem value="IDR">IDR - Indonesian Rupiah</SelectItem>
-                      <SelectItem value="VND">VND - Vietnamese Dong</SelectItem>
-                      <SelectItem value="PKR">PKR - Pakistani Rupee</SelectItem>
-                      <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
-                      <SelectItem value="NPR">NPR - Nepalese Rupee</SelectItem>
-                      <SelectItem value="AFN">AFN - Afghan Afghani</SelectItem>
-                      <SelectItem value="MMK">MMK - Myanmar Kyat</SelectItem>
-                      <SelectItem value="KHR">KHR - Cambodian Riel</SelectItem>
-                      <SelectItem value="LAK">LAK - Lao Kip</SelectItem>
+                      {currencyOptions.map((currency) => (
+                        <SelectItem key={currency.code} value={currency.code}>
+                          {currency.code} - {currency.name} ({getCurrencySymbol(currency.code)})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
