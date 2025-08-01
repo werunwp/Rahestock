@@ -9,6 +9,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
+import { useSalesItems } from "@/hooks/useSalesItems";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { SalesTrendFilter, SalesTrendPeriod, SalesTrendRange } from "@/components/SalesTrendFilter";
 import { formatCurrency } from "@/lib/currency";
@@ -25,32 +26,49 @@ const Reports = () => {
   const { products } = useProducts();
   const { customers } = useCustomers();
   const { sales } = useSales();
+  const { salesItems } = useSalesItems(salesCustomStart, salesCustomEnd);
 
   // Calculate sales analytics with separate trend filtering
   const salesAnalytics = useMemo(() => {
     if (!sales?.length) return { topProducts: [], salesTrend: [], totalSalesItems: 0 };
 
-    // Calculate product sales from sales data
-    const productSalesMap = new Map();
-    let totalSalesItems = 0;
+    // Calculate real top products from sales items data
+    const productSalesMap = new Map<string, { 
+      id: string; 
+      name: string; 
+      totalRevenue: number; 
+      totalUnits: number; 
+      rate: number;
+    }>();
 
-    sales.forEach(sale => {
-      totalSalesItems += sale.grand_total || 0;
+    // Aggregate sales items data by product
+    salesItems.forEach(item => {
+      const existing = productSalesMap.get(item.product_id);
+      if (existing) {
+        existing.totalRevenue += item.total;
+        existing.totalUnits += item.quantity;
+      } else {
+        productSalesMap.set(item.product_id, {
+          id: item.product_id,
+          name: item.product_name,
+          totalRevenue: item.total,
+          totalUnits: item.quantity,
+          rate: item.rate
+        });
+      }
     });
 
-    // Calculate top products based on remaining stock and sales value
-    const topProducts = products
-      .map(product => {
-        const estimatedSold = Math.max(0, 100 - product.stock_quantity);
-        const salesValue = estimatedSold * product.rate;
-        return { 
-          ...product, 
-          salesAmount: salesValue,
-          unitsSold: estimatedSold 
-        };
-      })
-      .sort((a, b) => b.salesAmount - a.salesAmount)
-      .slice(0, 5);
+    // Convert to array and sort by revenue
+    const topProducts = Array.from(productSalesMap.values())
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 5)
+      .map(product => ({
+        id: product.id,
+        name: product.name,
+        salesAmount: product.totalRevenue,
+        unitsSold: product.totalUnits,
+        rate: product.rate
+      }));
 
     // Generate sales trend data based on selected period and range
     const getSalesTrendData = () => {
@@ -136,8 +154,10 @@ const Reports = () => {
 
     const salesTrend = getSalesTrendData();
 
+    const totalSalesItems = salesItems.reduce((sum, item) => sum + item.total, 0);
+
     return { topProducts, salesTrend, totalSalesItems };
-  }, [sales, products, salesTrendPeriod, salesTrendRange, salesCustomStart, salesCustomEnd]);
+  }, [sales, products, salesItems, salesTrendPeriod, salesTrendRange, salesCustomStart, salesCustomEnd]);
 
   const handleSalesTrendFilterChange = (
     period: SalesTrendPeriod, 
