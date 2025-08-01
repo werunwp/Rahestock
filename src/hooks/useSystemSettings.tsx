@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
+import { getCurrencySymbol } from "@/lib/currencySymbols";
 
 export interface SystemSettings {
   id: string;
@@ -50,6 +51,11 @@ export const useSystemSettings = () => {
 
   const updateSystemSettings = useMutation({
     mutationFn: async (updatedData: Partial<SystemSettings>) => {
+      // Auto-generate currency symbol if currency code is being updated
+      if (updatedData.currency_code) {
+        updatedData.currency_symbol = getCurrencySymbol(updatedData.currency_code);
+      }
+
       // First try to update existing settings
       const { data: existingData } = await supabase
         .from("system_settings")
@@ -68,10 +74,16 @@ export const useSystemSettings = () => {
         if (error) throw error;
         return data;
       } else {
-        // Create new
+        // Create new with auto-generated currency symbol
+        const newSettings = { 
+          ...DEFAULT_SYSTEM_SETTINGS, 
+          ...updatedData,
+          currency_symbol: getCurrencySymbol(updatedData.currency_code || DEFAULT_SYSTEM_SETTINGS.currency_code)
+        };
+        
         const { data, error } = await supabase
           .from("system_settings")
-          .insert({ ...DEFAULT_SYSTEM_SETTINGS, ...updatedData })
+          .insert(newSettings)
           .select()
           .single();
 
