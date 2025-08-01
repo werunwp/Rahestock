@@ -14,6 +14,8 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { SalesTrendFilter, SalesTrendPeriod, SalesTrendRange } from "@/components/SalesTrendFilter";
 import { formatCurrency } from "@/lib/currency";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, eachYearOfInterval, startOfYear, endOfYear, subDays, subMonths, subYears } from "date-fns";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const Reports = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
@@ -171,6 +173,127 @@ const Reports = () => {
     setSalesCustomEnd(customEnd);
   };
 
+  const handleExport = () => {
+    try {
+      // Get date range for filename
+      const fromDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : 'all-time';
+      const toDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+      const dateRangeStr = fromDate === 'all-time' ? 'all-time' : `${fromDate}_to_${toDate}`;
+
+      // Prepare sales data
+      const salesData = sales.map(sale => ({
+        'Invoice Number': sale.invoice_number,
+        'Customer Name': sale.customer_name,
+        'Customer Phone': sale.customer_phone || '',
+        'Grand Total': sale.grand_total,
+        'Payment Method': sale.payment_method,
+        'Payment Status': sale.payment_status,
+        'Discount Amount': sale.discount_amount || 0,
+        'Amount Paid': sale.amount_paid || 0,
+        'Amount Due': sale.amount_due || 0,
+        'Date': new Date(sale.created_at).toLocaleDateString()
+      }));
+
+      // Prepare top products data
+      const topProductsData = salesAnalytics.topProducts.map((product, index) => ({
+        'Rank': index + 1,
+        'Product Name': product.name,
+        'Units Sold': product.unitsSold,
+        'Revenue': product.salesAmount,
+        'Rate': product.rate
+      }));
+
+      // Prepare customer data
+      const customerData = topCustomers.map((customer, index) => ({
+        'Rank': index + 1,
+        'Customer Name': customer.name,
+        'Total Orders': customer.order_count,
+        'Total Spent': customer.total_spent,
+        'Phone': customer.phone || '',
+        'Status': customer.status || ''
+      }));
+
+      // Prepare inventory data
+      const inventoryData = products.map(product => ({
+        'Product Name': product.name,
+        'SKU': product.sku || '',
+        'Stock Quantity': product.stock_quantity,
+        'Low Stock Threshold': product.low_stock_threshold,
+        'Rate': product.rate,
+        'Cost': product.cost || '',
+        'Stock Value': product.stock_quantity * (product.cost || product.rate),
+        'Status': product.stock_quantity === 0 ? 'Out of Stock' : 
+                 product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock'
+      }));
+
+      // Prepare sales trend data
+      const salesTrendData = salesAnalytics.salesTrend.map(item => ({
+        'Period': item.date,
+        'Revenue': item.revenue,
+        'Orders': item.orders
+      }));
+
+      // Prepare summary data
+      const summaryData = [{
+        'Report Period': `${fromDate} to ${toDate}`,
+        'Total Revenue': dashboardStats?.totalRevenue || 0,
+        'Total Orders': sales.length,
+        'Average Order Value': avgOrderValue,
+        'Profit Margin': `${profitMargin.toFixed(1)}%`,
+        'Total Customers': customers.length,
+        'Total Products': products.length,
+        'Low Stock Items': dashboardStats?.lowStockProducts?.length || 0
+      }];
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Add summary sheet
+      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+      // Add sales sheet
+      if (salesData.length > 0) {
+        const salesWs = XLSX.utils.json_to_sheet(salesData);
+        XLSX.utils.book_append_sheet(wb, salesWs, "Sales Report");
+      }
+
+      // Add top products sheet
+      if (topProductsData.length > 0) {
+        const productsWs = XLSX.utils.json_to_sheet(topProductsData);
+        XLSX.utils.book_append_sheet(wb, productsWs, "Top Products");
+      }
+
+      // Add customers sheet
+      if (customerData.length > 0) {
+        const customersWs = XLSX.utils.json_to_sheet(customerData);
+        XLSX.utils.book_append_sheet(wb, customersWs, "Top Customers");
+      }
+
+      // Add inventory sheet
+      if (inventoryData.length > 0) {
+        const inventoryWs = XLSX.utils.json_to_sheet(inventoryData);
+        XLSX.utils.book_append_sheet(wb, inventoryWs, "Inventory");
+      }
+
+      // Add sales trend sheet
+      if (salesTrendData.length > 0) {
+        const trendWs = XLSX.utils.json_to_sheet(salesTrendData);
+        XLSX.utils.book_append_sheet(wb, trendWs, "Sales Trend");
+      }
+
+      // Generate filename
+      const filename = `business_report_${dateRangeStr}.xlsx`;
+      
+      // Download file
+      XLSX.writeFile(wb, filename);
+      toast.success("Report exported successfully");
+
+    } catch (error) {
+      toast.error("Failed to export report");
+    }
+  };
+
   // Calculate top customers
   const topCustomers = customers
     .sort((a, b) => b.total_spent - a.total_spent)
@@ -239,7 +362,7 @@ const Reports = () => {
         </div>
         <div className="flex gap-2">
           <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
-          <Button>
+          <Button onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
