@@ -10,13 +10,16 @@ import { useSales } from "@/hooks/useSales";
 import { useDashboard } from "@/hooks/useDashboard";
 import { SaleDialog } from "@/components/SaleDialog";
 import { EditSaleDialog } from "@/components/EditSaleDialog";
+import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { format } from "date-fns";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [viewingSaleId, setViewingSaleId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   
@@ -33,10 +36,22 @@ const Sales = () => {
     setShowEditDialog(true);
   };
 
+  const handleViewSale = (saleId: string) => {
+    setViewingSaleId(saleId);
+    setShowDetailsDialog(true);
+  };
+
   const handleCloseEditDialog = (open: boolean) => {
     setShowEditDialog(open);
     if (!open) {
       setEditingSaleId(null);
+    }
+  };
+
+  const handleCloseDetailsDialog = (open: boolean) => {
+    setShowDetailsDialog(open);
+    if (!open) {
+      setViewingSaleId(null);
     }
   };
   return (
@@ -168,7 +183,11 @@ const Sales = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewSale(sale.id)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button 
@@ -194,6 +213,11 @@ const Sales = () => {
         open={showEditDialog} 
         onOpenChange={handleCloseEditDialog}
         saleId={editingSaleId}
+      />
+      <SaleDetailsDialog 
+        open={showDetailsDialog} 
+        onOpenChange={handleCloseDetailsDialog}
+        saleId={viewingSaleId}
       />
     </div>
   );
