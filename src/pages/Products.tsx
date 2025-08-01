@@ -11,7 +11,7 @@ import { formatCurrency } from "@/lib/currency";
 import * as XLSX from "xlsx";
 
 const Products = () => {
-  const { products, isLoading, deleteProduct, createProduct } = useProducts();
+  const { products, isLoading, deleteProduct, createProduct, updateProduct } = useProducts();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -98,6 +98,7 @@ const Products = () => {
         let successCount = 0;
         let errorCount = 0;
         let skippedCount = 0;
+        let updatedCount = 0;
         let processedCount = 0;
 
         const processBatch = async (items: any[], batchIndex: number) => {
@@ -147,16 +148,46 @@ const Products = () => {
                 return;
               }
 
-              // Check for duplicate products (by name or SKU)
+              // Check for existing products (by name or SKU)
               const existingProduct = products.find(p => 
                 p.name.toLowerCase().trim() === productData.name.toLowerCase().trim() ||
-                (productData.sku && p.sku && p.sku.toLowerCase().trim() === productData.sku.toLowerCase().trim())
+                (productData.sku && p.sku && p.sku.toLowerCase().trim() === String(productData.sku).toLowerCase().trim())
               );
 
               if (existingProduct) {
-                console.log(`Row ${rowIndex + 1} skipped: Duplicate product (${productData.name})`);
-                skippedCount++;
-                return;
+                // Check if any data has changed
+                const hasChanges = 
+                  existingProduct.name !== productData.name ||
+                  existingProduct.sku !== productData.sku ||
+                  existingProduct.rate !== productData.rate ||
+                  existingProduct.cost !== productData.cost ||
+                  existingProduct.stock_quantity !== productData.stock_quantity ||
+                  existingProduct.low_stock_threshold !== productData.low_stock_threshold ||
+                  existingProduct.size !== productData.size ||
+                  existingProduct.color !== productData.color ||
+                  existingProduct.image_url !== productData.image_url;
+
+                if (!hasChanges) {
+                  console.log(`Row ${rowIndex + 1} skipped: No changes detected (${productData.name})`);
+                  skippedCount++;
+                  return;
+                }
+
+                // Update the existing product
+                return new Promise((resolve, reject) => {
+                  updateProduct.mutate({ id: existingProduct.id, data: productData }, {
+                    onSuccess: () => {
+                      console.log(`Row ${rowIndex + 1} success: Updated product ${productData.name}`);
+                      updatedCount++;
+                      resolve(true);
+                    },
+                    onError: (error) => {
+                      console.error(`Row ${rowIndex + 1} failed: Product update error:`, error);
+                      errorCount++;
+                      reject(error);
+                    },
+                  });
+                });
               }
 
               // Create the product
@@ -203,19 +234,22 @@ const Products = () => {
         setTimeout(() => {
           let message = '';
           if (successCount > 0) {
-            message += `Successfully imported ${successCount} products. `;
+            message += `Successfully imported ${successCount} new products. `;
+          }
+          if (updatedCount > 0) {
+            message += `Updated ${updatedCount} existing products. `;
           }
           if (skippedCount > 0) {
-            message += `Skipped ${skippedCount} duplicate products. `;
+            message += `Skipped ${skippedCount} products (no changes). `;
           }
           if (errorCount > 0) {
             message += `${errorCount} products failed due to invalid data.`;
           }
 
-          if (successCount > 0) {
+          if (successCount > 0 || updatedCount > 0) {
             toast.success(message || "Import completed successfully");
           } else if (skippedCount > 0 && errorCount === 0) {
-            toast.info(message || "All products were duplicates and skipped");
+            toast.info(message || "All products were already up to date");
           } else {
             toast.error(message || "Import failed. Please check your data format");
           }
