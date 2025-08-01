@@ -276,7 +276,7 @@ export const useSales = () => {
           .from("inventory_logs")
           .insert([{
             product_id: item.product_id,
-            type: "sale_update",
+            type: "sale",
             quantity: -item.quantity,
             reason: `Sale Update: ${sale.invoice_number}`,
             created_by: user?.id
