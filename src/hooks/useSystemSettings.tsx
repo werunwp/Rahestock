@@ -36,15 +36,14 @@ export const useSystemSettings = () => {
       const { data, error } = await supabase
         .from("system_settings")
         .select("*")
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (error) {
         throw error;
       }
       
-      // Return default settings if no settings found
-      return data as SystemSettings || { ...DEFAULT_SYSTEM_SETTINGS, id: '', created_at: '', updated_at: '' };
+      // Return first row if exists, otherwise default settings
+      return data?.[0] as SystemSettings || { ...DEFAULT_SYSTEM_SETTINGS, id: '', created_at: '', updated_at: '' };
     },
     enabled: !!user,
   });
@@ -55,15 +54,14 @@ export const useSystemSettings = () => {
       const { data: existingData } = await supabase
         .from("system_settings")
         .select("id")
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (existingData?.id) {
+      if (existingData?.[0]?.id) {
         // Update existing
         const { data, error } = await supabase
           .from("system_settings")
           .update(updatedData)
-          .eq("id", existingData.id)
+          .eq("id", existingData[0].id)
           .select()
           .single();
 
@@ -92,7 +90,12 @@ export const useSystemSettings = () => {
   });
 
   return {
-    systemSettings: systemSettings || DEFAULT_SYSTEM_SETTINGS,
+    systemSettings: systemSettings || { 
+      ...DEFAULT_SYSTEM_SETTINGS, 
+      id: '', 
+      created_at: new Date().toISOString(), 
+      updated_at: new Date().toISOString() 
+    },
     isLoading,
     error,
     updateSystemSettings: updateSystemSettings.mutate,

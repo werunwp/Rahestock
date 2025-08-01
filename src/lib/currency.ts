@@ -1,7 +1,7 @@
-export const formatCurrency = (amount: number): string => {
-  return `৳${amount.toLocaleString()}`;
+export const formatCurrency = (amount: number, currencySymbol: string = '৳'): string => {
+  return `${currencySymbol}${amount.toLocaleString()}`;
 };
 
-export const formatCurrencyDetailed = (amount: number): string => {
-  return `৳${amount.toFixed(2)}`;
+export const formatCurrencyDetailed = (amount: number, currencySymbol: string = '৳'): string => {
+  return `${currencySymbol}${amount.toFixed(2)}`;
 };
