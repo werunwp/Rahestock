@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Bell, AlertTriangle, CheckCircle, Info, X, TrendingUp, Users, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,23 @@ const Alerts = () => {
   const { products } = useProducts();
   const { sales } = useSales();
   const { customers } = useCustomers();
+
+  // Load alert settings from localStorage on component mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('alertSettings');
+    if (savedSettings) {
+      try {
+        setAlertSettings(JSON.parse(savedSettings));
+      } catch (error) {
+        console.error('Failed to parse saved alert settings:', error);
+      }
+    }
+  }, []);
+
+  // Save alert settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('alertSettings', JSON.stringify(alertSettings));
+  }, [alertSettings]);
 
   // Helper function to format time ago
   const getTimeAgo = (date: string) => {
