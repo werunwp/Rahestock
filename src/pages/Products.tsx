@@ -101,38 +101,58 @@ const Products = () => {
         let processedCount = 0;
 
         const processBatch = async (items: any[], batchIndex: number) => {
-          const batchPromises = items.map(async (row: any) => {
+          const batchPromises = items.map(async (row: any, rowIndex: number) => {
             try {
+              // Skip completely empty rows
+              const hasAnyData = Object.values(row).some(value => 
+                value !== null && value !== undefined && String(value).trim() !== ''
+              );
+              
+              if (!hasAnyData) {
+                console.log(`Skipping empty row ${rowIndex + 1}`);
+                return;
+              }
+
               // Map the data to product structure with flexible field matching
               const productData = {
-                name: row.Name || row.name || row.PRODUCT_NAME || row['Product Name'] || '',
+                name: String(row.Name || row.name || row.PRODUCT_NAME || row['Product Name'] || '').trim(),
                 sku: row.SKU || row.sku || row['Product Code'] || row.code || undefined,
-                rate: parseFloat(row.Rate || row.rate || row.RATE || row.price || row.Price || '0') || 0,
-                cost: row.Cost || row.cost || row.COST ? parseFloat(row.Cost || row.cost || row.COST || '0') : undefined,
-                stock_quantity: parseInt(row['Stock Quantity'] || row.stock_quantity || row.stock || row.Stock || row.STOCK || '0') || 0,
-                low_stock_threshold: parseInt(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || '10') || 10,
-                size: row.Size || row.size || row.SIZE || undefined,
-                color: row.Color || row.color || row.COLOR || undefined,
+                rate: parseFloat(String(row.Rate || row.rate || row.RATE || row.price || row.Price || '0').replace(/[^0-9.-]/g, '')) || 0,
+                cost: row.Cost || row.cost || row.COST ? parseFloat(String(row.Cost || row.cost || row.COST || '0').replace(/[^0-9.-]/g, '')) || undefined : undefined,
+                stock_quantity: parseInt(String(row['Stock Quantity'] || row.stock_quantity || row.stock || row.Stock || row.STOCK || '0').replace(/[^0-9]/g, '')) || 0,
+                low_stock_threshold: parseInt(String(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || '10').replace(/[^0-9]/g, '')) || 10,
+                size: row.Size || row.size || row.SIZE ? String(row.Size || row.size || row.SIZE).trim() : undefined,
+                color: row.Color || row.color || row.COLOR ? String(row.Color || row.color || row.COLOR).trim() : undefined,
               };
 
+              // Clean up empty string values
+              if (productData.sku === '') productData.sku = undefined;
+              if (productData.size === '') productData.size = undefined;
+              if (productData.color === '') productData.color = undefined;
+
+              console.log(`Processing row ${rowIndex + 1}:`, productData);
+
               // Validate required fields
-              if (!productData.name || productData.name.trim() === '') {
+              if (!productData.name || productData.name === '') {
+                console.log(`Row ${rowIndex + 1} failed: Missing product name`);
                 errorCount++;
                 return;
               }
 
               if (productData.rate <= 0) {
+                console.log(`Row ${rowIndex + 1} failed: Invalid rate (${productData.rate})`);
                 errorCount++;
                 return;
               }
 
               // Check for duplicate products (by name or SKU)
               const existingProduct = products.find(p => 
-                p.name.toLowerCase() === productData.name.toLowerCase() ||
-                (productData.sku && p.sku && p.sku.toLowerCase() === productData.sku.toLowerCase())
+                p.name.toLowerCase().trim() === productData.name.toLowerCase().trim() ||
+                (productData.sku && p.sku && p.sku.toLowerCase().trim() === productData.sku.toLowerCase().trim())
               );
 
               if (existingProduct) {
+                console.log(`Row ${rowIndex + 1} skipped: Duplicate product (${productData.name})`);
                 skippedCount++;
                 return;
               }
@@ -141,11 +161,12 @@ const Products = () => {
               return new Promise((resolve, reject) => {
                 createProduct.mutate(productData, {
                   onSuccess: () => {
+                    console.log(`Row ${rowIndex + 1} success: Created product ${productData.name}`);
                     successCount++;
                     resolve(true);
                   },
                   onError: (error) => {
-                    console.error('Product creation error:', error);
+                    console.error(`Row ${rowIndex + 1} failed: Product creation error:`, error);
                     errorCount++;
                     reject(error);
                   },
@@ -153,7 +174,7 @@ const Products = () => {
               });
 
             } catch (error) {
-              console.error('Row processing error:', error);
+              console.error(`Row ${rowIndex + 1} failed: Row processing error:`, error);
               errorCount++;
             }
           });
