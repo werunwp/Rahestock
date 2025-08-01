@@ -84,22 +84,24 @@ const Products = () => {
             Total Stock Value: <span className="font-semibold text-foreground">{formatCurrency(totalStockValue)}</span>
           </p>
         </div>
-        <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExport}
+            disabled={!products.length}
+            className="w-fit"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <Button 
-          variant="outline" 
-          onClick={handleExport}
-          disabled={!products.length}
-          className="w-fit"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
