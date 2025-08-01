@@ -102,7 +102,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
     };
 
     loadSaleData();
-  }, [open, saleId, getSaleWithItems]);
+  }, [open, saleId]); // Removed getSaleWithItems from dependencies
 
   if (isLoading) {
     return (
