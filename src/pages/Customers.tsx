@@ -58,9 +58,9 @@ const Customers = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2,847</div>
+            <div className="text-2xl font-bold">{customers.length}</div>
             <p className="text-xs text-muted-foreground">
-              +12 new this month
+              Total registered customers
             </p>
           </CardContent>
         </Card>
@@ -70,9 +70,11 @@ const Customers = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,654</div>
+            <div className="text-2xl font-bold">
+              {customers.filter(c => c.order_count > 0).length}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Purchased this month
+              Customers with orders
             </p>
           </CardContent>
         </Card>
@@ -82,21 +84,28 @@ const Customers = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳127.50</div>
+            <div className="text-2xl font-bold">
+              ৳{customers.length > 0 ? 
+                (customers.reduce((sum, c) => sum + c.total_spent, 0) / 
+                customers.filter(c => c.order_count > 0).length || 1).toFixed(2) : 
+                '0.00'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              +8% from last month
+              Average spent per customer
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Repeat Customers</CardTitle>
+            <CardTitle className="text-sm font-medium">VIP Customers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">78%</div>
+            <div className="text-2xl font-bold">
+              {customers.filter(c => c.total_spent > 5000).length}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Customer retention rate
+              High-value customers
             </p>
           </CardContent>
         </Card>

@@ -90,6 +90,19 @@ export const useCustomers = () => {
 
   const deleteCustomer = useMutation({
     mutationFn: async (id: string) => {
+      // Check if customer has sales records
+      const { data: salesRecords, error: salesError } = await supabase
+        .from("sales")
+        .select("id")
+        .eq("customer_id", id)
+        .limit(1);
+      
+      if (salesError) throw salesError;
+      
+      if (salesRecords && salesRecords.length > 0) {
+        throw new Error("Cannot delete customer as they have associated sales records. Consider archiving the customer instead.");
+      }
+      
       const { error } = await supabase.from("customers").delete().eq("id", id);
       if (error) throw error;
     },
