@@ -1,19 +1,21 @@
-import { Plus, Search, Filter, Edit, Trash2, Download } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useProducts } from "@/hooks/useProducts";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { ProductDialog } from "@/components/ProductDialog";
 import { formatCurrency } from "@/lib/currency";
 import * as XLSX from "xlsx";
 
 const Products = () => {
-  const { products, isLoading, deleteProduct } = useProducts();
+  const { products, isLoading, deleteProduct, createProduct } = useProducts();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,6 +42,71 @@ const Products = () => {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingProduct(null);
+  };
+
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        jsonData.forEach((row: any) => {
+          // Map the data to product structure
+          const productData = {
+            name: row.Name || row.name,
+            sku: row.SKU || row.sku || undefined,
+            rate: Number(row.Rate || row.rate) || 0,
+            cost: row.Cost || row.cost ? Number(row.Cost || row.cost) : undefined,
+            stock_quantity: Number(row['Stock Quantity'] || row.stock_quantity) || 0,
+            low_stock_threshold: Number(row['Low Stock Threshold'] || row.low_stock_threshold) || 10,
+            size: row.Size || row.size || undefined,
+            color: row.Color || row.color || undefined,
+          };
+
+          // Validate required fields
+          if (productData.name && productData.rate > 0) {
+            createProduct.mutate(productData, {
+              onSuccess: () => successCount++,
+              onError: () => errorCount++,
+            });
+          } else {
+            errorCount++;
+          }
+        });
+
+        // Show summary toast
+        setTimeout(() => {
+          if (successCount > 0 && errorCount === 0) {
+            toast.success(`Successfully imported ${successCount} products`);
+          } else if (successCount > 0 && errorCount > 0) {
+            toast.success(`Imported ${successCount} products. ${errorCount} failed due to invalid data`);
+          } else {
+            toast.error(`Failed to import products. Please check your file format and data`);
+          }
+        }, 1000);
+
+      } catch (error) {
+        toast.error("Failed to parse file. Please check the format");
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+    // Reset file input
+    event.target.value = '';
   };
 
   const handleExport = () => {
@@ -85,6 +152,14 @@ const Products = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleImport}
+            className="w-fit"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
           <Button 
             variant="outline" 
             onClick={handleExport}
@@ -225,6 +300,14 @@ const Products = () => {
           })}
         </div>
       )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept=".xlsx,.xls,.csv"
+        style={{ display: 'none' }}
+      />
 
       <ProductDialog 
         open={isDialogOpen} 
