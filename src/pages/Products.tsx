@@ -7,11 +7,12 @@ import { useProducts } from "@/hooks/useProducts";
 import { useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { ProductDialog } from "@/components/ProductDialog";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 import * as XLSX from "xlsx";
 
 const Products = () => {
   const { products, isLoading, deleteProduct, createProduct, updateProduct } = useProducts();
+  const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -311,7 +312,7 @@ const Products = () => {
             Manage your product inventory and stock levels
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Total Stock Value: <span className="font-semibold text-foreground">{formatCurrency(totalStockValue)}</span>
+            Total Stock Value: <span className="font-semibold text-foreground">{formatAmount(totalStockValue)}</span>
           </p>
         </div>
         <div className="flex gap-2">
@@ -433,11 +434,11 @@ const Products = () => {
                     
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-xl font-bold text-primary">{formatCurrency(product.rate)}</span>
+                        <span className="text-xl font-bold text-primary">{formatAmount(product.rate)}</span>
                         <span className="text-sm font-medium">Stock: {product.stock_quantity}</span>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Stock Value: <span className="font-medium text-foreground">{formatCurrency(stockValue)}</span>
+                        Stock Value: <span className="font-medium text-foreground">{formatAmount(stockValue)}</span>
                       </div>
                     </div>
                     

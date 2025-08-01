@@ -12,12 +12,13 @@ import { useSales } from "@/hooks/useSales";
 import { useSalesItems } from "@/hooks/useSalesItems";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { SalesTrendFilter, SalesTrendPeriod, SalesTrendRange } from "@/components/SalesTrendFilter";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, eachYearOfInterval, startOfYear, endOfYear, subDays, subMonths, subYears } from "date-fns";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
 const Reports = () => {
+  const { formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [salesTrendPeriod, setSalesTrendPeriod] = useState<SalesTrendPeriod>("daily");
   const [salesTrendRange, setSalesTrendRange] = useState<SalesTrendRange>("last30days");
@@ -377,7 +378,7 @@ const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(dashboardStats?.totalRevenue || 0)}
+              {formatAmount(dashboardStats?.totalRevenue || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Selected period revenue
@@ -402,7 +403,7 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(avgOrderValue)}</div>
+            <div className="text-2xl font-bold">{formatAmount(avgOrderValue)}</div>
             <p className="text-xs text-muted-foreground">
               Average per order
             </p>
@@ -470,7 +471,7 @@ const Reports = () => {
                         <p className="font-medium truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">{product.unitsSold} units sold</p>
                       </div>
-                      <p className="font-bold text-right ml-2">{formatCurrency(product.salesAmount)}</p>
+                      <p className="font-bold text-right ml-2">{formatAmount(product.salesAmount)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground text-center py-8">No sales data available</p>
@@ -569,7 +570,7 @@ const Reports = () => {
                         <p className="font-medium truncate">{customer.name}</p>
                         <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
                       </div>
-                      <p className="font-bold text-right ml-2">{formatCurrency(customer.total_spent)}</p>
+                      <p className="font-bold text-right ml-2">{formatAmount(customer.total_spent)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground text-center py-8">No customer data available</p>
@@ -623,19 +624,19 @@ const Reports = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Gross Revenue</span>
-                    <span className="font-bold">{formatCurrency(dashboardStats?.totalRevenue || 0)}</span>
+                    <span className="font-bold">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
                   </div>
                   <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Cost of Goods</span>
-                    <span className="font-bold text-destructive">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
+                    <span className="font-bold text-destructive">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
                   </div>
                   <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Operating Expenses</span>
-                    <span className="font-bold text-destructive">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                    <span className="font-bold text-destructive">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
                   <div className="border-t pt-4 flex justify-between p-2 rounded-lg bg-muted/30">
                     <span className="font-bold">Net Profit</span>
-                    <span className="font-bold text-green-600">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                    <span className="font-bold text-green-600">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
                 </div>
               </CardContent>
