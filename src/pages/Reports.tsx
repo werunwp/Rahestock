@@ -207,46 +207,48 @@ const Reports = () => {
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Sales Trend</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <ChartContainer
                   config={{
                     revenue: { label: "Revenue", color: "hsl(var(--primary))" },
                     orders: { label: "Orders", color: "hsl(var(--secondary))" }
                   }}
-                  className="h-[300px]"
+                  className="h-[350px] w-full"
                 >
-                  <LineChart data={salesAnalytics.salesTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
-                    <Line type="monotone" dataKey="orders" stroke="hsl(var(--secondary))" strokeWidth={2} />
-                  </LineChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salesAnalytics.salesTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
+                      <Line type="monotone" dataKey="orders" stroke="hsl(var(--secondary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle>Top Products</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {salesAnalytics.topProducts.length > 0 ? salesAnalytics.topProducts.map((product, index) => (
-                    <div key={product.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
+                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">{product.unitsSold} units sold</p>
                       </div>
-                      <p className="font-bold">{formatCurrency(product.salesAmount)}</p>
+                      <p className="font-bold text-right ml-2">{formatCurrency(product.salesAmount)}</p>
                     </div>
                   )) : (
-                    <p className="text-muted-foreground">No sales data available</p>
+                    <p className="text-muted-foreground text-center py-8">No sales data available</p>
                   )}
                 </div>
               </CardContent>
@@ -255,47 +257,49 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Stock Levels</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <ChartContainer
                   config={{
                     stock: { label: "Current Stock", color: "hsl(var(--primary))" },
                     threshold: { label: "Low Stock Threshold", color: "hsl(var(--destructive))" }
                   }}
-                  className="h-[300px]"
+                  className="h-[350px] w-full"
                 >
-                  <BarChart data={stockLevels}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="stock" fill="hsl(var(--primary))" />
-                    <Bar dataKey="threshold" fill="hsl(var(--destructive))" />
-                  </BarChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stockLevels} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="stock" fill="hsl(var(--primary))" />
+                      <Bar dataKey="threshold" fill="hsl(var(--destructive))" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle>Low Stock Alert</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {dashboardStats?.lowStockProducts?.length > 0 ? 
                     dashboardStats.lowStockProducts.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
+                      <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.name}</p>
                           <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
                         </div>
-                        <p className="font-bold text-destructive">{item.stock_quantity} left</p>
+                        <p className="font-bold text-destructive text-right ml-2">{item.stock_quantity} left</p>
                       </div>
                     )) : (
-                      <p className="text-muted-foreground">No low stock items</p>
+                      <p className="text-muted-foreground text-center py-8">No low stock items</p>
                     )}
                 </div>
               </CardContent>
@@ -304,44 +308,46 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="customers" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Customer Growth</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <ChartContainer
                   config={{
                     customers: { label: "New Customers", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[300px]"
+                  className="h-[350px] w-full"
                 >
-                  <BarChart data={customerGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="customers" fill="hsl(var(--primary))" />
-                  </BarChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={customerGrowth} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="customers" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle>Top Customers</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {topCustomers.length > 0 ? topCustomers.map((customer, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{customer.name}</p>
+                    <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{customer.name}</p>
                         <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
                       </div>
-                      <p className="font-bold">{formatCurrency(customer.total_spent)}</p>
+                      <p className="font-bold text-right ml-2">{formatCurrency(customer.total_spent)}</p>
                     </div>
                   )) : (
-                    <p className="text-muted-foreground">No customer data available</p>
+                    <p className="text-muted-foreground text-center py-8">No customer data available</p>
                   )}
                 </div>
               </CardContent>
@@ -350,57 +356,59 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <ChartContainer
                   config={{
                     value: { label: "Amount", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[300px]"
+                  className="h-[350px] w-full"
                 >
-                  <PieChart>
-                    <Pie
-                      data={financialData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {financialData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                  </PieChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={financialData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {financialData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle>Profit Analysis</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Gross Revenue</span>
                     <span className="font-bold">{formatCurrency(dashboardStats?.totalRevenue || 0)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Cost of Goods</span>
                     <span className="font-bold text-destructive">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
                     <span>Operating Expenses</span>
                     <span className="font-bold text-destructive">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
-                  <div className="border-t pt-2 flex justify-between">
+                  <div className="border-t pt-4 flex justify-between p-2 rounded-lg bg-muted/30">
                     <span className="font-bold">Net Profit</span>
                     <span className="font-bold text-green-600">{formatCurrency((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
