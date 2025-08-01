@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { BusinessSettings } from '@/hooks/useBusinessSettings';
 
@@ -103,7 +103,7 @@ export const generateInvoicePDF = async (
     item.total.toFixed(2)
   ]);
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [tableColumns],
     body: tableRows,
     startY: yPosition,

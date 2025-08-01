@@ -14,8 +14,6 @@ import { formatCurrency } from "@/lib/currency";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
 import { downloadInvoicePDF, printInvoicePDF } from "@/lib/invoicePdf";
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 const Invoices = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
