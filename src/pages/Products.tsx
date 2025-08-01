@@ -123,12 +123,14 @@ const Products = () => {
                 low_stock_threshold: parseInt(String(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || '10').replace(/[^0-9]/g, '')) || 10,
                 size: row.Size || row.size || row.SIZE ? String(row.Size || row.size || row.SIZE).trim() : undefined,
                 color: row.Color || row.color || row.COLOR ? String(row.Color || row.color || row.COLOR).trim() : undefined,
+                image_url: row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL ? String(row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL).trim() : undefined,
               };
 
               // Clean up empty string values
               if (productData.sku === '') productData.sku = undefined;
               if (productData.size === '') productData.size = undefined;
               if (productData.color === '') productData.color = undefined;
+              if (productData.image_url === '') productData.image_url = undefined;
 
               console.log(`Processing row ${rowIndex + 1}:`, productData);
 
@@ -246,6 +248,7 @@ const Products = () => {
       'Low Stock Threshold': product.low_stock_threshold,
       Size: product.size || '',
       Color: product.color || '',
+      'Image URL': product.image_url || '',
       'Stock Value': product.stock_quantity * (product.cost || product.rate),
       Status: product.stock_quantity === 0 ? 'Out of Stock' : 
               product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
