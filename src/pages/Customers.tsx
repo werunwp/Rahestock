@@ -1,4 +1,4 @@
-import { Plus, Users, Phone, Search, Edit, Trash2, MessageCircle, Download } from "lucide-react";
+import { Plus, Users, Phone, Search, Edit, Trash2, MessageCircle, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCustomers } from "@/hooks/useCustomers";
 import { useState, useMemo } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
+import { CustomerHistoryDialog } from "@/components/CustomerHistoryDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { isWithinInterval, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
@@ -20,6 +21,8 @@ const Customers = () => {
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
@@ -64,6 +67,11 @@ const Customers = () => {
       id: customerId,
       data: { status: newStatus }
     });
+  };
+
+  const handleViewHistory = (customer) => {
+    setSelectedCustomer(customer);
+    setIsHistoryDialogOpen(true);
   };
 
   const handleExport = () => {
@@ -278,6 +286,9 @@ const Customers = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewHistory(customer)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -304,6 +315,12 @@ const Customers = () => {
         open={isDialogOpen} 
         onOpenChange={handleCloseDialog}
         customer={editingCustomer}
+      />
+
+      <CustomerHistoryDialog
+        open={isHistoryDialogOpen}
+        onOpenChange={setIsHistoryDialogOpen}
+        customer={selectedCustomer}
       />
     </div>
   );
