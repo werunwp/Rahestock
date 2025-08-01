@@ -8,18 +8,45 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProducts } from "@/hooks/useProducts";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
-import { format } from "date-fns";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
+import { format, isAfter, isBefore, isEqual } from "date-fns";
 
 const Inventory = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   
   const { products, isLoading } = useProducts();
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredProducts = products.filter(product => {
+    // Text search filter
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Date range filter
+    const productDate = new Date(product.updated_at);
+    let matchesDate = true;
+    
+    if (dateRange.from && dateRange.to) {
+      const fromDate = new Date(dateRange.from);
+      const toDate = new Date(dateRange.to);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate.setHours(23, 59, 59, 999);
+      
+      matchesDate = (isAfter(productDate, fromDate) || isEqual(productDate, fromDate)) &&
+                    (isBefore(productDate, toDate) || isEqual(productDate, toDate));
+    } else if (dateRange.from) {
+      const fromDate = new Date(dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+      matchesDate = isAfter(productDate, fromDate) || isEqual(productDate, fromDate);
+    } else if (dateRange.to) {
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      matchesDate = isBefore(productDate, toDate) || isEqual(productDate, toDate);
+    }
+    
+    return matchesSearch && matchesDate;
+  });
 
   const totalProducts = products.length;
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
@@ -34,10 +61,13 @@ const Inventory = () => {
             Track stock movements and manage inventory levels
           </p>
         </div>
-        <Button onClick={() => setShowAdjustmentDialog(true)} className="w-fit">
-          <Plus className="mr-2 h-4 w-4" />
-          Adjust Stock
-        </Button>
+        <div className="flex gap-2">
+          <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
+          <Button onClick={() => setShowAdjustmentDialog(true)} className="w-fit">
+            <Plus className="mr-2 h-4 w-4" />
+            Adjust Stock
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
