@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_settings: {
+        Row: {
+          address: string | null
+          business_name: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          facebook: string | null
+          id: string
+          invoice_footer_message: string | null
+          invoice_prefix: string | null
+          logo_url: string | null
+          phone: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_name?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          facebook?: string | null
+          id?: string
+          invoice_footer_message?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_name?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          facebook?: string | null
+          id?: string
+          invoice_footer_message?: string | null
+          invoice_prefix?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
