@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers, Customer, CreateCustomerData } from "@/hooks/useCustomers";
 import { Loader2 } from "lucide-react";
 
@@ -21,6 +22,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
     whatsapp: "",
     address: "",
     tags: [],
+    status: "inactive",
   });
 
   const isEditing = !!customer;
@@ -33,6 +35,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         whatsapp: customer.whatsapp || "",
         address: customer.address || "",
         tags: customer.tags || [],
+        status: customer.status || "inactive",
       });
     } else {
       setFormData({
@@ -41,6 +44,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         whatsapp: "",
         address: "",
         tags: [],
+        status: "inactive",
       });
     }
   }, [customer]);
@@ -117,6 +121,20 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
               placeholder="Enter customer address"
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="neutral">Neutral</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter>

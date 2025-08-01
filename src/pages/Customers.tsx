@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useState, useMemo } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
@@ -13,7 +14,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
 const Customers = () => {
-  const { customers, isLoading, deleteCustomer } = useCustomers();
+  const { customers, isLoading, deleteCustomer, updateCustomer } = useCustomers();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -56,6 +57,13 @@ const Customers = () => {
   const handleDateRangeChange = (start?: Date, end?: Date) => {
     setStartDate(start);
     setEndDate(end);
+  };
+
+  const handleStatusChange = (customerId: string, newStatus: string) => {
+    updateCustomer.mutate({
+      id: customerId,
+      data: { status: newStatus }
+    });
   };
 
   const handleExport = () => {
@@ -128,10 +136,10 @@ const Customers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.filter(c => c.order_count > 0).length}
+              {customers.filter(c => c.status === 'active').length}
             </div>
             <p className="text-xs text-muted-foreground">
-              Customers with orders
+              Active status customers
             </p>
           </CardContent>
         </Card>
@@ -212,14 +220,6 @@ const Customers = () => {
                 ))
               ) : (
                 filteredCustomers.map((customer) => {
-                  const getStatus = () => {
-                    if (customer.total_spent > 5000) return "VIP";
-                    if (customer.order_count > 0) return "Active";
-                    return "Inactive";
-                  };
-                  
-                  const status = getStatus();
-                  
                   return (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
@@ -246,15 +246,35 @@ const Customers = () => {
                       <TableCell>{customer.order_count}</TableCell>
                       <TableCell>৳{customer.total_spent.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={
-                            status === "VIP" ? "default" : 
-                            status === "Active" ? "secondary" : 
-                            "outline"
-                          }
+                        <Select 
+                          value={customer.status} 
+                          onValueChange={(value) => handleStatusChange(customer.id, value)}
                         >
-                          {status}
-                        </Badge>
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue>
+                              <Badge 
+                                variant={
+                                  customer.status === "active" ? "default" : 
+                                  customer.status === "neutral" ? "secondary" : 
+                                  "outline"
+                                }
+                              >
+                                {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
+                              </Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">
+                              <Badge variant="default">Active</Badge>
+                            </SelectItem>
+                            <SelectItem value="neutral">
+                              <Badge variant="secondary">Neutral</Badge>
+                            </SelectItem>
+                            <SelectItem value="inactive">
+                              <Badge variant="outline">Inactive</Badge>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">

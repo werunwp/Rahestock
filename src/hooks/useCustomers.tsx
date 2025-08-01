@@ -12,6 +12,8 @@ export interface Customer {
   tags: string[];
   order_count: number;
   total_spent: number;
+  status: string;
+  last_purchase_date: string | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -23,6 +25,7 @@ export interface CreateCustomerData {
   whatsapp?: string;
   address?: string;
   tags?: string[];
+  status?: string;
 }
 
 export const useCustomers = () => {
@@ -36,13 +39,62 @@ export const useCustomers = () => {
   } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: customersData, error } = await supabase
         .from("customers")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Customer[];
+
+      // Update customer status based on last purchase date and sales data
+      const updatedCustomers = await Promise.all(
+        (customersData || []).map(async (customer) => {
+          // Get the latest sale for this customer
+          const { data: latestSale } = await supabase
+            .from("sales")
+            .select("created_at")
+            .eq("customer_id", customer.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const lastPurchaseDate = latestSale?.created_at;
+          let newStatus = customer.status;
+
+          if (lastPurchaseDate) {
+            const daysSinceLastPurchase = Math.floor(
+              (new Date().getTime() - new Date(lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24)
+            );
+
+            if (daysSinceLastPurchase <= 30) {
+              newStatus = "active";
+            } else if (daysSinceLastPurchase <= 60) {
+              newStatus = "neutral";
+            } else {
+              newStatus = "inactive";
+            }
+
+            // Update customer record if status or last_purchase_date changed
+            if (newStatus !== customer.status || lastPurchaseDate !== customer.last_purchase_date) {
+              await supabase
+                .from("customers")
+                .update({ 
+                  status: newStatus, 
+                  last_purchase_date: lastPurchaseDate 
+                })
+                .eq("id", customer.id);
+            }
+          }
+
+          return {
+            ...customer,
+            status: newStatus,
+            last_purchase_date: lastPurchaseDate
+          } as Customer;
+        })
+      );
+
+      return updatedCustomers;
     },
     enabled: !!user,
   });

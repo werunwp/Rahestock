@@ -20,9 +20,11 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          last_purchase_date: string | null
           name: string
           order_count: number | null
           phone: string | null
+          status: string | null
           tags: string[] | null
           total_spent: number | null
           updated_at: string | null
@@ -33,9 +35,11 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          last_purchase_date?: string | null
           name: string
           order_count?: number | null
           phone?: string | null
+          status?: string | null
           tags?: string[] | null
           total_spent?: number | null
           updated_at?: string | null
@@ -46,9 +50,11 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          last_purchase_date?: string | null
           name?: string
           order_count?: number | null
           phone?: string | null
+          status?: string | null
           tags?: string[] | null
           total_spent?: number | null
           updated_at?: string | null
