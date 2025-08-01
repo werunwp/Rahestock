@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
@@ -25,11 +26,13 @@ const Reports = () => {
   const [salesCustomStart, setSalesCustomStart] = useState<Date>();
   const [salesCustomEnd, setSalesCustomEnd] = useState<Date>();
   
-  const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
-  const { products } = useProducts();
-  const { customers } = useCustomers();
-  const { sales } = useSales();
-  const { salesItems } = useSalesItems(salesCustomStart, salesCustomEnd);
+  const { dashboardStats, isLoading: dashboardLoading } = useDashboard(dateRange.from, dateRange.to);
+  const { products, isLoading: productsLoading } = useProducts();
+  const { customers, isLoading: customersLoading } = useCustomers();
+  const { sales, isLoading: salesLoading } = useSales();
+  const { salesItems, isLoading: salesItemsLoading } = useSalesItems(salesCustomStart, salesCustomEnd);
+
+  const isAnyLoading = dashboardLoading || productsLoading || customersLoading || salesLoading || salesItemsLoading;
 
   // Calculate sales analytics with separate trend filtering
   const salesAnalytics = useMemo(() => {
@@ -371,56 +374,73 @@ const Reports = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatAmount(dashboardStats?.totalRevenue || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Selected period revenue
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{sales.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Total sales orders
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(avgOrderValue)}</div>
-            <p className="text-xs text-muted-foreground">
-              Average per order
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{profitMargin.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              Estimated margin
-            </p>
-          </CardContent>
-        </Card>
+        {isAnyLoading ? (
+          [...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-3 w-40" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatAmount(dashboardStats?.totalRevenue || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Selected period revenue
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{sales.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Total sales orders
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatAmount(avgOrderValue)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Average per order
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{profitMargin.toFixed(1)}%</div>
+                <p className="text-xs text-muted-foreground">
+                  Estimated margin
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Tabs defaultValue="sales" className="space-y-4">
@@ -439,24 +459,35 @@ const Reports = () => {
                 <CardTitle>Sales Trend - {salesTrendPeriod.charAt(0).toUpperCase() + salesTrendPeriod.slice(1)} View</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <ChartContainer
-                  config={{
-                    revenue: { label: "Revenue", color: "hsl(var(--primary))" },
-                    orders: { label: "Orders", color: "hsl(var(--secondary))" }
-                  }}
-                  className="h-[350px] w-full"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={salesAnalytics.salesTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
-                      <Line type="monotone" dataKey="orders" stroke="hsl(var(--secondary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+                {isAnyLoading ? (
+                  <div className="h-[350px] flex items-center justify-center">
+                    <div className="space-y-4 w-full p-6">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-32 w-full" />
+                    </div>
+                  </div>
+                ) : (
+                  <ChartContainer
+                    config={{
+                      revenue: { label: "Revenue", color: "hsl(var(--primary))" },
+                      orders: { label: "Orders", color: "hsl(var(--secondary))" }
+                    }}
+                    className="h-[350px] w-full"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
+                        <Line type="monotone" dataKey="orders" stroke="hsl(var(--secondary))" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                )}
               </CardContent>
             </Card>
             <Card className="lg:col-span-1">
@@ -465,7 +496,17 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {salesAnalytics.topProducts.length > 0 ? salesAnalytics.topProducts.map((product, index) => (
+                  {isAnyLoading ? (
+                    [...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-2">
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                        <Skeleton className="h-4 w-16 ml-2" />
+                      </div>
+                    ))
+                  ) : salesAnalytics.topProducts.length > 0 ? salesAnalytics.topProducts.map((product, index) => (
                     <div key={product.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{product.name}</p>
