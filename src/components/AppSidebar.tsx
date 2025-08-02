@@ -56,8 +56,8 @@ export function AppSidebar() {
 
   const getNavClass = (path: string) => {
     return isActive(path) 
-      ? "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md mx-1 px-2 py-1.5" 
-      : "hover:bg-accent hover:text-accent-foreground rounded-md mx-1 px-2 py-1.5";
+      ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+      : "hover:bg-accent hover:text-accent-foreground";
   };
 
   const handleMenuItemClick = () => {
@@ -73,8 +73,8 @@ export function AppSidebar() {
         className={`flex items-center gap-3 ${getNavClass(item.url)}`}
         onClick={handleMenuItemClick}
       >
-        <item.icon className="h-4 w-4 flex-shrink-0" />
-        {!isCollapsed && <span className="text-sm">{item.title}</span>}
+        <item.icon className="h-5 w-5 flex-shrink-0" />
+        {!isCollapsed && <span>{item.title}</span>}
       </NavLink>
     );
 
@@ -101,8 +101,8 @@ export function AppSidebar() {
         className={`flex items-center gap-3 ${getNavClass("/settings")}`}
         onClick={handleMenuItemClick}
       >
-        <Settings className="h-4 w-4 flex-shrink-0" />
-        {!isCollapsed && <span className="text-sm">Settings</span>}
+        <Settings className="h-5 w-5 flex-shrink-0" />
+        {!isCollapsed && <span>Settings</span>}
       </NavLink>
     );
 
@@ -123,17 +123,17 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-12" : "w-36"} collapsible="icon">
-      <SidebarContent className="p-1">
+    <Sidebar className={isCollapsed ? "w-16" : "w-52"} collapsible="icon">
+      <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium px-1 mb-1">
+          <SidebarGroupLabel className="text-sm font-medium">
             {!isCollapsed && "Main Navigation"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-0.5">
+            <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-8 text-sm">
+                  <SidebarMenuButton asChild>
                     <MenuItemWithTooltip item={item} />
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -146,7 +146,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className="h-8 text-sm">
+                <SidebarMenuButton asChild>
                   <SettingsWithTooltip />
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -155,14 +155,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-1">
+      <SidebarFooter>
         <Button
           variant="ghost"
           size="sm"
           onClick={signOut}
-          className="w-full justify-start h-8 text-sm"
+          className="w-full justify-start"
         >
-          <LogOut className="h-3.5 w-3.5 mr-1.5" />
+          <LogOut className="h-4 w-4 mr-2" />
           {!isCollapsed && "Sign Out"}
         </Button>
       </SidebarFooter>
