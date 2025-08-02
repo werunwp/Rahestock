@@ -56,8 +56,8 @@ export function AppSidebar() {
 
   const getNavClass = (path: string) => {
     return isActive(path) 
-      ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-      : "hover:bg-accent hover:text-accent-foreground";
+      ? "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md mx-2 px-3 py-2" 
+      : "hover:bg-accent hover:text-accent-foreground rounded-md mx-2 px-3 py-2";
   };
 
   const handleMenuItemClick = () => {
@@ -123,7 +123,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-14" : "w-48"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-14" : "w-44"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sm font-medium">
