@@ -30,8 +30,9 @@ export const Layout = ({ children }: LayoutProps) => {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <header className="h-14 flex items-center justify-between border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4">
-            <SidebarTrigger className="md:hidden" />
-            <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="hidden md:flex" />
+              <SidebarTrigger className="md:hidden" />
               <h1 className="font-semibold">Rahedeen Productions</h1>
             </div>
           </header>

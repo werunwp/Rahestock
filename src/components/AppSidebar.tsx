@@ -126,14 +126,14 @@ export function AppSidebar() {
     <Sidebar className={isCollapsed ? "w-14" : "w-44"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sm font-medium">
+          <SidebarGroupLabel className="text-sm font-medium px-2">
             {!isCollapsed && "Main Navigation"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-9">
                     <MenuItemWithTooltip item={item} />
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -146,7 +146,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild className="h-9">
                   <SettingsWithTooltip />
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -155,12 +155,12 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={signOut}
-          className="w-full justify-start"
+          className="w-full justify-start h-9"
         >
           <LogOut className="h-4 w-4 mr-2" />
           {!isCollapsed && "Sign Out"}
