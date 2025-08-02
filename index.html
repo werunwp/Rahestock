@@ -3,22 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rahedeen-wholesale-sync</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>Rahedeen Productions</title>
+    <meta name="description" content="Inventory Management System" />
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fbpzvcixoocdtzqvtwfr.supabase.co" />
+    <link rel="dns-prefetch" href="https://fbpzvcixoocdtzqvtwfr.supabase.co" />
+    
+    <!-- Critical CSS -->
+    <style>
+      #root { min-height: 100vh; }
+      .app-loading { 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        min-height: 100vh; 
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .spinner {
+        width: 32px; 
+        height: 32px; 
+        border: 4px solid #e5e7eb; 
+        border-top: 4px solid #3b82f6; 
+        border-radius: 50%; 
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 
-    <meta property="og:title" content="rahedeen-wholesale-sync" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="Rahedeen Productions" />
+    <meta property="og:description" content="Inventory Management System" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-loading">
+        <div class="spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

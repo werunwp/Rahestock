@@ -23,26 +23,23 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Page loading fallback component
+// Lightweight loading fallback
 const PageLoading = () => (
-  <div className="space-y-6 p-6">
-    <div className="space-y-2">
-      <Skeleton className="h-8 w-48" />
-      <Skeleton className="h-4 w-96" />
-    </div>
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {[...Array(8)].map((_, i) => (
-        <div key={i} className="space-y-3">
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
-        </div>
-      ))}
-    </div>
+  <div className="flex items-center justify-center min-h-[200px]">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
   </div>
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
