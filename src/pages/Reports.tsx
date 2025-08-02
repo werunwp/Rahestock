@@ -364,9 +364,9 @@ const Reports = () => {
             Comprehensive business insights and performance metrics
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
-          <Button onClick={handleExport}>
+          <Button onClick={handleExport} className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -444,11 +444,11 @@ const Reports = () => {
       </div>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="sales">Sales Report</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory Report</TabsTrigger>
-          <TabsTrigger value="customers">Customer Report</TabsTrigger>
-          <TabsTrigger value="financial">Financial Report</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+          <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales Report</TabsTrigger>
+          <TabsTrigger value="inventory" className="text-xs sm:text-sm">Inventory Report</TabsTrigger>
+          <TabsTrigger value="customers" className="text-xs sm:text-sm">Customer Report</TabsTrigger>
+          <TabsTrigger value="financial" className="text-xs sm:text-sm">Financial Report</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
