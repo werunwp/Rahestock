@@ -123,7 +123,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-16" : "w-52"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-14" : "w-48"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sm font-medium">
