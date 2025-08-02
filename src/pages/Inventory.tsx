@@ -63,9 +63,9 @@ const Inventory = () => {
             Track stock movements and manage inventory levels
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
-          <Button onClick={() => setShowAdjustmentDialog(true)} className="w-fit">
+          <Button onClick={() => setShowAdjustmentDialog(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Adjust Stock
           </Button>

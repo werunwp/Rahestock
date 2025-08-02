@@ -319,16 +319,16 @@ const Customers = () => {
             Manage your customer database and relationships
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleImport}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button variant="outline" onClick={handleImport} className="w-full sm:w-auto">
             <Upload className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0}>
+          <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add Customer
           </Button>

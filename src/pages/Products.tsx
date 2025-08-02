@@ -315,11 +315,11 @@ const Products = () => {
             Total Stock Value: <span className="font-semibold text-foreground">{formatAmount(totalStockValue)}</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button 
             variant="outline" 
             onClick={handleImport}
-            className="w-fit"
+            className="w-full sm:w-auto"
           >
             <Upload className="mr-2 h-4 w-4" />
             Import
@@ -328,12 +328,12 @@ const Products = () => {
             variant="outline" 
             onClick={handleExport}
             disabled={!products.length}
-            className="w-fit"
+            className="w-full sm:w-auto"
           >
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button className="w-fit" onClick={() => setIsDialogOpen(true)}>
+          <Button className="w-full sm:w-auto" onClick={() => setIsDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
