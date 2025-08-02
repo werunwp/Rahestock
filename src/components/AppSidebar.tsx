@@ -24,14 +24,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -45,10 +39,9 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const { state, setOpenMobile } = useSidebar();
+  const { state } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
-  const isMobile = useIsMobile();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -60,70 +53,8 @@ export function AppSidebar() {
       : "hover:bg-accent hover:text-accent-foreground";
   };
 
-  const handleMenuItemClick = () => {
-    if (isMobile) {
-      setOpenMobile(false);
-    }
-  };
-
-  const MenuItemWithTooltip = ({ item }: { item: typeof menuItems[0] }) => {
-    const navLink = (
-      <NavLink 
-        to={item.url} 
-        className={`flex items-center gap-3 ${getNavClass(item.url)}`}
-        onClick={handleMenuItemClick}
-      >
-        <item.icon className="h-5 w-5 flex-shrink-0" />
-        {!isCollapsed && <span>{item.title}</span>}
-      </NavLink>
-    );
-
-    if (isCollapsed && !isMobile) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{navLink}</div>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>{item.title}</p>
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return navLink;
-  };
-
-  const SettingsWithTooltip = () => {
-    const navLink = (
-      <NavLink 
-        to="/settings" 
-        className={`flex items-center gap-3 ${getNavClass("/settings")}`}
-        onClick={handleMenuItemClick}
-      >
-        <Settings className="h-5 w-5 flex-shrink-0" />
-        {!isCollapsed && <span>Settings</span>}
-      </NavLink>
-    );
-
-    if (isCollapsed && !isMobile) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>{navLink}</div>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Settings</p>
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
-
-    return navLink;
-  };
-
   return (
-    <Sidebar className={isCollapsed ? "w-16" : "w-52"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sm font-medium">
@@ -134,7 +65,13 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <MenuItemWithTooltip item={item} />
+                    <NavLink 
+                      to={item.url} 
+                      className={`flex items-center gap-3 ${getNavClass(item.url)}`}
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span>{item.title}</span>}
+                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -147,7 +84,13 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <SettingsWithTooltip />
+                  <NavLink 
+                    to="/settings" 
+                    className={`flex items-center gap-3 ${getNavClass("/settings")}`}
+                  >
+                    <Settings className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && <span>Settings</span>}
+                  </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
