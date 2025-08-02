@@ -356,7 +356,7 @@ const Reports = () => {
     ? ((dashboardStats.totalRevenue * 0.2) / dashboardStats.totalRevenue) * 100 
     : 0;
   return (
-    <div className="space-y-6 max-w-full overflow-hidden">
+    <div className="space-y-6 w-full max-w-none overflow-x-hidden">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
@@ -443,24 +443,26 @@ const Reports = () => {
         )}
       </div>
 
-      <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 gap-1">
-          <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sales Report</TabsTrigger>
-          <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory Report</TabsTrigger>
-          <TabsTrigger value="customers" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Customer Report</TabsTrigger>
-          <TabsTrigger value="financial" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Financial Report</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="sales" className="space-y-4 w-full">
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex w-max min-w-full h-12 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground">
+            <TabsTrigger value="sales" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Inventory</TabsTrigger>
+            <TabsTrigger value="customers" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Customers</TabsTrigger>
+            <TabsTrigger value="financial" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Financial</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="sales" className="space-y-4">
+        <TabsContent value="sales" className="space-y-4 w-full">
           <SalesTrendFilter onFilterChange={handleSalesTrendFilterChange} />
-          <div className="grid gap-6 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
+            <Card className="xl:col-span-2 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Sales Trend - {salesTrendPeriod.charAt(0).toUpperCase() + salesTrendPeriod.slice(1)} View</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
                 {isAnyLoading ? (
-                  <div className="h-[350px] flex items-center justify-center">
+                  <div className="h-[300px] sm:h-[350px] flex items-center justify-center">
                     <div className="space-y-4 w-full p-6">
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-6 w-3/4" />
@@ -474,10 +476,10 @@ const Reports = () => {
                       revenue: { label: "Revenue", color: "hsl(var(--primary))" },
                       orders: { label: "Orders", color: "hsl(var(--secondary))" }
                     }}
-                    className="h-[300px] sm:h-[350px] w-full overflow-hidden"
+                    className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -490,11 +492,11 @@ const Reports = () => {
                 )}
               </CardContent>
             </Card>
-            <Card className="xl:col-span-1">
+            <Card className="xl:col-span-1 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Top Products</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 sm:p-4">
                 <div className="space-y-3">
                   {isAnyLoading ? (
                     [...Array(5)].map((_, i) => (
@@ -512,7 +514,7 @@ const Reports = () => {
                         <p className="font-medium truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">{product.unitsSold} units sold</p>
                       </div>
-                      <p className="font-bold text-right ml-2">{formatAmount(product.salesAmount)}</p>
+                      <p className="font-bold text-right ml-2 shrink-0">{formatAmount(product.salesAmount)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground text-center py-8">No sales data available</p>
@@ -523,22 +525,22 @@ const Reports = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="inventory" className="space-y-4">
-          <div className="grid gap-6 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+        <TabsContent value="inventory" className="space-y-4 w-full">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
+            <Card className="xl:col-span-2 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Stock Levels</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
                 <ChartContainer
                   config={{
                     stock: { label: "Current Stock", color: "hsl(var(--primary))" },
                     threshold: { label: "Low Stock Threshold", color: "hsl(var(--destructive))" }
                   }}
-                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
+                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stockLevels} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <BarChart data={stockLevels} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -550,20 +552,20 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="xl:col-span-1">
+            <Card className="xl:col-span-1 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Low Stock Alert</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 sm:p-4">
                 <div className="space-y-3">
                   {dashboardStats?.lowStockProducts?.length > 0 ? 
                     dashboardStats.lowStockProducts.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                      <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{item.name}</p>
                           <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
                         </div>
-                        <p className="font-bold text-destructive text-right ml-2">{item.stock_quantity} left</p>
+                        <p className="font-bold text-destructive text-right ml-2 shrink-0">{item.stock_quantity} left</p>
                       </div>
                     )) : (
                       <p className="text-muted-foreground text-center py-8">No low stock items</p>
@@ -574,21 +576,21 @@ const Reports = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="customers" className="space-y-4">
-          <div className="grid gap-6 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+        <TabsContent value="customers" className="space-y-4 w-full">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
+            <Card className="xl:col-span-2 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Customer Growth</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
                 <ChartContainer
                   config={{
                     customers: { label: "New Customers", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
+                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={customerGrowth} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <BarChart data={customerGrowth} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -599,19 +601,19 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="xl:col-span-1">
+            <Card className="xl:col-span-1 max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Top Customers</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 sm:p-4">
                 <div className="space-y-3">
                   {topCustomers.length > 0 ? topCustomers.map((customer, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{customer.name}</p>
                         <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
                       </div>
-                      <p className="font-bold text-right ml-2">{formatAmount(customer.total_spent)}</p>
+                      <p className="font-bold text-right ml-2 shrink-0">{formatAmount(customer.total_spent)}</p>
                     </div>
                   )) : (
                     <p className="text-muted-foreground text-center py-8">No customer data available</p>
@@ -622,18 +624,18 @@ const Reports = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="financial" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
+        <TabsContent value="financial" className="space-y-4 w-full">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-1 lg:grid-cols-2 w-full max-w-full">
+            <Card className="max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
               </CardHeader>
-              <CardContent className="p-2 sm:p-4">
+              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
                 <ChartContainer
                   config={{
                     value: { label: "Amount", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[280px] sm:h-[320px] w-full overflow-hidden"
+                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -643,7 +645,7 @@ const Reports = () => {
                         cy="50%"
                         labelLine={false}
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius="80%"
+                        outerRadius="75%"
                         fill="#8884d8"
                         dataKey="value"
                       >
@@ -657,27 +659,27 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="max-w-full overflow-hidden">
               <CardHeader>
                 <CardTitle>Profit Analysis</CardTitle>
               </CardHeader>
               <CardContent className="p-2 sm:p-4">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
-                    <span className="text-sm font-medium">Gross Revenue</span>
-                    <span className="font-bold text-lg">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
+                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
+                    <span className="text-xs sm:text-sm font-medium truncate">Gross Revenue</span>
+                    <span className="font-bold text-sm sm:text-lg shrink-0 ml-2">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
-                    <span className="text-sm font-medium">Cost of Goods</span>
-                    <span className="font-bold text-lg text-destructive">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
+                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
+                    <span className="text-xs sm:text-sm font-medium truncate">Cost of Goods</span>
+                    <span className="font-bold text-sm sm:text-lg text-destructive shrink-0 ml-2">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
-                    <span className="text-sm font-medium">Operating Expenses</span>
-                    <span className="font-bold text-lg text-destructive">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
+                    <span className="text-xs sm:text-sm font-medium truncate">Operating Expenses</span>
+                    <span className="font-bold text-sm sm:text-lg text-destructive shrink-0 ml-2">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
-                  <div className="border-t-2 pt-3 flex justify-between items-center p-3 rounded-lg bg-primary/10 border-primary/20">
-                    <span className="font-bold text-base">Net Profit</span>
-                    <span className="font-bold text-xl text-green-600">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                  <div className="border-t-2 pt-3 flex justify-between items-center p-2 sm:p-3 rounded-lg bg-primary/10 border-primary/20 min-w-0">
+                    <span className="font-bold text-sm sm:text-base truncate">Net Profit</span>
+                    <span className="font-bold text-lg sm:text-xl text-green-600 shrink-0 ml-2">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
                 </div>
               </CardContent>
