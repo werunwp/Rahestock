@@ -623,17 +623,17 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
-          <div className="grid gap-6 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
               <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-2 sm:p-4">
                 <ChartContainer
                   config={{
                     value: { label: "Amount", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
+                  className="h-[280px] sm:h-[320px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -643,7 +643,7 @@ const Reports = () => {
                         cy="50%"
                         labelLine={false}
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={120}
+                        outerRadius="80%"
                         fill="#8884d8"
                         dataKey="value"
                       >
@@ -657,27 +657,27 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="xl:col-span-1">
+            <Card>
               <CardHeader>
                 <CardTitle>Profit Analysis</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
-                    <span>Gross Revenue</span>
-                    <span className="font-bold">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
+              <CardContent className="p-2 sm:p-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
+                    <span className="text-sm font-medium">Gross Revenue</span>
+                    <span className="font-bold text-lg">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
                   </div>
-                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
-                    <span>Cost of Goods</span>
-                    <span className="font-bold text-destructive">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
+                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
+                    <span className="text-sm font-medium">Cost of Goods</span>
+                    <span className="font-bold text-lg text-destructive">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
                   </div>
-                  <div className="flex justify-between p-2 rounded-lg hover:bg-muted/50">
-                    <span>Operating Expenses</span>
-                    <span className="font-bold text-destructive">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                  <div className="flex justify-between items-center p-3 rounded-lg hover:bg-muted/50 border">
+                    <span className="text-sm font-medium">Operating Expenses</span>
+                    <span className="font-bold text-lg text-destructive">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
-                  <div className="border-t pt-4 flex justify-between p-2 rounded-lg bg-muted/30">
-                    <span className="font-bold">Net Profit</span>
-                    <span className="font-bold text-green-600">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
+                  <div className="border-t-2 pt-3 flex justify-between items-center p-3 rounded-lg bg-primary/10 border-primary/20">
+                    <span className="font-bold text-base">Net Profit</span>
+                    <span className="font-bold text-xl text-green-600">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
                   </div>
                 </div>
               </CardContent>
