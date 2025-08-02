@@ -39,7 +39,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
   const currentPath = location.pathname;
@@ -51,6 +51,11 @@ export function AppSidebar() {
     return isActive(path) 
       ? "bg-primary text-primary-foreground hover:bg-primary/90" 
       : "hover:bg-accent hover:text-accent-foreground";
+  };
+
+  const handleMobileNavClick = () => {
+    // Close sidebar on mobile when navigation item is clicked
+    setOpenMobile(false);
   };
 
   return (
@@ -68,6 +73,7 @@ export function AppSidebar() {
                     <NavLink 
                       to={item.url} 
                       className={`flex items-center gap-3 ${getNavClass(item.url)}`}
+                      onClick={handleMobileNavClick}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!isCollapsed && <span>{item.title}</span>}
@@ -87,6 +93,7 @@ export function AppSidebar() {
                   <NavLink 
                     to="/settings" 
                     className={`flex items-center gap-3 ${getNavClass("/settings")}`}
+                    onClick={handleMobileNavClick}
                   >
                     <Settings className="h-5 w-5 flex-shrink-0" />
                     {!isCollapsed && <span>Settings</span>}
