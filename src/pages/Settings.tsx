@@ -79,13 +79,13 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="business" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
-          <TabsTrigger value="business" className="text-xs sm:text-sm">Business</TabsTrigger>
-          <TabsTrigger value="profile" className="text-xs sm:text-sm">Profile</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs sm:text-sm">Notifications</TabsTrigger>
-          <TabsTrigger value="security" className="text-xs sm:text-sm">Security</TabsTrigger>
-          <TabsTrigger value="appearance" className="text-xs sm:text-sm">Appearance</TabsTrigger>
-          <TabsTrigger value="system" className="text-xs sm:text-sm">System</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto p-1 gap-1">
+          <TabsTrigger value="business" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Business</TabsTrigger>
+          <TabsTrigger value="profile" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Profile</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Notifications</TabsTrigger>
+          <TabsTrigger value="security" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Security</TabsTrigger>
+          <TabsTrigger value="appearance" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Appearance</TabsTrigger>
+          <TabsTrigger value="system" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">System</TabsTrigger>
         </TabsList>
 
         <TabsContent value="business" className="space-y-4">

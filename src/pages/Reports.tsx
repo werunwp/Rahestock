@@ -356,7 +356,7 @@ const Reports = () => {
     ? ((dashboardStats.totalRevenue * 0.2) / dashboardStats.totalRevenue) * 100 
     : 0;
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
@@ -444,11 +444,11 @@ const Reports = () => {
       </div>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-          <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales Report</TabsTrigger>
-          <TabsTrigger value="inventory" className="text-xs sm:text-sm">Inventory Report</TabsTrigger>
-          <TabsTrigger value="customers" className="text-xs sm:text-sm">Customer Report</TabsTrigger>
-          <TabsTrigger value="financial" className="text-xs sm:text-sm">Financial Report</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 gap-1">
+          <TabsTrigger value="sales" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sales Report</TabsTrigger>
+          <TabsTrigger value="inventory" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory Report</TabsTrigger>
+          <TabsTrigger value="customers" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Customer Report</TabsTrigger>
+          <TabsTrigger value="financial" className="text-xs sm:text-sm px-2 py-2 h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Financial Report</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
