@@ -453,8 +453,8 @@ const Reports = () => {
 
         <TabsContent value="sales" className="space-y-4">
           <SalesTrendFilter onFilterChange={handleSalesTrendFilterChange} />
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Sales Trend - {salesTrendPeriod.charAt(0).toUpperCase() + salesTrendPeriod.slice(1)} View</CardTitle>
               </CardHeader>
@@ -474,10 +474,10 @@ const Reports = () => {
                       revenue: { label: "Revenue", color: "hsl(var(--primary))" },
                       orders: { label: "Orders", color: "hsl(var(--secondary))" }
                     }}
-                    className="h-[350px] w-full"
+                    className="h-[300px] sm:h-[350px] w-full overflow-hidden"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -490,7 +490,7 @@ const Reports = () => {
                 )}
               </CardContent>
             </Card>
-            <Card className="lg:col-span-1">
+            <Card className="xl:col-span-1">
               <CardHeader>
                 <CardTitle>Top Products</CardTitle>
               </CardHeader>
@@ -507,7 +507,7 @@ const Reports = () => {
                       </div>
                     ))
                   ) : salesAnalytics.topProducts.length > 0 ? salesAnalytics.topProducts.map((product, index) => (
-                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{product.name}</p>
                         <p className="text-sm text-muted-foreground">{product.unitsSold} units sold</p>
@@ -524,8 +524,8 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Stock Levels</CardTitle>
               </CardHeader>
@@ -535,10 +535,10 @@ const Reports = () => {
                     stock: { label: "Current Stock", color: "hsl(var(--primary))" },
                     threshold: { label: "Low Stock Threshold", color: "hsl(var(--destructive))" }
                   }}
-                  className="h-[350px] w-full"
+                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stockLevels} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <BarChart data={stockLevels} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -550,7 +550,7 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="lg:col-span-1">
+            <Card className="xl:col-span-1">
               <CardHeader>
                 <CardTitle>Low Stock Alert</CardTitle>
               </CardHeader>
@@ -575,8 +575,8 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="customers" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Customer Growth</CardTitle>
               </CardHeader>
@@ -585,10 +585,10 @@ const Reports = () => {
                   config={{
                     customers: { label: "New Customers", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[350px] w-full"
+                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={customerGrowth} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <BarChart data={customerGrowth} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -599,7 +599,7 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="lg:col-span-1">
+            <Card className="xl:col-span-1">
               <CardHeader>
                 <CardTitle>Top Customers</CardTitle>
               </CardHeader>
@@ -623,8 +623,8 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <Card className="xl:col-span-2">
               <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
               </CardHeader>
@@ -633,7 +633,7 @@ const Reports = () => {
                   config={{
                     value: { label: "Amount", color: "hsl(var(--primary))" }
                   }}
-                  className="h-[350px] w-full"
+                  className="h-[300px] sm:h-[350px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -657,7 +657,7 @@ const Reports = () => {
                 </ChartContainer>
               </CardContent>
             </Card>
-            <Card className="lg:col-span-1">
+            <Card className="xl:col-span-1">
               <CardHeader>
                 <CardTitle>Profit Analysis</CardTitle>
               </CardHeader>
