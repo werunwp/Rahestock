@@ -423,9 +423,9 @@ const Products = () => {
                       <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
                       {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
                       {(product.size || product.color) && (
-                        <div className="flex gap-2 mt-1">
-                          {product.size && <span className="text-xs bg-muted px-2 py-1 rounded-full">{product.size}</span>}
-                          {product.color && <span className="text-xs bg-muted px-2 py-1 rounded-full">{product.color}</span>}
+                        <div className="flex flex-col gap-1 mt-1">
+                          {product.size && <span className="text-xs bg-muted px-2 py-1 rounded-full w-fit">{product.size}</span>}
+                          {product.color && <span className="text-xs bg-muted px-2 py-1 rounded-full w-fit">{product.color}</span>}
                         </div>
                       )}
                     </div>
