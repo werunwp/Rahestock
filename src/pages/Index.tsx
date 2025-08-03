@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,29 +23,30 @@ const Index = () => {
     setEndDate(end);
   };
 
-  // Show skeleton for main stats only
-  const StatCard = memo(({ title, value, subtitle, icon: Icon, isLoading }: {
-    title: string;
-    value: string | number;
-    subtitle: string;
-    icon: any;
-    isLoading: boolean;
-  }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <div className="text-2xl font-bold">{value}</div>
-        )}
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
-      </CardContent>
-    </Card>
-  ));
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            <Skeleton className="h-4 w-64" />
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -64,34 +65,57 @@ const Index = () => {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Revenue"
-          value={formatAmount(dashboardStats?.totalRevenue || 0)}
-          subtitle={startDate && endDate ? "For selected period" : "All time"}
-          icon={DollarSign}
-          isLoading={isLoading}
-        />
-        <StatCard
-          title="Units Sold"
-          value={dashboardStats?.unitsSold.toLocaleString() || 0}
-          subtitle={startDate && endDate ? "For selected period" : "All time"}
-          icon={TrendingUp}
-          isLoading={isLoading}
-        />
-        <StatCard
-          title="Total Products"
-          value={dashboardStats?.totalProducts || 0}
-          subtitle="In inventory"
-          icon={Package}
-          isLoading={isLoading}
-        />
-        <StatCard
-          title="Total Customers"
-          value={dashboardStats?.activeCustomers || 0}
-          subtitle={startDate && endDate ? "For selected period" : "Total customers"}
-          icon={Users}
-          isLoading={isLoading}
-        />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatAmount(dashboardStats?.totalRevenue || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              {startDate && endDate ? "For selected period" : "All time"}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Units Sold</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardStats?.unitsSold.toLocaleString() || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {startDate && endDate ? "For selected period" : "All time"}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardStats?.totalProducts || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              In inventory
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardStats?.activeCustomers || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {startDate && endDate ? "For selected period" : "Total customers"}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Alerts and Actions */}
