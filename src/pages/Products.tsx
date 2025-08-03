@@ -312,7 +312,9 @@ const Products = () => {
             Manage your product inventory and stock levels
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Total Stock Value: <span className="font-semibold text-foreground">{formatAmount(totalStockValue)}</span>
+            Total Stock Value: <span className="font-semibold text-foreground">
+              {isLoading ? <span className="inline-block w-16 h-4 bg-muted rounded animate-pulse" /> : formatAmount(totalStockValue)}
+            </span>
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -356,26 +358,22 @@ const Products = () => {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[...Array(8)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-3">
-                <div className="h-8 w-8 bg-muted rounded" />
-              </CardHeader>
-              <CardContent>
+      <div className="grid gap-2 grid-cols-2 lg:grid-cols-5">
+        {isLoading ? (
+          [...Array(10)].map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="aspect-square w-full bg-muted animate-pulse" />
+              <CardContent className="p-4">
                 <div className="space-y-2">
-                  <div className="h-4 bg-muted rounded w-3/4" />
-                  <div className="h-3 bg-muted rounded w-1/2" />
-                  <div className="h-4 bg-muted rounded" />
+                  <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                  <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+                  <div className="h-4 bg-muted rounded animate-pulse" />
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : (
-          <div className="grid gap-2 grid-cols-2 lg:grid-cols-5">
-          {filteredProducts.map((product) => {
+          ))
+        ) : (
+          filteredProducts.map((product) => {
             const getStatus = () => {
               if (product.stock_quantity === 0) return "Out of Stock";
               if (product.stock_quantity <= product.low_stock_threshold) return "Low Stock";
@@ -461,9 +459,9 @@ const Products = () => {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
 
       <input
         type="file"

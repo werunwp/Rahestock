@@ -23,30 +23,6 @@ const Index = () => {
     setEndDate(end);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            <Skeleton className="h-4 w-64" />
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-4 w-32" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-24" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -55,7 +31,7 @@ const Index = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            {getTimeBasedGreeting()}, {profile?.full_name || "User"}
+            {getTimeBasedGreeting()}, {isLoading ? <Skeleton className="inline-block h-4 w-16" /> : (profile?.full_name || "User")}
           </p>
         </div>
         <div className="w-full md:w-auto">
@@ -71,7 +47,9 @@ const Index = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(dashboardStats?.totalRevenue || 0)}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? <Skeleton className="h-8 w-24" /> : formatAmount(dashboardStats?.totalRevenue || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
               {startDate && endDate ? "For selected period" : "All time"}
             </p>
@@ -84,7 +62,9 @@ const Index = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats?.unitsSold.toLocaleString() || 0}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? <Skeleton className="h-8 w-24" /> : (dashboardStats?.unitsSold.toLocaleString() || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
               {startDate && endDate ? "For selected period" : "All time"}
             </p>
@@ -97,7 +77,9 @@ const Index = () => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats?.totalProducts || 0}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? <Skeleton className="h-8 w-24" /> : (dashboardStats?.totalProducts || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
               In inventory
             </p>
@@ -110,7 +92,9 @@ const Index = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats?.activeCustomers || 0}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? <Skeleton className="h-8 w-24" /> : (dashboardStats?.activeCustomers || 0)}
+            </div>
             <p className="text-xs text-muted-foreground">
               {startDate && endDate ? "For selected period" : "Total customers"}
             </p>
@@ -131,7 +115,19 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dashboardStats?.lowStockProducts.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : dashboardStats?.lowStockProducts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No low stock alerts</p>
             ) : (
               dashboardStats?.lowStockProducts.map((product) => (
@@ -162,7 +158,19 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dashboardStats?.pendingPayments.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : dashboardStats?.pendingPayments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No pending payments</p>
             ) : (
               dashboardStats?.pendingPayments.map((payment) => (
