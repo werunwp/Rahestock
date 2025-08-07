@@ -113,4 +113,27 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Compact view styles */
+  .compact-view .space-y-4 > * + * {
+    margin-top: 0.5rem !important;
+  }
+  
+  .compact-view .space-y-6 > * + * {
+    margin-top: 0.75rem !important;
+  }
+  
+  .compact-view .p-6 {
+    padding: 1rem !important;
+  }
+  
+  .compact-view .py-4 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  
+  .compact-view table td {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
 }
