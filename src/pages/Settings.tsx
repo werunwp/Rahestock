@@ -16,6 +16,7 @@ import { ProfileTab } from "@/components/ProfileTab";
 import { NotificationsTab } from "@/components/NotificationsTab";
 import { SecurityTab } from "@/components/SecurityTab";
 import { AppearanceTab } from "@/components/AppearanceTab";
+import { DataBackupControls } from "@/components/DataBackupControls";
 
 const Settings = () => {
   const { businessSettings, updateBusinessSettings, isUpdating } = useBusinessSettings();
@@ -296,6 +297,8 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
+          
+          <DataBackupControls />
         </TabsContent>
       </Tabs>
     </div>
