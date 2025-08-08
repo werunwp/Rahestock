@@ -26,7 +26,7 @@ const AVAILABLE_TABLES = [
 
 export const DataBackupControls = () => {
   const { isAdmin } = useUserRole();
-  const { exportData, importData, isExporting, isImporting } = useDataBackup();
+  const { exportData, importData, parseBackupFile, isExporting, isImporting } = useDataBackup();
   const [selectedTables, setSelectedTables] = useState<string[]>(
     AVAILABLE_TABLES.map(t => t.id)
   );
@@ -54,22 +54,29 @@ export const DataBackupControls = () => {
     if (!file) return;
 
     try {
-      const text = await file.text();
-      const parsedData = JSON.parse(text);
+      const parsedFiles = await parseBackupFile(file);
       
-      if (!parsedData.files || !parsedData.files['manifest.json']) {
+      if (!parsedFiles['manifest.json']) {
         toast.error('Invalid backup file: missing manifest.json');
         return;
       }
 
-      const manifest = parsedData.files['manifest.json'];
+      const manifest = parsedFiles['manifest.json'];
       if (!manifest.version || !manifest.tables) {
         toast.error('Invalid backup file: corrupted manifest');
         return;
       }
 
+      // Show preview of what will be imported
+      const tableCount = manifest.tables.length;
+      const recordCount = Object.values(manifest.recordCounts || {}).reduce((a: number, b: any) => a + (b || 0), 0);
+      
+      toast.info(`Backup contains ${tableCount} tables with ${recordCount} total records`, {
+        duration: 3000
+      });
+
       importData.mutate({
-        files: parsedData.files,
+        files: parsedFiles,
         dryRun: importDryRun,
         options: {
           skipConflicts: false, // Allow updates for changed data
@@ -77,7 +84,7 @@ export const DataBackupControls = () => {
         }
       });
     } catch (error) {
-      toast.error(`File parse error: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
+      toast.error(`${error instanceof Error ? error.message : 'Failed to parse backup file'}`);
       console.error('File parse error:', error);
     }
     

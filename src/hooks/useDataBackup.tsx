@@ -29,26 +29,60 @@ export const useDataBackup = () => {
       return data;
     },
     onSuccess: (data) => {
-      // Create and download ZIP file
-      const zipContent = JSON.stringify(data.files, null, 2);
-      const blob = new Blob([zipContent], { type: 'application/json' });
+      // Create backup file with proper structure
+      const backupData = {
+        backup: data.files,
+        manifest: data.manifest,
+        exportedAt: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
+        type: 'application/json' 
+      });
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = data.filename;
+      link.download = data.filename.replace('.zip', '.json');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success(`Export completed: ${data.filename}`);
+      toast.success(`Export completed: ${data.filename.replace('.zip', '.json')}`);
     },
     onError: (error) => {
       toast.error(`Export failed: ${error.message}`);
       console.error('Export error:', error);
     },
   });
+
+  const parseBackupFile = (file: File): Promise<Record<string, any>> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = JSON.parse(e.target?.result as string);
+          
+          // Handle new backup format
+          if (content.backup && content.manifest) {
+            resolve(content.backup);
+          }
+          // Handle old format (direct files object)
+          else if (content['manifest.json']) {
+            resolve(content);
+          }
+          else {
+            reject(new Error('Invalid backup format: missing manifest'));
+          }
+        } catch (error) {
+          reject(new Error('Invalid JSON file'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
+  };
 
   const importData = useMutation({
     mutationFn: async (options: ImportOptions) => {
@@ -123,6 +157,7 @@ export const useDataBackup = () => {
   return {
     exportData,
     importData,
+    parseBackupFile,
     isExporting: exportData.isPending,
     isImporting: importData.isPending,
   };
