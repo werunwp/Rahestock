@@ -47,20 +47,39 @@ export const useProfile = () => {
 
       const { email, ...profileUpdates } = updates;
       
-      // Update email in auth if provided
+      // Only update email if it's different from current email
       if (email && email !== user.email) {
         const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
 
-      // Update profile data
+      // Handle profile updates - check if profile exists first
       if (Object.keys(profileUpdates).length > 0) {
-        const { error: profileError } = await supabase
+        const { data: existingProfile } = await supabase
           .from("profiles")
-          .update(profileUpdates)
-          .eq("user_id", user.id);
-        
-        if (profileError) throw profileError;
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (existingProfile) {
+          // Update existing profile
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .update(profileUpdates)
+            .eq("user_id", user.id);
+          
+          if (profileError) throw profileError;
+        } else {
+          // Create new profile
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert({
+              user_id: user.id,
+              ...profileUpdates
+            });
+          
+          if (profileError) throw profileError;
+        }
       }
     },
     onSuccess: () => {
