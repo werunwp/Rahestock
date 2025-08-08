@@ -52,42 +52,55 @@ export const useUserPreferences = () => {
     mutationFn: async (updatedData: Partial<UserPreferences>) => {
       if (!user?.id) throw new Error("User not authenticated");
 
+      console.log("Updating preferences:", updatedData, "for user:", user.id);
+      console.log("Current preferences:", preferences);
+
       // If a row exists for this user, update it, otherwise create one
-      if (preferences) {
+      if (preferences?.id) {
+        console.log("Updating existing preferences with ID:", preferences.id);
         const { data, error } = await supabase
           .from("user_preferences")
           .update(updatedData)
-          .eq("user_id", user.id)
+          .eq("id", preferences.id)
           .select()
           .single();
-        if (error) throw error;
+        
+        if (error) {
+          console.error("Update error:", error);
+          throw error;
+        }
+        console.log("Update successful:", data);
         return data;
       } else {
+        console.log("Creating new preferences");
         const newPreferences = {
           ...DEFAULT_PREFERENCES,
           ...updatedData,
           user_id: user.id,
         };
+        console.log("New preferences payload:", newPreferences);
         const { data, error } = await supabase
           .from("user_preferences")
           .insert(newPreferences)
           .select()
           .single();
-        if (error) throw error;
+        
+        if (error) {
+          console.error("Insert error:", error);
+          throw error;
+        }
+        console.log("Insert successful:", data);
         return data;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Mutation success:", data);
       queryClient.invalidateQueries({ queryKey: ["userPreferences", user?.id] });
       toast.success("Preferences updated successfully");
     },
     onError: (error) => {
+      console.error("Mutation error:", error);
       toast.error("Failed to update preferences");
-      try {
-        console.error("Error updating preferences:", JSON.stringify(error));
-      } catch {
-        console.error("Error updating preferences:", error);
-      }
     },
   });
 
