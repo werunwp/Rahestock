@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { toast } from "sonner";
 
 export const useProfile = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const {
-    data: profile,
+    data: profileData,
     isLoading,
     error,
   } = useQuery({
@@ -14,21 +16,69 @@ export const useProfile = () => {
     queryFn: async () => {
       if (!user?.id) return null;
       
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+      // Fetch profile and user role in parallel
+      const [profileResponse, roleResponse] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      ]);
 
-      if (error) throw error;
-      return data;
+      if (profileResponse.error) throw profileResponse.error;
+      if (roleResponse.error) throw roleResponse.error;
+
+      return {
+        profile: profileResponse.data,
+        role: roleResponse.data?.role || 'staff'
+      };
     },
     enabled: !!user?.id,
   });
 
+  const updateProfileMutation = useMutation({
+    mutationFn: async (updates: { full_name?: string; phone?: string; email?: string }) => {
+      if (!user?.id) throw new Error("No user found");
+
+      const { email, ...profileUpdates } = updates;
+      
+      // Update email in auth if provided
+      if (email && email !== user.email) {
+        const { error: emailError } = await supabase.auth.updateUser({ email });
+        if (emailError) throw emailError;
+      }
+
+      // Update profile data
+      if (Object.keys(profileUpdates).length > 0) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update(profileUpdates)
+          .eq("user_id", user.id);
+        
+        if (profileError) throw profileError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+      toast.success("Profile updated successfully");
+    },
+    onError: (error) => {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    },
+  });
+
   return {
-    profile,
+    profile: profileData?.profile,
+    role: profileData?.role,
     isLoading,
     error,
+    updateProfile: updateProfileMutation.mutate,
+    isUpdating: updateProfileMutation.isPending,
   };
 };
