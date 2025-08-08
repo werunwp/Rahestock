@@ -48,7 +48,7 @@ export const useProfile = () => {
       const { email, ...profileUpdates } = updates;
       
       // Only update email if it's different from current email
-      if (email && email !== user.email) {
+      if (email && email !== user.email && email.trim() !== '') {
         const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
