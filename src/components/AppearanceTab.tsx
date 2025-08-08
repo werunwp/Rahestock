@@ -8,17 +8,24 @@ import { useTheme } from "next-themes";
 import { useEffect } from "react";
 
 export const AppearanceTab = () => {
-  const { preferences, updatePreferences, isUpdating } = useUserPreferences();
+  const { preferences, updatePreferences, isUpdating, isLoading } = useUserPreferences();
   const { theme, setTheme } = useTheme();
 
-  // Sync theme with preferences
+  // Sync theme with saved preferences after load to avoid flicker
   useEffect(() => {
-    if (preferences.dark_mode) {
-      setTheme("dark");
+    if (isLoading) return;
+    setTheme(preferences.dark_mode ? "dark" : "light");
+  }, [isLoading, preferences.dark_mode, setTheme]);
+
+  // Apply compact view class from saved preferences after load and on change
+  useEffect(() => {
+    if (isLoading) return;
+    if (preferences.compact_view) {
+      document.body.classList.add("compact-view");
     } else {
-      setTheme("light");
+      document.body.classList.remove("compact-view");
     }
-  }, [preferences.dark_mode, setTheme]);
+  }, [isLoading, preferences.compact_view]);
 
   const handleDarkModeToggle = (value: boolean) => {
     updatePreferences({ dark_mode: value });

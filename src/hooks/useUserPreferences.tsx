@@ -52,37 +52,25 @@ export const useUserPreferences = () => {
     mutationFn: async (updatedData: Partial<UserPreferences>) => {
       if (!user?.id) throw new Error("User not authenticated");
 
-      if (preferences?.id) {
-        // Update existing preferences
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .update(updatedData)
-          .eq("id", preferences.id)
-          .select()
-          .single();
+      const payload = {
+        ...DEFAULT_PREFERENCES,
+        // Include existing preferences so we don't drop other fields
+        ...(preferences ?? {}),
+        ...updatedData,
+        user_id: user.id,
+      } as Partial<UserPreferences> & { user_id: string };
 
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new preferences
-        const newPreferences = { 
-          ...DEFAULT_PREFERENCES, 
-          ...updatedData,
-          user_id: user.id
-        };
-        
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .insert(newPreferences)
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .upsert(payload, { onConflict: "user_id" })
+        .select()
+        .single();
 
-        if (error) throw error;
-        return data;
-      }
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userPreferences"] });
+      queryClient.invalidateQueries({ queryKey: ["userPreferences", user?.id] });
       toast.success("Preferences updated successfully");
     },
     onError: (error) => {
