@@ -70,12 +70,13 @@ export const useProfile = () => {
           
           if (profileError) throw profileError;
         } else {
-          // Create new profile
+          // Create new profile - ensure full_name is provided
           const { error: profileError } = await supabase
             .from("profiles")
             .insert({
               user_id: user.id,
-              ...profileUpdates
+              full_name: profileUpdates.full_name || user.email?.split('@')[0] || 'User',
+              phone: profileUpdates.phone || null
             });
           
           if (profileError) throw profileError;
