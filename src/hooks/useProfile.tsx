@@ -47,40 +47,25 @@ export const useProfile = () => {
 
       const { email, ...profileUpdates } = updates;
       
-      // Only update email if it's different from current email
-      if (email && email !== user.email && email.trim() !== '') {
+      // Only update email if it's different from current email and user explicitly changed it
+      if (email && email !== user.email && email.trim() !== '' && email !== user.user_metadata?.email) {
         const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
 
-      // Handle profile updates - check if profile exists first
+      // Handle profile updates using upsert to avoid duplicate key issues
       if (Object.keys(profileUpdates).length > 0) {
-        const { data: existingProfile } = await supabase
+        const { error: profileError } = await supabase
           .from("profiles")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (existingProfile) {
-          // Update existing profile
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .update(profileUpdates)
-            .eq("user_id", user.id);
-          
-          if (profileError) throw profileError;
-        } else {
-          // Create new profile - ensure full_name is provided
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .insert({
-              user_id: user.id,
-              full_name: profileUpdates.full_name || user.email?.split('@')[0] || 'User',
-              phone: profileUpdates.phone || null
-            });
-          
-          if (profileError) throw profileError;
-        }
+          .upsert({
+            user_id: user.id,
+            full_name: profileUpdates.full_name || user.email?.split('@')[0] || 'User',
+            phone: profileUpdates.phone || null
+          }, {
+            onConflict: 'user_id'
+          });
+        
+        if (profileError) throw profileError;
       }
     },
     onSuccess: () => {
