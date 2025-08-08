@@ -28,18 +28,41 @@ export const AppearanceTab = () => {
   }, [isLoading, preferences.compact_view]);
 
   const handleDarkModeToggle = (value: boolean) => {
-    updatePreferences({ dark_mode: value });
-    setTheme(value ? "dark" : "light");
+    updatePreferences(
+      { dark_mode: value },
+      {
+        onSuccess: () => {
+          setTheme(value ? "dark" : "light");
+        },
+        onError: () => {
+          // Revert visual theme to last saved value
+          setTheme(preferences.dark_mode ? "dark" : "light");
+        },
+      }
+    );
   };
 
   const handleCompactViewToggle = (value: boolean) => {
-    updatePreferences({ compact_view: value });
-    // Apply compact view styles to body
+    // Optimistically apply compact view class
     if (value) {
       document.body.classList.add("compact-view");
     } else {
       document.body.classList.remove("compact-view");
     }
+
+    updatePreferences(
+      { compact_view: value },
+      {
+        onError: () => {
+          // Revert compact view class on failure
+          if (preferences.compact_view) {
+            document.body.classList.add("compact-view");
+          } else {
+            document.body.classList.remove("compact-view");
+          }
+        },
+      }
+    );
   };
 
   return (

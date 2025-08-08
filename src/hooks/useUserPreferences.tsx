@@ -52,22 +52,30 @@ export const useUserPreferences = () => {
     mutationFn: async (updatedData: Partial<UserPreferences>) => {
       if (!user?.id) throw new Error("User not authenticated");
 
-      const payload = {
-        ...DEFAULT_PREFERENCES,
-        // Include existing preferences so we don't drop other fields
-        ...(preferences ?? {}),
-        ...updatedData,
-        user_id: user.id,
-      } as Partial<UserPreferences> & { user_id: string };
-
-      const { data, error } = await supabase
-        .from("user_preferences")
-        .upsert(payload, { onConflict: "user_id" })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      // If a row exists for this user, update it, otherwise create one
+      if (preferences) {
+        const { data, error } = await supabase
+          .from("user_preferences")
+          .update(updatedData)
+          .eq("user_id", user.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      } else {
+        const newPreferences = {
+          ...DEFAULT_PREFERENCES,
+          ...updatedData,
+          user_id: user.id,
+        };
+        const { data, error } = await supabase
+          .from("user_preferences")
+          .insert(newPreferences)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userPreferences", user?.id] });
@@ -75,7 +83,11 @@ export const useUserPreferences = () => {
     },
     onError: (error) => {
       toast.error("Failed to update preferences");
-      console.error("Error updating preferences:", error);
+      try {
+        console.error("Error updating preferences:", JSON.stringify(error));
+      } catch {
+        console.error("Error updating preferences:", error);
+      }
     },
   });
 

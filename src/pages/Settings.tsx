@@ -41,7 +41,7 @@ const Settings = () => {
 
   useEffect(() => {
     if (businessSettings) {
-      setBusinessForm({
+      const nextForm = {
         business_name: businessSettings.business_name || '',
         phone: businessSettings.phone || '',
         whatsapp: businessSettings.whatsapp || '',
@@ -50,17 +50,23 @@ const Settings = () => {
         address: businessSettings.address || '',
         invoice_prefix: businessSettings.invoice_prefix || 'INV',
         invoice_footer_message: businessSettings.invoice_footer_message || 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য'
+      };
+      setBusinessForm(prev => {
+        return JSON.stringify(prev) === JSON.stringify(nextForm) ? prev : nextForm;
       });
     }
   }, [businessSettings]);
 
   useEffect(() => {
     if (systemSettings) {
-      setSystemForm({
+      const nextForm = {
         currency_code: systemSettings.currency_code || 'BDT',
         timezone: systemSettings.timezone || 'Asia/Dhaka',
         date_format: systemSettings.date_format || 'dd/MM/yyyy',
         time_format: systemSettings.time_format || '12h'
+      };
+      setSystemForm(prev => {
+        return JSON.stringify(prev) === JSON.stringify(nextForm) ? prev : nextForm;
       });
     }
   }, [systemSettings]);
