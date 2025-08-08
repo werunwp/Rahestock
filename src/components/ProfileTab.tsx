@@ -26,10 +26,10 @@ export const ProfileTab = () => {
   });
 
   useEffect(() => {
-    if (profile && user) {
+    if (user) {
       setProfileForm({
-        full_name: profile.full_name || '',
-        phone: profile.phone || '',
+        full_name: profile?.full_name || user.user_metadata?.full_name || '',
+        phone: profile?.phone || '',
         email: user.email || '',
       });
     }
