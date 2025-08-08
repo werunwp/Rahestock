@@ -5,37 +5,20 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { useTheme } from "next-themes";
-import { useEffect } from "react";
 
 export const AppearanceTab = () => {
-  const { preferences, updatePreferences, isUpdating, isLoading } = useUserPreferences();
-  const { theme, setTheme } = useTheme();
-
-  // Sync theme with saved preferences after load to avoid flicker
-  useEffect(() => {
-    if (isLoading) return;
-    setTheme(preferences.dark_mode ? "dark" : "light");
-  }, [isLoading, preferences.dark_mode, setTheme]);
-
-  // Apply compact view class from saved preferences after load and on change
-  useEffect(() => {
-    if (isLoading) return;
-    if (preferences.compact_view) {
-      document.body.classList.add("compact-view");
-    } else {
-      document.body.classList.remove("compact-view");
-    }
-  }, [isLoading, preferences.compact_view]);
+  const { preferences, updatePreferences, isUpdating } = useUserPreferences();
+  const { setTheme } = useTheme();
 
   const handleDarkModeToggle = (value: boolean) => {
+    // Immediately apply theme for responsive UI
+    setTheme(value ? "dark" : "light");
+    
     updatePreferences(
       { dark_mode: value },
       {
-        onSuccess: () => {
-          setTheme(value ? "dark" : "light");
-        },
         onError: () => {
-          // Revert visual theme to last saved value
+          // Revert theme on error
           setTheme(preferences.dark_mode ? "dark" : "light");
         },
       }

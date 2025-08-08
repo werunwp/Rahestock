@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
 import { ThemeProvider } from "next-themes";
+import { ThemeInitializer } from "@/components/ThemeInitializer";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Direct imports for faster loading
@@ -25,8 +26,9 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <AuthProvider>
+        <ThemeInitializer />
         <SystemSettingsProvider>
           <TooltipProvider>
             <Toaster />
