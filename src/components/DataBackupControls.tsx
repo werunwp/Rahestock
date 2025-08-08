@@ -8,6 +8,7 @@ import { Download, Upload, Database, AlertTriangle } from "lucide-react";
 import { useDataBackup } from "@/hooks/useDataBackup";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const AVAILABLE_TABLES = [
   { id: 'system_settings', name: 'System Settings', critical: true },
@@ -57,17 +58,26 @@ export const DataBackupControls = () => {
       const parsedData = JSON.parse(text);
       
       if (!parsedData.files || !parsedData.files['manifest.json']) {
-        throw new Error('Invalid backup file format');
+        toast.error('Invalid backup file: missing manifest.json');
+        return;
+      }
+
+      const manifest = parsedData.files['manifest.json'];
+      if (!manifest.version || !manifest.tables) {
+        toast.error('Invalid backup file: corrupted manifest');
+        return;
       }
 
       importData.mutate({
         files: parsedData.files,
         dryRun: importDryRun,
         options: {
-          skipConflicts: true
+          skipConflicts: false, // Allow updates for changed data
+          overwriteExisting: false // Keep existing data that's the same
         }
       });
     } catch (error) {
+      toast.error(`File parse error: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
       console.error('File parse error:', error);
     }
     

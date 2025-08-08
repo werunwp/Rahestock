@@ -127,12 +127,12 @@ Deno.serve(async (req) => {
             continue
           }
 
-          // Use upsert for idempotent imports
+          // Use upsert for intelligent import - only update changed data
           const { data, error } = await supabase
             .from(table)
             .upsert(tableData, { 
               onConflict: 'id',
-              ignoreDuplicates: options.skipConflicts || false
+              ignoreDuplicates: false // Always allow updates
             })
             .select('id')
 

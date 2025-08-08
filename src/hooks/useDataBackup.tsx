@@ -52,24 +52,70 @@ export const useDataBackup = () => {
 
   const importData = useMutation({
     mutationFn: async (options: ImportOptions) => {
+      toast.loading(
+        options.dryRun ? 'Validating backup data...' : 'Importing data...', 
+        { id: 'import-progress' }
+      );
+
       const { data, error } = await supabase.functions.invoke('import-data', {
         body: options,
       });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) {
+        toast.dismiss('import-progress');
+        throw new Error(error.message || 'Import failed');
+      }
+      
+      if (!data.success) {
+        toast.dismiss('import-progress');
+        throw new Error(data.error || 'Import operation was not successful');
+      }
 
       return data;
     },
     onSuccess: (data) => {
+      toast.dismiss('import-progress');
+      
       if (data.dryRun) {
-        toast.success('Validation completed successfully');
+        const details = Object.entries(data.results || {})
+          .map(([table, result]: [string, any]) => 
+            `${table}: ${result.recordCount || 0} records`
+          ).join(', ');
+        
+        toast.success(`Validation completed - ${details}`, {
+          duration: 5000
+        });
       } else {
-        toast.success(`Import completed: ${data.totalRecords} records across ${data.totalTables} tables`);
+        const successful = Object.entries(data.results || {})
+          .filter(([_, result]: [string, any]) => result.status === 'success')
+          .map(([table, result]: [string, any]) => 
+            `${table}: ${result.recordCount || 0} records`
+          );
+          
+        const failed = Object.entries(data.results || {})
+          .filter(([_, result]: [string, any]) => result.status !== 'success')
+          .map(([table, result]: [string, any]) => 
+            `${table}: ${result.reason || 'failed'}`
+          );
+
+        let message = `Import completed: ${data.totalRecords} records across ${data.totalTables} tables`;
+        if (successful.length > 0) {
+          message += `\n✅ Imported: ${successful.join(', ')}`;
+        }
+        if (failed.length > 0) {
+          message += `\n❌ Skipped: ${failed.join(', ')}`;
+        }
+        
+        toast.success(message, { duration: 8000 });
+      }
+      
+      if (data.errors && data.errors.length > 0) {
+        toast.warning(`Warnings: ${data.errors.join(', ')}`, { duration: 6000 });
       }
     },
     onError: (error) => {
-      toast.error(`Import failed: ${error.message}`);
+      toast.dismiss('import-progress');
+      toast.error(`Import failed: ${error.message}`, { duration: 6000 });
       console.error('Import error:', error);
     },
   });
