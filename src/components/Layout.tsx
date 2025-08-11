@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { AppSidebar } from "@/components/AppSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 interface LayoutProps {
   children: ReactNode;
@@ -30,7 +30,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4">
-            
+            <SidebarTrigger className="md:hidden mr-2" />
             <div className="flex-1">
               <h1 className="font-semibold">Rahedeen Productions</h1>
             </div>
