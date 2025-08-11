@@ -19,6 +19,7 @@ import Reports from "./pages/Reports";
 import Invoices from "./pages/Invoices";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -96,6 +97,13 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Admin />
                   </Layout>
                 </ProtectedRoute>
               } />

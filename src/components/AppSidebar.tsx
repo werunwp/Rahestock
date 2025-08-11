@@ -11,6 +11,7 @@ import {
   LogOut,
   Home,
   Archive,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { PanelLeft } from "lucide-react";
 
 const menuItems = [
@@ -43,6 +45,7 @@ export function AppSidebar() {
   const { state, setOpenMobile, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
+  const { isAdmin } = useUserRole();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -101,6 +104,22 @@ export function AppSidebar() {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              
+              {/* Admin Panel - Only for admins */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/admin" 
+                      className={`flex items-center gap-3 ${getNavClass("/admin")}`}
+                      onClick={handleMobileNavClick}
+                    >
+                      <Shield className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span>Admin</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

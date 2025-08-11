@@ -27,12 +27,28 @@ export const useUserRole = () => {
   });
 
   const isAdmin = userRole?.role === 'admin';
+  const isManager = userRole?.role === 'manager';
   const isStaff = userRole?.role === 'staff';
+  const isViewer = userRole?.role === 'viewer';
+
+  // Permission helpers
+  const canManageUsers = isAdmin;
+  const canManageBusiness = isAdmin || isManager;
+  const canCreateSales = isAdmin || isManager || isStaff;
+  const canViewReports = isAdmin || isManager || isStaff || isViewer;
+  const isReadOnly = isViewer;
 
   return {
     userRole: userRole?.role,
     isAdmin,
+    isManager,
     isStaff,
+    isViewer,
+    canManageUsers,
+    canManageBusiness,
+    canCreateSales,
+    canViewReports,
+    isReadOnly,
     isLoading,
     error,
   };
