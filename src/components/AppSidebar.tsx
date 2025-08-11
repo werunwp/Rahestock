@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { PanelLeft } from "lucide-react";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -39,7 +40,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const { state, setOpenMobile } = useSidebar();
+  const { state, setOpenMobile, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
   const currentPath = location.pathname;
@@ -115,6 +116,15 @@ export function AppSidebar() {
           <LogOut className="h-4 w-4 mr-2" />
           {!isCollapsed && "Sign Out"}
         </Button>
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={toggleSidebar} className="flex items-center gap-3">
+              <PanelLeft className="h-5 w-5 flex-shrink-0" />
+              {!isCollapsed && <span>Collapse</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
