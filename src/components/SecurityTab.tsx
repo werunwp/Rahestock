@@ -16,7 +16,7 @@ export const SecurityTab = () => {
   });
 
   const handlePasswordUpdate = async () => {
-    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -26,13 +26,36 @@ export const SecurityTab = () => {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters long");
+    if (passwordForm.newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      toast.error("New password must be different from current password");
       return;
     }
 
     setIsUpdating(true);
     try {
+      // First verify the current password by attempting to sign in
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.email) {
+        throw new Error("User email not found");
+      }
+
+      // Verify current password by attempting to sign in
+      const { error: verificationError } = await supabase.auth.signInWithPassword({
+        email: user.user.email,
+        password: passwordForm.currentPassword
+      });
+
+      if (verificationError) {
+        toast.error("Current password is incorrect");
+        return;
+      }
+
+      // Update password
       const { error } = await supabase.auth.updateUser({
         password: passwordForm.newPassword
       });
@@ -48,7 +71,7 @@ export const SecurityTab = () => {
       toast.success("Password updated successfully");
     } catch (error) {
       console.error("Error updating password:", error);
-      toast.error("Failed to update password");
+      toast.error("Failed to update password. Please try again.");
     } finally {
       setIsUpdating(false);
     }
