@@ -47,8 +47,12 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
         pendingPayments: [],
       };
 
-      // Build date filter for sales queries
-      let salesQuery = supabase.from("sales").select("*");
+      // Build date filter for sales queries (exclude cancelled sales)
+      let salesQuery = supabase
+        .from("sales")
+        .select("*")
+        .neq("payment_status", "cancelled");
+      
       if (dateFilter) {
         salesQuery = salesQuery
           .gte("created_at", dateFilter.start)
@@ -62,10 +66,11 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
         stats.activeCustomers = new Set(sales.map(sale => sale.customer_id).filter(Boolean)).size;
       }
 
-      // Get units sold
+      // Get units sold (exclude cancelled sales)
       let unitsQuery = supabase
         .from("sales_items")
-        .select("quantity, sales!inner(created_at)");
+        .select("quantity, sales!inner(created_at, payment_status)")
+        .neq("sales.payment_status", "cancelled");
       
       if (dateFilter) {
         unitsQuery = unitsQuery
@@ -98,11 +103,11 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
           }));
       }
 
-      // Get pending payments
+      // Get pending payments (exclude cancelled sales)
       const { data: pendingSales } = await supabase
         .from("sales")
         .select("*")
-        .eq("payment_status", "pending")
+        .in("payment_status", ["pending", "partial"])
         .gt("amount_due", 0)
         .order("created_at", { ascending: false })
         .limit(5);
