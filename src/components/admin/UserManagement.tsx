@@ -525,23 +525,22 @@ export function UserManagement() {
               <TabsContent key={tabKey} value={tabKey} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">Select all in this tab</div>
-                  <Switch checked={allInTabOn} onCheckedChange={(v) => setAllInTab(!!v)} />
+                  <Switch checked={allInTabOn} onCheckedChange={(v) => setAllInTab(!!v)} disabled={permsLoading || savePermissionsMutation.isPending} />
                 </div>
                 <div className="divide-y rounded-md border">
                   {PERMISSIONS[tabKey].map((p) => (
                     <div key={p.key} className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-2">
-                        <div className="font-medium">{p.label}</div>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="text-xs text-muted-foreground underline decoration-dotted cursor-help">?</span>
+                              <div className="font-medium cursor-help">{p.label}</div>
                             </TooltipTrigger>
                             <TooltipContent>{p.description}</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <Switch checked={!!toggles[p.key]} onCheckedChange={() => togglePermission(p.key)} />
+                      <Switch checked={!!toggles[p.key]} onCheckedChange={() => togglePermission(p.key)} disabled={permsLoading || savePermissionsMutation.isPending} />
                     </div>
                   ))}
                 </div>
