@@ -12,6 +12,8 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales, type UpdateSaleData } from "@/hooks/useSales";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useProductVariants } from "@/hooks/useProductVariants";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface EditSaleDialogProps {
@@ -27,6 +29,9 @@ interface SaleItem {
   quantity: number;
   rate: number;
   total: number;
+  variant_id?: string | null;
+  variantLabel?: string;
+  maxStock?: number;
 }
 
 interface SaleFormData {
@@ -60,6 +65,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
     items: []
   });
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -67,6 +73,9 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
   const { customers } = useCustomers();
   const { updateSale, getSaleWithItems } = useSales();
   const { formatAmount, currencySymbol } = useCurrency();
+
+  const selectedProduct = products.find(p => p.id === selectedProductId);
+  const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
 
   useEffect(() => {
     if (!open || !saleId) {
@@ -89,6 +98,45 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
       try {
         setIsLoading(true);
         const saleWithItems = await getSaleWithItems(saleId);
+
+        // Build items and hydrate variant labels and stock in one batch
+        const baseItems = saleWithItems.items.map((item: any) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          rate: item.rate,
+          total: item.total,
+          variant_id: item.variant_id || null,
+        } as SaleItem));
+
+        const variantIds = baseItems.filter(i => i.variant_id).map(i => i.variant_id!) as string[];
+        let variantMap: Record<string, { label: string; stock: number }> = {};
+        if (variantIds.length > 0) {
+          const { data: vars, error: varErr } = await supabase
+            .from("product_variants")
+            .select("id, attributes, stock_quantity")
+            .in("id", variantIds);
+          if (varErr) throw varErr;
+          variantMap = (vars || []).reduce((acc: any, v: any) => {
+            const label = Object.entries(v.attributes || {})
+              .map(([_, val]) => `${val}`)
+              .join(" / ");
+            acc[v.id] = { label, stock: v.stock_quantity || 0 };
+            return acc;
+          }, {});
+        }
+
+        const enrichedItems: SaleItem[] = baseItems.map(i =>
+          i.variant_id
+            ? {
+                ...i,
+                variantLabel: variantMap[i.variant_id]?.label,
+                maxStock: variantMap[i.variant_id]?.stock,
+              }
+            : i
+        );
+
         setFormData({
           customer_id: saleWithItems.customer_id || undefined,
           customer_name: saleWithItems.customer_name,
@@ -103,14 +151,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
           amount_due: saleWithItems.amount_due,
           payment_method: saleWithItems.payment_method,
           payment_status: saleWithItems.payment_status,
-          items: saleWithItems.items.map((item: any) => ({
-            id: item.id,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            quantity: item.quantity,
-            rate: item.rate,
-            total: item.total
-          }))
+          items: enrichedItems,
         });
       } catch (error) {
         toast.error("Failed to load sale data");
@@ -157,30 +198,65 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   const addProduct = () => {
     if (!selectedProductId) return;
-    
+
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
 
-    const existingItemIndex = formData.items.findIndex(item => item.product_id === selectedProductId);
-    
-    if (existingItemIndex >= 0) {
-      updateQuantity(existingItemIndex, formData.items[existingItemIndex].quantity + 1);
+    if (product.has_variants) {
+      if (!selectedVariantId) {
+        toast.error("Please select a variant");
+        return;
+      }
+      const variant = currentVariants.find(v => v.id === selectedVariantId);
+      if (!variant) return;
+      const maxStock = variant.stock_quantity || 0;
+      if (maxStock <= 0) {
+        toast.error("Selected variant is out of stock");
+        return;
+      }
+
+      const existingIndex = formData.items.findIndex(
+        i => i.product_id === product.id && i.variant_id === selectedVariantId
+      );
+      const rate = (variant.rate ?? product.rate) as number;
+      if (existingIndex >= 0) {
+        const existing = formData.items[existingIndex];
+        const newQty = Math.min(existing.quantity + 1, maxStock);
+        updateQuantity(existingIndex, newQty);
+      } else {
+        const label = Object.entries(variant.attributes || {})
+          .map(([_, v]) => `${v}`)
+          .join(" / ");
+        const newItem: SaleItem = {
+          product_id: product.id,
+          product_name: product.name,
+          quantity: 1,
+          rate,
+          total: rate,
+          variant_id: variant.id,
+          variantLabel: label,
+          maxStock,
+        };
+        setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+      }
     } else {
-      const newItem: SaleItem = {
-        product_id: product.id,
-        product_name: product.name,
-        quantity: 1,
-        rate: product.rate,
-        total: product.rate
-      };
-      
-      setFormData(prev => ({
-        ...prev,
-        items: [...prev.items, newItem]
-      }));
+      const existingItemIndex = formData.items.findIndex(item => item.product_id === selectedProductId);
+      if (existingItemIndex >= 0) {
+        updateQuantity(existingItemIndex, formData.items[existingItemIndex].quantity + 1);
+      } else {
+        const newItem: SaleItem = {
+          product_id: product.id,
+          product_name: product.name,
+          quantity: 1,
+          rate: product.rate,
+          total: product.rate,
+        };
+        setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+      }
     }
-    
+
     setSelectedProductId("");
+    setSelectedVariantId(null);
   };
 
   const updateQuantity = (index: number, newQuantity: number) => {

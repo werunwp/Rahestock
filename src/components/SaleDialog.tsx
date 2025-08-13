@@ -389,6 +389,8 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
               </div>
             )}
           </div>
+            {formData.items.length > 0 && (
+              <div className="border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -401,37 +403,47 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                   </TableHeader>
                   <TableBody>
                     {formData.items.map(item => (
-                      <TableRow key={item.productId}>
-                        <TableCell>{item.productName}</TableCell>
+                      <TableRow key={`${item.productId}-${item.variantId || 'base'}`}>
+                        <TableCell>
+                          {item.productName}
+                          {item.variantLabel ? ` — ${item.variantLabel}` : ""}
+                        </TableCell>
                         <TableCell>{formatAmount(item.rate)}</TableCell>
-                         <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateQuantity(item.productId, Number(e.target.value) || 1)}
-                                className="w-16 text-center"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                         <TableCell>{formatAmount(item.total)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="1"
+                              max={item.maxStock ?? undefined}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 1;
+                                const capped = item.maxStock ? Math.min(val, item.maxStock) : val;
+                                updateQuantity(item.productId, capped, item.variantId);
+                              }}
+                              className="w-16 text-center"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId)}
+                              disabled={item.maxStock !== undefined && item.quantity >= (item.maxStock || 0)}
+                              title={item.maxStock !== undefined ? `Max available: ${item.maxStock}` : undefined}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatAmount(item.total)}</TableCell>
                         <TableCell>
                           <Button
                             type="button"
@@ -448,7 +460,6 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                 </Table>
               </div>
             )}
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
