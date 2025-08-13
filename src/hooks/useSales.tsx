@@ -33,6 +33,7 @@ export interface SaleItem {
   rate: number;
   total: number;
   created_at: string;
+  variant_id?: string | null;
 }
 
 export interface CreateSaleData {
@@ -55,6 +56,7 @@ export interface CreateSaleData {
     quantity: number;
     rate: number;
     total: number;
+    variant_id?: string | null;
   }[];
 }
 
@@ -80,6 +82,7 @@ export interface UpdateSaleData {
     quantity: number;
     rate: number;
     total: number;
+    variant_id?: string | null;
   }[];
 }
 

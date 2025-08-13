@@ -11,6 +11,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useProductVariants } from "@/hooks/useProductVariants";
 import { toast } from "sonner";
 
 interface SaleDialogProps {
