@@ -56,25 +56,33 @@ serve(async (req) => {
       throw new Error(`Failed to list users: ${authError.message}`)
     }
 
-    // Get all profiles and roles in one query
+    // Get all profiles
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select(`
         user_id,
         full_name,
         phone,
-        created_at,
-        user_roles!inner(role)
+        created_at
       `)
 
     if (profilesError) {
       throw new Error(`Failed to fetch profiles: ${profilesError.message}`)
     }
 
-    // Combine auth data with profile data
+    // Get all roles
+    const { data: roles, error: rolesError } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id, role')
+
+    if (rolesError) {
+      throw new Error(`Failed to fetch roles: ${rolesError.message}`)
+    }
+
     const combinedUsers = authUsers.users.map(authUser => {
       const profile = profiles.find(p => p.user_id === authUser.id)
-      const userRole = (profile?.user_roles as any)?.[0]?.role || 'staff'
+      const roleRecord = roles.find(r => r.user_id === authUser.id)
+      const userRole = roleRecord?.role || 'staff'
       
       return {
         id: authUser.id,
