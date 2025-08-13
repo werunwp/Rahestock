@@ -8,17 +8,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, UserCheck, UserX, Mail, Shield, Eye, Users } from "lucide-react";
+import { Plus, UserCheck, UserX, Shield, Eye, Users, Edit, Trash2, User } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface UserProfile {
   id: string;
   full_name: string;
   email: string;
+  phone: string | null;
   role: 'admin' | 'manager' | 'staff' | 'viewer';
   created_at: string;
   last_sign_in_at: string | null;
+}
+
+interface UserFormData {
+  full_name: string;
+  email: string;
+  phone: string;
+  role: 'admin' | 'manager' | 'staff' | 'viewer';
+  password: string;
 }
 
 const roleColors = {
@@ -35,92 +45,157 @@ const roleIcons = {
   viewer: Eye
 };
 
+const initialFormData: UserFormData = {
+  full_name: '',
+  email: '',
+  phone: '',
+  role: 'staff',
+  password: ''
+};
+
 export function UserManagement() {
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'staff' | 'viewer'>('staff');
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [formData, setFormData] = useState<UserFormData>(initialFormData);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch all users with their roles
+  // Fetch all users with their roles and auth data
   const { data: users, isLoading } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get users from auth service (admin access required)
+      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      if (authError) throw authError;
+
+      // Get profiles and roles
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
-          id,
+          user_id,
           full_name,
-          user_roles!inner(role),
-          created_at
-        `)
-        .order("created_at", { ascending: false });
+          phone,
+          user_roles!inner(role)
+        `);
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      return data.map(profile => {
-        const userRole = (profile.user_roles as any)?.[0]?.role || 'staff';
+      // Combine auth data with profile data
+      const combinedUsers = authUsers.users.map(authUser => {
+        const profile = profiles.find(p => p.user_id === authUser.id);
+        const userRole = (profile?.user_roles as any)?.[0]?.role || 'staff';
+        
         return {
-          id: profile.id,
-          full_name: profile.full_name,
-          email: 'admin@example.com', // Will be replaced with actual email fetching
+          id: authUser.id,
+          full_name: profile?.full_name || 'Unknown',
+          email: authUser.email || '',
+          phone: profile?.phone || null,
           role: userRole as 'admin' | 'manager' | 'staff' | 'viewer',
-          created_at: profile.created_at,
-          last_sign_in_at: null
+          created_at: authUser.created_at,
+          last_sign_in_at: authUser.last_sign_in_at
         };
-      }) as UserProfile[];
+      });
+
+      return combinedUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as UserProfile[];
     }
   });
 
-  // Invite user mutation
-  const inviteUserMutation = useMutation({
-    mutationFn: async ({ email, role }: { email: string; role: string }) => {
+  // Create user mutation
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: UserFormData) => {
       const { data, error } = await supabase.functions.invoke('admin-invite-user', {
-        body: { email, role }
+        body: userData
       });
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      toast.success("User invitation sent successfully!");
-      setInviteEmail("");
-      setInviteRole('staff');
-      setIsInviteDialogOpen(false);
+      toast.success("User created successfully!");
+      setFormData(initialFormData);
+      setIsAddDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to invite user: ${error.message}`);
+      toast.error(`Failed to create user: ${error.message}`);
     }
   });
 
-  // Update user role mutation
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: 'admin' | 'manager' | 'staff' | 'viewer' }) => {
-      const { error } = await supabase
-        .from("user_roles")
-        .update({ role: newRole })
-        .eq("user_id", userId);
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, ...userData }: { userId: string } & Partial<UserFormData>) => {
+      const { data, error } = await supabase.functions.invoke('admin-update-user', {
+        body: { userId, ...userData }
+      });
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      toast.success("User role updated successfully!");
+      toast.success("User updated successfully!");
+      setEditingUser(null);
+      setIsEditDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: any) => {
-      toast.error(`Failed to update role: ${error.message}`);
+      toast.error(`Failed to update user: ${error.message}`);
     }
   });
 
-  const handleInviteUser = () => {
-    if (!inviteEmail.trim()) {
-      toast.error("Please enter an email address");
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("User deleted successfully!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to delete user: ${error.message}`);
+    }
+  });
+
+  const handleCreateUser = () => {
+    if (!formData.full_name.trim() || !formData.email.trim()) {
+      toast.error("Please fill in required fields (name and email)");
       return;
     }
     
-    inviteUserMutation.mutate({ email: inviteEmail, role: inviteRole });
+    createUserMutation.mutate(formData);
   };
 
-  const handleRoleChange = (userId: string, newRole: 'admin' | 'manager' | 'staff' | 'viewer') => {
-    updateRoleMutation.mutate({ userId, newRole });
+  const handleEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setFormData({
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      password: '' // Don't prefill password
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = () => {
+    if (!editingUser || !formData.full_name.trim() || !formData.email.trim()) {
+      toast.error("Please fill in required fields");
+      return;
+    }
+    
+    updateUserMutation.mutate({ 
+      userId: editingUser.id, 
+      full_name: formData.full_name,
+      email: formData.email,
+      phone: formData.phone || null,
+      role: formData.role
+    });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    deleteUserMutation.mutate(userId);
   };
 
   return (
@@ -129,36 +204,64 @@ export function UserManagement() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>User Management</CardTitle>
-            <CardDescription>Invite new users and manage existing user roles</CardDescription>
+            <CardDescription>Create and manage user accounts</CardDescription>
           </div>
-          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Invite User
+                Add User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Invite New User</DialogTitle>
+                <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Send an invitation to a new user. They will receive an email to set up their account.
+                  Create a new user account. The account will be activated immediately.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="full_name">Full Name *</Label>
+                  <Input
+                    id="full_name"
+                    placeholder="John Doe"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email Address *</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="user@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    placeholder="+1234567890"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Temporary Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Leave empty for default password"
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   />
                 </div>
                 <div>
                   <Label htmlFor="role">Role</Label>
-                  <Select value={inviteRole} onValueChange={(value: 'admin' | 'manager' | 'staff' | 'viewer') => setInviteRole(value)}>
+                  <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff' | 'viewer') => setFormData(prev => ({ ...prev, role: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -171,12 +274,12 @@ export function UserManagement() {
                   </Select>
                 </div>
                 <Button 
-                  onClick={handleInviteUser} 
-                  disabled={inviteUserMutation.isPending}
+                  onClick={handleCreateUser} 
+                  disabled={createUserMutation.isPending}
                   className="w-full"
                 >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {inviteUserMutation.isPending ? "Sending..." : "Send Invitation"}
+                  <User className="h-4 w-4 mr-2" />
+                  {createUserMutation.isPending ? "Creating..." : "Create User"}
                 </Button>
               </div>
             </DialogContent>
@@ -191,6 +294,7 @@ export function UserManagement() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead>Last Active</TableHead>
@@ -204,6 +308,7 @@ export function UserManagement() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.full_name}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.phone || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={roleColors[user.role]} className="flex items-center gap-1 w-fit">
                           <RoleIcon className="h-3 w-3" />
@@ -218,21 +323,43 @@ export function UserManagement() {
                         }
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(newRole: 'admin' | 'manager' | 'staff' | 'viewer') => handleRoleChange(user.id, newRole)}
-                          disabled={updateRoleMutation.isPending}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="staff">Staff</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditUser(user)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete {user.full_name}? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -242,6 +369,70 @@ export function UserManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and role.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_full_name">Full Name *</Label>
+              <Input
+                id="edit_full_name"
+                placeholder="John Doe"
+                value={formData.full_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_email">Email Address *</Label>
+              <Input
+                id="edit_email"
+                type="email"
+                placeholder="user@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_phone">Phone Number</Label>
+              <Input
+                id="edit_phone"
+                placeholder="+1234567890"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_role">Role</Label>
+              <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff' | 'viewer') => setFormData(prev => ({ ...prev, role: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin - Full access</SelectItem>
+                  <SelectItem value="manager">Manager - Business management</SelectItem>
+                  <SelectItem value="staff">Staff - Daily operations</SelectItem>
+                  <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={handleUpdateUser} 
+              disabled={updateUserMutation.isPending}
+              className="w-full"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              {updateUserMutation.isPending ? "Updating..." : "Update User"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

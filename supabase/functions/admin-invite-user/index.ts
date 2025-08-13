@@ -48,10 +48,10 @@ serve(async (req) => {
       throw new Error('Unauthorized: Admin access required')
     }
 
-    const { email, role } = await req.json()
+    const { full_name, email, phone, role, password } = await req.json()
 
-    if (!email || !role) {
-      throw new Error('Email and role are required')
+    if (!full_name || !email || !role) {
+      throw new Error('Full name, email and role are required')
     }
 
     // Valid roles
@@ -60,15 +60,17 @@ serve(async (req) => {
       throw new Error('Invalid role')
     }
 
-    console.log(`Admin ${user.email} inviting ${email} with role ${role}`)
+    console.log(`Admin ${user.email} creating user ${email} with role ${role}`)
 
     // Create the user account using admin API
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      email_confirm: true,
+      password: password || 'TempPass123!', // Default password if not provided
+      email_confirm: true, // Auto-confirm email
       user_metadata: {
-        invited_by: user.id,
-        invited_at: new Date().toISOString()
+        full_name,
+        created_by: user.id,
+        created_at: new Date().toISOString()
       }
     })
 
@@ -84,7 +86,7 @@ serve(async (req) => {
     console.log(`User created successfully: ${newUser.user.id}`)
 
     // The profile and initial role will be created by the handle_new_user trigger
-    // We need to update the role after creation
+    // We need to update the role and profile after creation
     await new Promise(resolve => setTimeout(resolve, 100)) // Small delay to ensure trigger completes
 
     // Update the user role to the specified role
@@ -95,20 +97,18 @@ serve(async (req) => {
 
     if (roleUpdateError) {
       console.error('Role update error:', roleUpdateError)
-      // Don't throw here as user is already created
     }
 
-    // Send password reset email so they can set their password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'supabase.co')}/auth/v1/verify?type=recovery&redirect_to=${encodeURIComponent(req.headers.get('origin') || 'http://localhost:3000')}`
-      }
-    })
+    // Update the profile with phone number if provided
+    if (phone) {
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ phone })
+        .eq('user_id', newUser.user.id)
 
-    if (resetError) {
-      console.error('Password reset email error:', resetError)
+      if (profileUpdateError) {
+        console.error('Profile update error:', profileUpdateError)
+      }
     }
 
     return new Response(
@@ -117,6 +117,8 @@ serve(async (req) => {
         user: {
           id: newUser.user.id,
           email: newUser.user.email,
+          full_name,
+          phone,
           role: role
         }
       }),
