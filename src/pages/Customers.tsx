@@ -15,10 +15,12 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { isWithinInterval, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const Customers = () => {
   const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer } = useCustomers();
   const { formatAmount } = useCurrency();
+  const { hasPermission } = useUserRole();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -320,18 +322,24 @@ const Customers = () => {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button variant="outline" onClick={handleImport} className="w-full sm:w-auto">
-            <Upload className="mr-2 h-4 w-4" />
-            Import
-          </Button>
-          <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="w-full sm:w-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Customer
-          </Button>
+          {hasPermission('customers.import_export') && (
+            <Button variant="outline" onClick={handleImport} className="w-full sm:w-auto">
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
+          )}
+          {hasPermission('customers.import_export') && (
+            <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="w-full sm:w-auto">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          )}
+          {hasPermission('customers.add') && (
+            <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Customer
+            </Button>
+          )}
         </div>
       </div>
 
@@ -487,52 +495,70 @@ const Customers = () => {
                       <TableCell>{customer.order_count}</TableCell>
                       <TableCell>{formatAmount(customer.total_spent)}</TableCell>
                       <TableCell>
-                        <Select 
-                          value={customer.status} 
-                          onValueChange={(value) => handleStatusChange(customer.id, value)}
-                        >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue>
-                              <Badge 
-                                variant={
-                                  customer.status === "active" ? "default" : 
-                                  customer.status === "neutral" ? "secondary" : 
-                                  "outline"
-                                }
-                              >
-                                {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                              </Badge>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active">
-                              <Badge variant="default">Active</Badge>
-                            </SelectItem>
-                            <SelectItem value="neutral">
-                              <Badge variant="secondary">Neutral</Badge>
-                            </SelectItem>
-                            <SelectItem value="inactive">
-                              <Badge variant="outline">Inactive</Badge>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {hasPermission('customers.edit') ? (
+                          <Select 
+                            value={customer.status} 
+                            onValueChange={(value) => handleStatusChange(customer.id, value)}
+                          >
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue>
+                                <Badge 
+                                  variant={
+                                    customer.status === "active" ? "default" : 
+                                    customer.status === "neutral" ? "secondary" : 
+                                    "outline"
+                                  }
+                                >
+                                  {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
+                                </Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">
+                                <Badge variant="default">Active</Badge>
+                              </SelectItem>
+                              <SelectItem value="neutral">
+                                <Badge variant="secondary">Neutral</Badge>
+                              </SelectItem>
+                              <SelectItem value="inactive">
+                                <Badge variant="outline">Inactive</Badge>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge 
+                            variant={
+                              customer.status === "active" ? "default" : 
+                              customer.status === "neutral" ? "secondary" : 
+                              "outline"
+                            }
+                          >
+                            {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewHistory(customer)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleDelete(customer.id)}
-                            disabled={deleteCustomer.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {hasPermission('customers.view_history') && (
+                            <Button variant="ghost" size="sm" onClick={() => handleViewHistory(customer)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {hasPermission('customers.edit') && (
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(customer)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {hasPermission('customers.delete') && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDelete(customer.id)}
+                              disabled={deleteCustomer.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

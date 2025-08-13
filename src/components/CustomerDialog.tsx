@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomers, Customer, CreateCustomerData } from "@/hooks/useCustomers";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Loader2 } from "lucide-react";
 
 interface CustomerDialogProps {
@@ -16,6 +17,7 @@ interface CustomerDialogProps {
 
 export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogProps) => {
   const { createCustomer, updateCustomer } = useCustomers();
+  const { hasPermission } = useUserRole();
   const [formData, setFormData] = useState<CreateCustomerData>({
     name: "",
     phone: "",
@@ -26,6 +28,9 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
   });
 
   const isEditing = !!customer;
+  const canAddCustomer = hasPermission('customers.add');
+  const canEditCustomer = hasPermission('customers.edit');
+  const canSave = isEditing ? canEditCustomer : canAddCustomer;
 
   useEffect(() => {
     if (customer) {
@@ -51,6 +56,8 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!canSave) return;
     
     try {
       if (isEditing) {
@@ -89,6 +96,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
               onChange={(e) => handleChange("name", e.target.value)}
               placeholder="Enter customer name"
               required
+              disabled={!canSave}
             />
           </div>
 
@@ -99,6 +107,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
               value={formData.phone}
               onChange={(e) => handleChange("phone", e.target.value)}
               placeholder="Enter phone number"
+              disabled={!canSave}
             />
           </div>
 
@@ -109,6 +118,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
               value={formData.whatsapp}
               onChange={(e) => handleChange("whatsapp", e.target.value)}
               placeholder="Enter WhatsApp number"
+              disabled={!canSave}
             />
           </div>
 
@@ -120,12 +130,13 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="Enter customer address"
               rows={3}
+              disabled={!canSave}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
+            <Select value={formData.status} onValueChange={(value) => handleChange("status", value)} disabled={!canSave}>
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -141,16 +152,18 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditing ? "Updating..." : "Creating..."}
-                </>
-              ) : (
-                isEditing ? "Update Customer" : "Create Customer"
-              )}
-            </Button>
+            {canSave && (
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditing ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  isEditing ? "Update Customer" : "Create Customer"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
