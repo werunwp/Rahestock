@@ -255,7 +255,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh]">
+      <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Product" : "Add New Product"}</DialogTitle>
           <DialogDescription>

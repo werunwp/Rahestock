@@ -422,6 +422,11 @@ const Products = () => {
                     <div>
                       <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
                       {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
+                      {product.has_variants && (
+                        <div className="mt-1">
+                          <Badge variant="secondary">Variations</Badge>
+                        </div>
+                      )}
                       {(product.size || product.color) && (
                         <div className="flex flex-col gap-1 mt-1">
                           {product.size && <span className="text-xs bg-muted px-2 py-1 rounded-full w-fit">{product.size}</span>}
