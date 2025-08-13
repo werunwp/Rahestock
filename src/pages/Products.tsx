@@ -1,4 +1,4 @@
-import { Plus, Search, Filter, Edit, Trash2, Download, Upload } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Download, Upload, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -449,6 +449,28 @@ const Products = () => {
                       <Button variant="outline" size="sm" onClick={() => handleEdit(product)} className="flex-1">
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          createProduct.mutate({
+                            name: `${product.name} (duplicated)`,
+                            sku: product.sku || undefined,
+                            rate: product.rate,
+                            cost: product.cost || undefined,
+                            stock_quantity: product.stock_quantity,
+                            low_stock_threshold: product.low_stock_threshold,
+                            size: product.size || undefined,
+                            color: product.color || undefined,
+                            image_url: product.image_url || undefined,
+                            has_variants: product.has_variants,
+                          })
+                        }
+                        disabled={createProduct.isPending}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Duplicate
                       </Button>
                       <Button 
                         variant="outline" 

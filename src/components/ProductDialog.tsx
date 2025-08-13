@@ -383,7 +383,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         <Input
                           value={attr.values.join(", ")}
                           onChange={(e) => {
-                            const vals = e.target.value.split(",").map((v) => v.trim()).filter(Boolean);
+                            const vals = e.target.value.split(",").map((v) => v.trim());
                             const copy = [...attributes];
                             copy[idx] = { ...copy[idx], values: vals };
                             setAttributes(copy);
