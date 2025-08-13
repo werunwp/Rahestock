@@ -25,6 +25,9 @@ interface SaleItem {
   rate: number;
   quantity: number;
   total: number;
+  variantId?: string | null;
+  variantLabel?: string;
+  maxStock?: number;
 }
 
 interface SaleFormData {
@@ -62,7 +65,11 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   });
 
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+
+  const selectedProduct = products.find(p => p.id === selectedProductId);
+  const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
 
   useEffect(() => {
     if (!open) {
@@ -117,50 +124,108 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
   const addProduct = () => {
     if (!selectedProductId) return;
-    
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
 
-    const existingItem = formData.items.find(item => item.productId === selectedProductId);
-    
-    if (existingItem) {
-      setFormData(prev => ({
-        ...prev,
-        items: prev.items.map(item =>
-          item.productId === selectedProductId
-            ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.rate }
-            : item
-        ),
-      }));
+    // If product has variants, require a specific variant selection
+    if (product.has_variants) {
+      if (!selectedVariantId) {
+        toast.error("Please select a variant");
+        return;
+      }
+      const variant = currentVariants.find(v => v.id === selectedVariantId);
+      if (!variant) return;
+      const maxStock = variant.stock_quantity || 0;
+      if (maxStock <= 0) {
+        toast.error("Selected variant is out of stock");
+        return;
+      }
+
+      const existingItemIndex = formData.items.findIndex(
+        i => i.productId === product.id && i.variantId === selectedVariantId
+      );
+      const rate = (variant.rate ?? product.rate) as number;
+      if (existingItemIndex >= 0) {
+        const existing = formData.items[existingItemIndex];
+        const newQty = Math.min(existing.quantity + 1, maxStock);
+        setFormData(prev => ({
+          ...prev,
+          items: prev.items.map((it, idx) =>
+            idx === existingItemIndex ? { ...it, quantity: newQty, total: newQty * rate } : it
+          )
+        }));
+      } else {
+        const label = Object.entries(variant.attributes || {})
+          .map(([k, v]) => `${v}`)
+          .join(" / ");
+        setFormData(prev => ({
+          ...prev,
+          items: [
+            ...prev.items,
+            {
+              productId: product.id,
+              productName: product.name,
+              rate,
+              quantity: 1,
+              total: rate,
+              variantId: variant.id,
+              variantLabel: label,
+              maxStock,
+            },
+          ],
+        }));
+      }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        items: [...prev.items, {
-          productId: product.id,
-          productName: product.name,
-          rate: product.rate,
-          quantity: 1,
-          total: product.rate,
-        }],
-      }));
+      // Non-variant behavior unchanged
+      const existingItem = formData.items.find(item => item.productId === selectedProductId);
+      if (existingItem) {
+        setFormData(prev => ({
+          ...prev,
+          items: prev.items.map(item =>
+            item.productId === selectedProductId
+              ? { ...item, quantity: item.quantity + 1, total: (item.quantity + 1) * item.rate }
+              : item
+          ),
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          items: [
+            ...prev.items,
+            {
+              productId: product.id,
+              productName: product.name,
+              rate: product.rate,
+              quantity: 1,
+              total: product.rate,
+            },
+          ],
+        }));
+      }
     }
-    
+
     setSelectedProductId("");
+    setSelectedVariantId(null);
   };
 
-  const updateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
+  const updateQuantity = (productId: string, newQuantity: number, variantId?: string | null) => {
+    const idx = formData.items.findIndex(i => i.productId === productId && (i.variantId || null) === (variantId || null));
+    if (idx === -1) return;
+
+    const item = formData.items[idx];
+    const max = item.maxStock ?? Infinity;
+    const qty = Math.max(0, Math.min(newQuantity, max));
+
+    if (qty <= 0) {
       setFormData(prev => ({
         ...prev,
-        items: prev.items.filter(item => item.productId !== productId),
+        items: prev.items.filter((_, i) => i !== idx),
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        items: prev.items.map(item =>
-          item.productId === productId
-            ? { ...item, quantity: newQuantity, total: newQuantity * item.rate }
-            : item
+        items: prev.items.map((it, i) =>
+          i === idx ? { ...it, quantity: qty, total: qty * it.rate } : it
         ),
       }));
     }
@@ -201,13 +266,14 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
         subtotal,
         grand_total: grandTotal,
         amount_due: amountDue,
-        items: formData.items.map(item => ({
-          product_id: item.productId,
-          product_name: item.productName,
-          quantity: item.quantity,
-          rate: item.rate,
-          total: item.total,
-        })),
+          items: formData.items.map(item => ({
+            product_id: item.productId,
+            product_name: item.productName,
+            quantity: item.quantity,
+            rate: item.rate,
+            total: item.total,
+            variant_id: item.variantId ?? null,
+          })),
       });
       
       onOpenChange(false);
@@ -282,7 +348,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
           <div className="space-y-4">
             <Label>Add Products</Label>
             <div className="flex gap-2">
-              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+              <Select value={selectedProductId} onValueChange={(val) => { setSelectedProductId(val); setSelectedVariantId(null); }}>
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
@@ -294,13 +360,35 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" onClick={addProduct} disabled={!selectedProductId}>
+              <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
 
-            {formData.items.length > 0 && (
-              <div className="border rounded-md">
+            {selectedProduct?.has_variants && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Variant</Label>
+                  <Select value={selectedVariantId ?? ""} onValueChange={(v) => setSelectedVariantId(v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select variant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentVariants.map(v => {
+                        const label = Object.entries(v.attributes || {}).map(([k, val]) => `${val}`).join(" / ");
+                        const disabled = (v.stock_quantity || 0) <= 0;
+                        return (
+                          <SelectItem key={v.id} value={v.id} disabled={disabled}>
+                            {label} — Stock: {v.stock_quantity} {disabled ? "(Out of Stock)" : ""}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
                 <Table>
                   <TableHeader>
                     <TableRow>

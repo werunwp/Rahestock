@@ -143,38 +143,72 @@ export const useSales = () => {
 
       if (itemsError) throw itemsError;
 
-      // Update product stock
+      // Update stock per item (variant-aware)
       for (const item of items) {
-        // Get current stock first
-        const { data: product, error: getError } = await supabase
-          .from("products")
-          .select("stock_quantity")
-          .eq("id", item.product_id)
-          .single();
+        if (item.variant_id) {
+          // Decrement variant stock
+          const { data: variant, error: getVarErr } = await supabase
+            .from("product_variants")
+            .select("stock_quantity, product_id")
+            .eq("id", item.variant_id)
+            .single();
+          if (getVarErr) throw getVarErr;
 
-        if (getError) throw getError;
+          const newVarStock = (variant.stock_quantity || 0) - item.quantity;
+          if (newVarStock < 0) {
+            throw new Error("Insufficient variant stock");
+          }
 
-        const newStock = (product.stock_quantity || 0) - item.quantity;
-        
-        const { error: stockError } = await supabase
-          .from("products")
-          .update({ stock_quantity: newStock })
-          .eq("id", item.product_id);
+          const { error: updVarErr } = await supabase
+            .from("product_variants")
+            .update({ stock_quantity: newVarStock })
+            .eq("id", item.variant_id);
+          if (updVarErr) throw updVarErr;
 
-        if (stockError) throw stockError;
+          // Log inventory change with variant_id
+          const { error: logError } = await supabase
+            .from("inventory_logs")
+            .insert([
+              {
+                product_id: item.product_id,
+                variant_id: item.variant_id,
+                type: "sale",
+                quantity: -item.quantity,
+                reason: `Sale: ${invoiceData}`,
+                created_by: user?.id,
+              },
+            ]);
+          if (logError) throw logError;
+        } else {
+          // Fallback to product-level stock
+          const { data: product, error: getError } = await supabase
+            .from("products")
+            .select("stock_quantity")
+            .eq("id", item.product_id)
+            .single();
+          if (getError) throw getError;
 
-        // Log inventory change
-        const { error: logError } = await supabase
-          .from("inventory_logs")
-          .insert([{
-            product_id: item.product_id,
-            type: "sale",
-            quantity: -item.quantity,
-            reason: `Sale: ${invoiceData}`,
-            created_by: user?.id
-          }]);
+          const newStock = (product.stock_quantity || 0) - item.quantity;
+          const { error: stockError } = await supabase
+            .from("products")
+            .update({ stock_quantity: newStock })
+            .eq("id", item.product_id);
+          if (stockError) throw stockError;
 
-        if (logError) throw logError;
+          // Log inventory change
+          const { error: logError } = await supabase
+            .from("inventory_logs")
+            .insert([
+              {
+                product_id: item.product_id,
+                type: "sale",
+                quantity: -item.quantity,
+                reason: `Sale: ${invoiceData}`,
+                created_by: user?.id,
+              },
+            ]);
+          if (logError) throw logError;
+        }
       }
 
       return sale;
@@ -235,57 +269,101 @@ export const useSales = () => {
 
       if (itemsError) throw itemsError;
 
-      // Restore stock for old items
+      // Restore stock for old items (variant-aware)
       for (const existingItem of existingItems) {
-        const { data: product, error: getError } = await supabase
-          .from("products")
-          .select("stock_quantity")
-          .eq("id", existingItem.product_id)
-          .single();
+        if (existingItem.variant_id) {
+          const { data: variant, error: getVarErr } = await supabase
+            .from("product_variants")
+            .select("stock_quantity")
+            .eq("id", existingItem.variant_id)
+            .single();
+          if (getVarErr) throw getVarErr;
 
-        if (getError) throw getError;
+          const restoredVarStock = (variant.stock_quantity || 0) + existingItem.quantity;
+          const { error: updVarErr } = await supabase
+            .from("product_variants")
+            .update({ stock_quantity: restoredVarStock })
+            .eq("id", existingItem.variant_id);
+          if (updVarErr) throw updVarErr;
+        } else {
+          const { data: product, error: getError } = await supabase
+            .from("products")
+            .select("stock_quantity")
+            .eq("id", existingItem.product_id)
+            .single();
+          if (getError) throw getError;
 
-        const restoredStock = (product.stock_quantity || 0) + existingItem.quantity;
-        
-        const { error: stockError } = await supabase
-          .from("products")
-          .update({ stock_quantity: restoredStock })
-          .eq("id", existingItem.product_id);
-
-        if (stockError) throw stockError;
+          const restoredStock = (product.stock_quantity || 0) + existingItem.quantity;
+          const { error: stockError } = await supabase
+            .from("products")
+            .update({ stock_quantity: restoredStock })
+            .eq("id", existingItem.product_id);
+          if (stockError) throw stockError;
+        }
       }
 
-      // Update stock for new items
+      // Update stock for new items (variant-aware)
       for (const item of items) {
-        const { data: product, error: getError } = await supabase
-          .from("products")
-          .select("stock_quantity")
-          .eq("id", item.product_id)
-          .single();
+        if (item.variant_id) {
+          const { data: variant, error: getVarErr } = await supabase
+            .from("product_variants")
+            .select("stock_quantity")
+            .eq("id", item.variant_id)
+            .single();
+          if (getVarErr) throw getVarErr;
 
-        if (getError) throw getError;
+          const newVarStock = (variant.stock_quantity || 0) - item.quantity;
+          if (newVarStock < 0) throw new Error("Insufficient variant stock");
 
-        const newStock = (product.stock_quantity || 0) - item.quantity;
-        
-        const { error: stockError } = await supabase
-          .from("products")
-          .update({ stock_quantity: newStock })
-          .eq("id", item.product_id);
+          const { error: updVarErr } = await supabase
+            .from("product_variants")
+            .update({ stock_quantity: newVarStock })
+            .eq("id", item.variant_id);
+          if (updVarErr) throw updVarErr;
 
-        if (stockError) throw stockError;
+          // Log inventory change
+          const { error: logError } = await supabase
+            .from("inventory_logs")
+            .insert([
+              {
+                product_id: item.product_id,
+                variant_id: item.variant_id,
+                type: "sale",
+                quantity: -item.quantity,
+                reason: `Sale Update: ${sale.invoice_number}`,
+                created_by: user?.id,
+              },
+            ]);
+          if (logError) throw logError;
+        } else {
+          const { data: product, error: getError } = await supabase
+            .from("products")
+            .select("stock_quantity")
+            .eq("id", item.product_id)
+            .single();
+          if (getError) throw getError;
 
-        // Log inventory change
-        const { error: logError } = await supabase
-          .from("inventory_logs")
-          .insert([{
-            product_id: item.product_id,
-            type: "sale",
-            quantity: -item.quantity,
-            reason: `Sale Update: ${sale.invoice_number}`,
-            created_by: user?.id
-          }]);
+          const newStock = (product.stock_quantity || 0) - item.quantity;
+          const { error: stockError } = await supabase
+            .from("products")
+            .update({ stock_quantity: newStock })
+            .eq("id", item.product_id);
+          if (stockError) throw stockError;
 
-        if (logError) throw logError;
+          // Log inventory change
+          const { error: logError } = await supabase
+            .from("inventory_logs")
+            .insert([
+              {
+                product_id: item.product_id,
+                type: "sale",
+                quantity: -item.quantity,
+                reason: `Sale Update: ${sale.invoice_number}`,
+                created_by: user?.id,
+              },
+            ]);
+          if (logError) throw logError;
+        }
       }
 
       return sale;
