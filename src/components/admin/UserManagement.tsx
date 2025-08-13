@@ -61,49 +61,31 @@ export function UserManagement() {
   const queryClient = useQueryClient();
 
   // Fetch all users with their roles and auth data
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      // Get users from auth service (admin access required)
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      if (authError) throw authError;
-
-      // Get profiles and roles
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select(`
-          user_id,
-          full_name,
-          phone,
-          user_roles!inner(role)
-        `);
-
-      if (profilesError) throw profilesError;
-
-      // Combine auth data with profile data
-      const combinedUsers = authUsers.users.map(authUser => {
-        const profile = profiles.find(p => p.user_id === authUser.id);
-        const userRole = (profile?.user_roles as any)?.[0]?.role || 'staff';
-        
-        return {
-          id: authUser.id,
-          full_name: profile?.full_name || 'Unknown',
-          email: authUser.email || '',
-          phone: profile?.phone || null,
-          role: userRole as 'admin' | 'manager' | 'staff' | 'viewer',
-          created_at: authUser.created_at,
-          last_sign_in_at: authUser.last_sign_in_at
-        };
-      });
-
-      return combinedUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as UserProfile[];
-    }
+      const { data, error } = await supabase.functions.invoke('admin-list-users');
+      
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw new Error(error.message || 'Failed to fetch users');
+      }
+      
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to fetch users');
+      }
+      
+      return data.users as UserProfile[];
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false,
+    retry: 2
   });
 
-  // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      const { data, error } = await supabase.functions.invoke('admin-invite-user', {
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: userData
       });
       if (error) throw error;
@@ -286,8 +268,23 @@ export function UserManagement() {
           </Dialog>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="text-center py-8">
+              <p className="text-red-500 mb-2">Error loading users: {error.message}</p>
+              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
+                Retry
+              </Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="text-center py-8">Loading users...</div>
+          ) : !users || users.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-2">No users found</p>
+              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
+                Refresh
+              </Button>
+            </div>
           ) : (
             <Table>
               <TableHeader>

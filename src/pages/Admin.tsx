@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
@@ -9,10 +9,37 @@ import { BusinessAnalytics } from "@/components/admin/BusinessAnalytics";
 import { SystemSettings } from "@/components/admin/SystemSettings";
 import { Users, BarChart3, Settings, Shield } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const queryClient = useQueryClient();
+
+  // Prefetch users data when component mounts for instant loading
+  useEffect(() => {
+    if (user && isAdmin && !authLoading && !roleLoading) {
+      queryClient.prefetchQuery({
+        queryKey: ["admin-users"],
+        queryFn: async () => {
+          const { data, error } = await supabase.functions.invoke('admin-list-users');
+          
+          if (error) {
+            throw new Error(error.message || 'Failed to fetch users');
+          }
+          
+          if (!data?.success) {
+            throw new Error(data?.error || 'Failed to fetch users');
+          }
+          
+          return data.users;
+        },
+        staleTime: 30000,
+        gcTime: 300000
+      });
+    }
+  }, [user, isAdmin, authLoading, roleLoading, queryClient]);
 
   if (authLoading || roleLoading) {
     return (
