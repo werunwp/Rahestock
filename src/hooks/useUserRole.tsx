@@ -27,15 +27,20 @@ export const useUserRole = () => {
   });
 
   // Fetch role-based permissions for the current user's role
-  const { data: rolePermissions } = useQuery({
+  const { data: rolePermissions, isLoading: isLoadingPermissions } = useQuery({
     queryKey: ["role-permissions", userRole?.role],
     queryFn: async () => {
       if (!userRole?.role) return [] as { permission_key: string; allowed: boolean }[];
-      const { data, error } = await (supabase as any)
+      console.log('Fetching permissions for role:', userRole.role);
+      const { data, error } = await supabase
         .from("role_permissions")
         .select("permission_key, allowed")
         .eq("role", userRole.role);
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching role permissions:', error);
+        throw error;
+      }
+      console.log('Fetched permissions:', data);
       return data as { permission_key: string; allowed: boolean }[];
     },
     enabled: !!userRole?.role,
@@ -49,8 +54,11 @@ export const useUserRole = () => {
 
   // Permission checker: admins bypass checks, others use dynamic permissions
   const hasPermission = (key: string) => {
+    console.log('Checking permission:', key, 'isAdmin:', isAdmin, 'rolePermissions:', rolePermissions);
     if (isAdmin) return true;
-    return !!rolePermissions?.some(p => p.permission_key === key && p.allowed);
+    const hasAccess = !!rolePermissions?.some(p => p.permission_key === key && p.allowed);
+    console.log('Permission result for', key, ':', hasAccess);
+    return hasAccess;
   };
 
   // Permission helpers using dynamic permissions
@@ -72,7 +80,8 @@ export const useUserRole = () => {
     canViewReports,
     isReadOnly,
     hasPermission,
-    isLoading,
+    isLoading: isLoading || isLoadingPermissions,
     error,
+    rolePermissions, // Add for debugging
   };
 };
