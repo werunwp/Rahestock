@@ -18,6 +18,9 @@ const DEFAULT_TABLES = [
   'profiles',
   'user_roles',
   'products',
+  'product_variants',
+  'product_attributes',
+  'product_attribute_values',
   'customers',
   'sales',
   'sales_items',
@@ -69,8 +72,24 @@ Deno.serve(async (req) => {
     const exportData: Record<string, any> = {}
     const errors: string[] = []
 
-    // Export each table
-    for (const table of tablesToExport) {
+    // Export each table with proper ordering for relationships
+    const tableOrder = [
+      'system_settings', 'business_settings', 'profiles', 'user_roles',
+      'products', 'product_attributes', 'product_attribute_values', 'product_variants',
+      'customers', 'sales', 'sales_items', 'inventory_logs', 'user_preferences', 'dismissed_alerts'
+    ]
+    
+    // Sort tables according to dependency order
+    const orderedTables = tablesToExport.sort((a, b) => {
+      const indexA = tableOrder.indexOf(a)
+      const indexB = tableOrder.indexOf(b)
+      if (indexA === -1 && indexB === -1) return 0
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+
+    for (const table of orderedTables) {
       try {
         const { data, error } = await supabase
           .from(table)

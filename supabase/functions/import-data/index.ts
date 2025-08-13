@@ -114,7 +114,24 @@ Deno.serve(async (req) => {
     }
 
     try {
-      for (const table of manifest.tables) {
+      // Import tables in dependency order to handle foreign key relationships
+      const tableOrder = [
+        'system_settings', 'business_settings', 'profiles', 'user_roles',
+        'products', 'product_attributes', 'product_attribute_values', 'product_variants',
+        'customers', 'sales', 'sales_items', 'inventory_logs', 'user_preferences', 'dismissed_alerts'
+      ]
+      
+      // Sort tables according to dependency order
+      const orderedTables = manifest.tables.sort((a, b) => {
+        const indexA = tableOrder.indexOf(a)
+        const indexB = tableOrder.indexOf(b)
+        if (indexA === -1 && indexB === -1) return 0
+        if (indexA === -1) return 1
+        if (indexB === -1) return -1
+        return indexA - indexB
+      })
+
+      for (const table of orderedTables) {
         try {
           const tableData = files[`${table}.json`]
           if (!tableData || !Array.isArray(tableData)) {
