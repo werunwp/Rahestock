@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProducts, Product, CreateProductData } from "@/hooks/useProducts";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useProductVariants, AttributeDefinition } from "@/hooks/useProductVariants";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
 interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,6 +86,20 @@ const combos = useMemo(() => {
   }, [{} as Record<string,string>]);
 }, [attributes]);
 
+const totalVariantQty = useMemo(() => {
+  return combos.reduce((sum, attrs) => sum + (variantState[JSON.stringify(attrs)]?.quantity || 0), 0);
+}, [combos, variantState]);
+
+const lowWarnings = useMemo(() => {
+  return combos.reduce((acc, attrs) => {
+    const key = JSON.stringify(attrs);
+    const v = variantState[key];
+    const threshold = (v?.low_stock_threshold ?? formData.low_stock_threshold) || 0;
+    const qty = v?.quantity || 0;
+    return acc + (qty <= threshold ? 1 : 0);
+  }, 0);
+}, [combos, variantState, formData.low_stock_threshold]);
+
 useEffect(() => {
   if (product) {
     setFormData({
@@ -115,6 +131,54 @@ useEffect(() => {
     setHasVariants(false);
   }
 }, [product]);
+
+useEffect(() => {
+  if (isEditing && product?.id && hasVariants) {
+    (async () => {
+      const { data, error } = await supabase
+        .from('product_attributes')
+        .select('id,name, product_attribute_values ( value )')
+        .eq('product_id', product.id);
+      if (!error && data) {
+        const defs: AttributeDefinition[] = (data as any[]).map((row: any) => ({
+          name: row.name,
+          values: (row.product_attribute_values || []).map((v: any) => v.value),
+        }));
+        if (defs.length) setAttributes(defs);
+      }
+    })();
+  }
+}, [isEditing, product?.id, hasVariants]);
+
+useEffect(() => {
+  if (hasVariants && existingVariants && existingVariants.length) {
+    const vs: Record<string, VariantFormRow> = {};
+    existingVariants.forEach((v) => {
+      const key = JSON.stringify(v.attributes);
+      vs[key] = {
+        sku: v.sku ?? undefined,
+        rate: v.rate,
+        cost: v.cost,
+        quantity: v.stock_quantity,
+        low_stock_threshold: v.low_stock_threshold ?? undefined,
+        image_url: v.image_url ?? undefined,
+      };
+    });
+    setVariantState(vs);
+
+    if (!attributes.length) {
+      const nameSet = new Set<string>();
+      existingVariants.forEach((v) => {
+        Object.keys(v.attributes || {}).forEach((k) => nameSet.add(k));
+      });
+      const attrDefs: AttributeDefinition[] = Array.from(nameSet).map((name) => ({
+        name,
+        values: Array.from(new Set(existingVariants.map((v) => v.attributes[name]).filter(Boolean))),
+      }));
+      if (attrDefs.length) setAttributes(attrDefs);
+    }
+  }
+}, [existingVariants, hasVariants]);
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -257,10 +321,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                 id="stock_quantity"
                 type="number"
                 min="0"
-                value={formData.stock_quantity}
+                value={hasVariants ? totalVariantQty : formData.stock_quantity}
                 onChange={(e) => handleChange("stock_quantity", parseInt(e.target.value) || 0)}
                 placeholder="0"
+                disabled={hasVariants}
               />
+              {hasVariants && (
+                <p className="text-xs text-muted-foreground">Auto-calculated from variants</p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -276,27 +344,167 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="size">Size</Label>
-              <Input
-                id="size"
-                value={formData.size}
-                onChange={(e) => handleChange("size", e.target.value)}
-                placeholder="e.g., S, M, L, XL"
-              />
+          {/* Variations Toggle */}
+          <div className="rounded-lg border p-3 flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">Enable Variations</Label>
+              <p className="text-xs text-muted-foreground">Add attributes (e.g., Size, Color) and manage variant stock.</p>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="color">Color</Label>
-              <Input
-                id="color"
-                value={formData.color}
-                onChange={(e) => handleChange("color", e.target.value)}
-                placeholder="e.g., Red, Blue"
-              />
-            </div>
+            <Switch checked={hasVariants} onCheckedChange={setHasVariants} />
           </div>
+
+          {hasVariants ? (
+            <>
+              {/* Attributes Panel */}
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Attributes</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAttributes([...attributes, { name: "", values: [] }])}>
+                    Add Attribute
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {attributes.map((attr, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-start">
+                      <div className="sm:col-span-2 space-y-1">
+                        <Label>Attribute Name</Label>
+                        <Input
+                          value={attr.name}
+                          onChange={(e) => {
+                            const copy = [...attributes];
+                            copy[idx] = { ...copy[idx], name: e.target.value };
+                            setAttributes(copy);
+                          }}
+                          placeholder="e.g., Size"
+                        />
+                      </div>
+                      <div className="sm:col-span-3 space-y-1">
+                        <Label>Values (comma separated)</Label>
+                        <Input
+                          value={attr.values.join(", ")}
+                          onChange={(e) => {
+                            const vals = e.target.value.split(",").map((v) => v.trim()).filter(Boolean);
+                            const copy = [...attributes];
+                            copy[idx] = { ...copy[idx], values: vals };
+                            setAttributes(copy);
+                          }}
+                          placeholder="e.g., 0-6 years, 6-12 years"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const copy = [...attributes];
+                            copy.splice(idx, 1);
+                            setAttributes(copy);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {!attributes.length && (
+                    <p className="text-xs text-muted-foreground">No attributes yet. Add one to start creating variants.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Bulk Actions + Variants Matrix */}
+              {combos.length > 0 && (
+                <>
+                  <div className="rounded-lg bg-muted p-3 grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+                    <div className="sm:col-span-2">
+                      <Label>Bulk Price</Label>
+                      <Input type="number" step="0.01" value={bulkRate} onChange={(e) => setBulkRate(e.target.value)} placeholder={`${formData.rate}`} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Bulk Cost</Label>
+                      <Input type="number" step="0.01" value={bulkCost} onChange={(e) => setBulkCost(e.target.value)} placeholder={`${formData.cost || 0}`} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Bulk Low Stock</Label>
+                      <Input type="number" value={bulkLow} onChange={(e) => setBulkLow(e.target.value)} placeholder={`${formData.low_stock_threshold}`} />
+                    </div>
+                    <div className="sm:col-span-1">
+                      <Button type="button" className="w-full" onClick={applyBulk}>Apply</Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="max-h-64 overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Variant</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Cost</TableHead>
+                            <TableHead>Qty</TableHead>
+                            <TableHead>Low Stock</TableHead>
+                            <TableHead>Image URL</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {combos.map((attrs, i) => {
+                            const key = JSON.stringify(attrs);
+                            const v = variantState[key] || { quantity: 0 };
+                            const name = attributes.map((a) => (attrs as any)[a.name]).filter(Boolean).join(" | ");
+                            return (
+                              <TableRow key={key + i}>
+                                <TableCell className="whitespace-nowrap">{name}</TableCell>
+                                <TableCell>
+                                  <Input value={v.sku || ""} onChange={(e) => setVariant(key, { sku: e.target.value })} placeholder={(formData.sku || "") + `-${i + 1}`} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="number" step="0.01" value={v.rate ?? ""} onChange={(e) => setVariant(key, { rate: e.target.value ? parseFloat(e.target.value) : null })} placeholder={`${formData.rate}`} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="number" step="0.01" value={v.cost ?? ""} onChange={(e) => setVariant(key, { cost: e.target.value ? parseFloat(e.target.value) : null })} placeholder={`${formData.cost || 0}`} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="number" min={0} value={v.quantity} onChange={(e) => setVariant(key, { quantity: parseInt(e.target.value) || 0 })} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input type="number" min={0} value={v.low_stock_threshold ?? ""} onChange={(e) => setVariant(key, { low_stock_threshold: e.target.value ? parseInt(e.target.value) : null })} placeholder={`${formData.low_stock_threshold}`} />
+                                </TableCell>
+                                <TableCell>
+                                  <Input value={v.image_url || ""} onChange={(e) => setVariant(key, { image_url: e.target.value })} placeholder="https://..." />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Variants: {combos.length}</Badge>
+                        <Badge variant="secondary">Total Stock: {totalVariantQty}</Badge>
+                      </div>
+                      {lowWarnings > 0 && <span className="text-destructive">{lowWarnings} variants at or below low stock</span>}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="size">Size</Label>
+                  <Input id="size" value={formData.size} onChange={(e) => handleChange("size", e.target.value)} placeholder="e.g., S, M, L, XL" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="color">Color</Label>
+                  <Input id="color" value={formData.color} onChange={(e) => handleChange("color", e.target.value)} placeholder="e.g., Red, Blue" />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="image_url">Product Image</Label>
