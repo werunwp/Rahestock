@@ -12,6 +12,9 @@ import { Plus, UserCheck, UserX, Shield, Eye, Users, Edit, Trash2, User } from "
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UserProfile {
   id: string;
@@ -60,7 +63,97 @@ export function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch all users with their roles and auth data
+  // Role Permission Management state
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'staff' | 'viewer'>('staff');
+  const [activeTab, setActiveTab] = useState(
+    'general' as 'general' | 'products_inventory' | 'sales_invoices' | 'customers' | 'reports' | 'settings' | 'administration'
+  );
+  const [toggles, setToggles] = useState<Record<string, boolean>>({});
+
+  // Permission catalog
+  const PERMISSIONS: Record<string, { label: string; key: string; description: string }[]> = {
+    general: [
+      { key: 'access.dashboard', label: 'Dashboard Access', description: 'Access to the main dashboard overview.' },
+      { key: 'access.alerts', label: 'Alerts Access', description: 'View system alerts and notifications.' },
+    ],
+    products_inventory: [
+      { key: 'products.view', label: 'View Products', description: 'View product catalog.' },
+      { key: 'products.add', label: 'Add Products', description: 'Create new products.' },
+      { key: 'products.edit', label: 'Edit Products', description: 'Modify existing products.' },
+      { key: 'products.delete', label: 'Delete Products', description: 'Remove products from catalog.' },
+      { key: 'products.import_export', label: 'Import/Export Products', description: 'Import or export product data.' },
+      { key: 'inventory.view', label: 'View Inventory', description: 'View stock levels and inventory.' },
+      { key: 'inventory.adjust_stock', label: 'Adjust Stock', description: 'Make stock adjustments and log changes.' },
+    ],
+    sales_invoices: [
+      { key: 'sales.view', label: 'View Sales', description: 'View sales history and POS page.' },
+      { key: 'sales.create', label: 'Create Sales (POS)', description: 'Create sales via POS.' },
+      { key: 'sales.edit', label: 'Edit Sales', description: 'Modify existing sales.' },
+      { key: 'sales.delete', label: 'Delete Sales', description: 'Delete or void sales.' },
+      { key: 'invoices.view', label: 'View Invoices', description: 'Access and view invoices.' },
+      { key: 'invoices.download_print', label: 'Download/Print Invoices', description: 'Download or print invoice PDFs.' },
+      { key: 'invoices.export', label: 'Export Invoices', description: 'Export invoice data.' },
+    ],
+    customers: [
+      { key: 'customers.view', label: 'View Customers', description: 'View customer list and details.' },
+      { key: 'customers.add', label: 'Add Customers', description: 'Create new customer profiles.' },
+      { key: 'customers.edit', label: 'Edit Customers', description: 'Modify customer details.' },
+      { key: 'customers.delete', label: 'Delete Customers', description: 'Remove customers.' },
+      { key: 'customers.import_export', label: 'Import/Export Customers', description: 'Import or export customers.' },
+      { key: 'customers.view_history', label: 'View Customer History', description: 'View purchase history for customers.' },
+    ],
+    reports: [
+      { key: 'reports.view', label: 'View Reports', description: 'Access reports and analytics.' },
+      { key: 'reports.export', label: 'Export Reports', description: 'Export report data.' },
+    ],
+    settings: [
+      { key: 'settings.view_business', label: 'View Business Settings', description: 'View business & system settings.' },
+      { key: 'settings.edit_business', label: 'Edit Business Settings', description: 'Edit business & system settings.' },
+      { key: 'settings.manage_notifications', label: 'Manage Notifications', description: 'Configure notification preferences.' },
+      { key: 'settings.manage_appearance', label: 'Manage Appearance', description: 'Change theme and layout preferences.' },
+      { key: 'settings.change_password', label: 'Change Password (Self)', description: 'Change own account password.' },
+    ],
+    administration: [
+      { key: 'admin.manage_roles', label: 'Manage User Roles', description: 'Create and edit user roles.' },
+      { key: 'admin.manage_permissions', label: 'Manage User Permissions', description: 'Control role-based permissions.' },
+      { key: 'admin.full_backup', label: 'Full Data Backup', description: 'Export full system backup.' },
+      { key: 'admin.data_restore', label: 'Data Restore', description: 'Restore data from backup.' },
+    ],
+  };
+
+  const allKeys = Object.values(PERMISSIONS).flat().map(p => p.key);
+  const keysByTab = (tab: keyof typeof PERMISSIONS) => PERMISSIONS[tab].map(p => p.key);
+
+  // Load current permissions for the selected role
+  const { data: rolePerms, isLoading: permsLoading } = useQuery({
+    queryKey: ["role-permissions-editor", selectedRole],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('permission_key, allowed')
+        .eq('role', selectedRole);
+      if (error) throw error;
+      return data as { permission_key: string; allowed: boolean }[];
+    },
+    staleTime: 0,
+  });
+
+  // Sync into local toggle state
+  const computeDefaults = () => {
+    const base: Record<string, boolean> = {};
+    allKeys.forEach(k => (base[k] = false));
+    rolePerms?.forEach(p => {
+      base[p.permission_key] = !!p.allowed;
+    });
+    return base;
+  };
+
+  const [initializedRole, setInitializedRole] = useState<string>('');
+  if (initializedRole !== selectedRole && !permsLoading) {
+    setToggles(computeDefaults());
+    setInitializedRole(selectedRole);
+  }
+
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
@@ -140,12 +233,38 @@ export function UserManagement() {
     }
   });
 
+  // Permission save mutation
+  const savePermissionsMutation = useMutation({
+    mutationFn: async () => {
+      const payload = Object.entries(toggles).map(([permission_key, allowed]) => ({
+        role: selectedRole,
+        permission_key,
+        allowed,
+      }));
+      const { error } = await supabase.from('role_permissions').upsert(payload, { onConflict: 'role,permission_key' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Permissions updated');
+      queryClient.invalidateQueries({ queryKey: ["role-permissions-editor", selectedRole] });
+      queryClient.invalidateQueries({ queryKey: ["role-permissions", selectedRole] });
+    },
+    onError: (e: any) => toast.error(`Failed to save: ${e.message}`)
+  });
+
+  const togglePermission = (key: string) => setToggles(prev => ({ ...prev, [key]: !prev[key] }));
+  const allInTabOn = keysByTab(activeTab as keyof typeof PERMISSIONS).every(k => !!toggles[k]);
+  const setAllInTab = (value: boolean) => {
+    const next = { ...toggles };
+    keysByTab(activeTab as keyof typeof PERMISSIONS).forEach(k => { next[k] = value; });
+    setToggles(next);
+  };
+
   const handleCreateUser = () => {
     if (!formData.full_name.trim() || !formData.email.trim()) {
       toast.error("Please fill in required fields (name and email)");
       return;
     }
-    
     createUserMutation.mutate(formData);
   };
 

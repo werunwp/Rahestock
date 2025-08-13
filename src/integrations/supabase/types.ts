@@ -247,6 +247,33 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          permission_key: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales: {
         Row: {
           amount_due: number | null
