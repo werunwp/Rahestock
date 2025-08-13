@@ -45,7 +45,7 @@ export function AppSidebar() {
   const { state, setOpenMobile, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
-  const { isAdmin, hasPermission } = useUserRole();
+  const { isAdmin, hasPermission, isLoading } = useUserRole();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -71,7 +71,15 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.filter((item) => hasPermission(item.permissionKey)).map((item) => (
+              {isLoading ? (
+                // Show skeleton items while loading
+                Array.from({ length: 8 }, (_, i) => (
+                  <SidebarMenuItem key={`skeleton-${i}`}>
+                    <div className="h-10 bg-muted animate-pulse rounded-md" />
+                  </SidebarMenuItem>
+                ))
+              ) : (
+                menuItems.filter((item) => hasPermission(item.permissionKey)).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink 
@@ -84,7 +92,8 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -92,7 +101,7 @@ export function AppSidebar() {
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              {hasPermission('settings.view_business') && (
+              {!isLoading && hasPermission('settings.view_business') && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink 
