@@ -511,14 +511,14 @@ export function UserManagement() {
         </CardHeader>
         <CardContent className="space-y-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="products_inventory">Products & Inventory</TabsTrigger>
-              <TabsTrigger value="sales_invoices">Sales & Invoices</TabsTrigger>
-              <TabsTrigger value="customers">Customers</TabsTrigger>
-              <TabsTrigger value="reports">Reports & Analytics</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-              <TabsTrigger value="administration">Administration</TabsTrigger>
+            <TabsList className="w-full overflow-x-auto whitespace-nowrap gap-2">
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="general">General</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="products_inventory">Products & Inventory</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="sales_invoices">Sales & Invoices</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="customers">Customers</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="reports">Reports & Analytics</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="settings">Settings</TabsTrigger>
+              <TabsTrigger className="flex-shrink-0 px-2 text-xs sm:px-3 sm:text-sm" value="administration">Administration</TabsTrigger>
             </TabsList>
 
             {(['general','products_inventory','sales_invoices','customers','reports','settings','administration'] as const).map((tabKey) => (
