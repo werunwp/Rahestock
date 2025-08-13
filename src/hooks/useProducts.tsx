@@ -14,6 +14,7 @@ export interface Product {
   size: string | null;
   color: string | null;
   image_url: string | null;
+  has_variants: boolean; 
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -29,6 +30,7 @@ export interface CreateProductData {
   size?: string;
   color?: string;
   image_url?: string;
+  has_variants?: boolean;
 }
 
 export const useProducts = () => {

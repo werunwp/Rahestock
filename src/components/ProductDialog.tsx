@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useProducts, Product, CreateProductData } from "@/hooks/useProducts";
 import { Loader2 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
-
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { useProductVariants, AttributeDefinition } from "@/hooks/useProductVariants";
 interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,50 +30,158 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
     image_url: "",
   });
 
-  const isEditing = !!product;
+const isEditing = !!product;
 
-  useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name,
-        sku: product.sku || "",
-        rate: product.rate,
-        cost: product.cost || 0,
-        stock_quantity: product.stock_quantity,
-        low_stock_threshold: product.low_stock_threshold,
-        size: product.size || "",
-        color: product.color || "",
-        image_url: product.image_url || "",
-      });
-    } else {
-      setFormData({
-        name: "",
-        sku: "",
-        rate: 0,
-        cost: 0,
-        stock_quantity: 0,
-        low_stock_threshold: 10,
-        size: "",
-        color: "",
-        image_url: "",
-      });
-    }
-  }, [product]);
+// Variations state
+const [hasVariants, setHasVariants] = useState<boolean>(product?.has_variants ?? false);
+const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
+type VariantFormRow = { sku?: string; rate?: number | null; cost?: number | null; quantity: number; low_stock_threshold?: number | null; image_url?: string };
+const [variantState, setVariantState] = useState<Record<string, VariantFormRow>>({});
+const [bulkRate, setBulkRate] = useState<string>("");
+const [bulkCost, setBulkCost] = useState<string>("");
+const [bulkLow, setBulkLow] = useState<string>("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      if (isEditing) {
-        await updateProduct.mutateAsync({ id: product.id, data: formData });
-      } else {
-        await createProduct.mutateAsync(formData);
+const setVariant = (key: string, patch: Partial<VariantFormRow>) => {
+  setVariantState((prev) => ({
+    ...prev,
+    [key]: { quantity: 0, ...prev[key], ...patch },
+  }));
+};
+
+const applyBulk = () => {
+  const r = bulkRate ? parseFloat(bulkRate) : undefined;
+  const c = bulkCost ? parseFloat(bulkCost) : undefined;
+  const l = bulkLow ? parseInt(bulkLow) : undefined;
+  const next: Record<string, VariantFormRow> = {};
+  combos.forEach((attrs) => {
+    const key = JSON.stringify(attrs);
+    const cur = variantState[key] || { quantity: 0 };
+    next[key] = {
+      ...cur,
+      rate: r ?? cur.rate ?? formData.rate,
+      cost: c ?? cur.cost ?? (formData.cost || null),
+      low_stock_threshold: l ?? cur.low_stock_threshold ?? formData.low_stock_threshold,
+    };
+  });
+  setVariantState(next);
+};
+
+const { variants: existingVariants, isLoading: variantsLoading, bulkUpsert, clearVariants } = useProductVariants(product?.id);
+
+const combos = useMemo(() => {
+  if (!attributes.length) return [] as Array<Record<string,string>>;
+  const lists = attributes.map(a => a.values.filter(v => v?.trim()).map(v => ({ [a.name]: v.trim() })));
+  if (lists.some(l => l.length === 0)) return [] as Array<Record<string,string>>;
+  // cartesian product of list of objects where we merge keys
+  return lists.reduce((acc, list) => {
+    const out: Array<Record<string,string>> = [];
+    for (const a of acc) {
+      for (const b of list) {
+        out.push({ ...a, ...b });
       }
-      onOpenChange(false);
-    } catch (error) {
-      // Error handling is done in the hook
     }
-  };
+    return out;
+  }, [{} as Record<string,string>]);
+}, [attributes]);
+
+useEffect(() => {
+  if (product) {
+    setFormData({
+      name: product.name,
+      sku: product.sku || "",
+      rate: product.rate,
+      cost: product.cost || 0,
+      stock_quantity: product.stock_quantity,
+      low_stock_threshold: product.low_stock_threshold,
+      size: product.size || "",
+      color: product.color || "",
+      image_url: product.image_url || "",
+      has_variants: product.has_variants,
+    });
+    setHasVariants(!!product.has_variants);
+  } else {
+    setFormData({
+      name: "",
+      sku: "",
+      rate: 0,
+      cost: 0,
+      stock_quantity: 0,
+      low_stock_threshold: 10,
+      size: "",
+      color: "",
+      image_url: "",
+      has_variants: false,
+    });
+    setHasVariants(false);
+  }
+}, [product]);
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    if (hasVariants) {
+      if (isEditing && product) {
+        // Update product base fields, mark has_variants
+        await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: true } });
+        // Prepare variants payload
+        const variantPayload = combos.map((attrs) => {
+          const key = JSON.stringify(attrs);
+          const v = variantState[key] || { quantity: 0 };
+          return {
+            product_id: product.id,
+            attributes: attrs,
+            sku: v.sku || null,
+            rate: v.rate ?? null,
+            cost: v.cost ?? null,
+            stock_quantity: v.quantity || 0,
+            low_stock_threshold: v.low_stock_threshold ?? null,
+            image_url: v.image_url || null,
+          };
+        });
+        await bulkUpsert.mutateAsync({
+          productId: product.id,
+          hasVariants: true,
+          attributes,
+          variants: variantPayload as any,
+        });
+      } else {
+        // Create base product first
+        const created = await createProduct.mutateAsync({ ...formData, has_variants: true, stock_quantity: 0 });
+        const productId = (created as any)?.id;
+        if (productId) {
+          const variantPayload = combos.map((attrs) => {
+            const key = JSON.stringify(attrs);
+            const v = variantState[key] || { quantity: 0 };
+            return {
+              product_id: productId,
+              attributes: attrs,
+              sku: v.sku || null,
+              rate: v.rate ?? null,
+              cost: v.cost ?? null,
+              stock_quantity: v.quantity || 0,
+              low_stock_threshold: v.low_stock_threshold ?? null,
+              image_url: v.image_url || null,
+            };
+          });
+          await bulkUpsert.mutateAsync({ productId, hasVariants: true, attributes, variants: variantPayload as any });
+        }
+      }
+    } else {
+      // No variants path
+      if (isEditing && product) {
+        await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: false } });
+        if (product.has_variants) {
+          await clearVariants.mutateAsync(product.id);
+        }
+      } else {
+        await createProduct.mutateAsync({ ...formData, has_variants: false });
+      }
+    }
+    onOpenChange(false);
+  } catch (error) {
+    // handled in hooks
+  }
+};
 
   const handleChange = (field: keyof CreateProductData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
