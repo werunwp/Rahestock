@@ -49,9 +49,30 @@ export const useUserRole = () => {
 
   // Permission checker: admins bypass checks, others use dynamic permissions
   const hasPermission = (key: string) => {
-    if (isAdmin) return true;
-    if (!rolePermissions || rolePermissions.length === 0) return false;
-    return !!rolePermissions?.some(p => p.permission_key === key && p.allowed === true);
+    console.log('🔍 hasPermission check:', {
+      key,
+      isAdmin,
+      userRole: userRole?.role,
+      rolePermissions: rolePermissions?.length || 0,
+      isLoading,
+      isLoadingPermissions
+    });
+    
+    if (isAdmin) {
+      console.log('✅ Admin access granted for:', key);
+      return true;
+    }
+    
+    if (!rolePermissions || rolePermissions.length === 0) {
+      console.log('❌ No permissions found for:', key);
+      return false;
+    }
+    
+    const permission = rolePermissions.find(p => p.permission_key === key);
+    const hasAccess = permission && permission.allowed === true;
+    
+    console.log('🎯 Permission result for', key, ':', hasAccess, permission);
+    return !!hasAccess;
   };
 
   // Permission helpers using dynamic permissions
