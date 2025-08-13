@@ -8,9 +8,10 @@ interface ImageUploadProps {
   value?: string;
   onChange: (url: string) => void;
   onRemove?: () => void;
+  compact?: boolean;
 }
 
-export const ImageUpload = ({ value, onChange, onRemove }: ImageUploadProps) => {
+export const ImageUpload = ({ value, onChange, onRemove, compact = false }: ImageUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +96,31 @@ export const ImageUpload = ({ value, onChange, onRemove }: ImageUploadProps) => 
   };
 
   if (value) {
+    if (compact) {
+      return (
+        <div className="relative group w-28">
+          <div className="relative w-full h-16 border-2 border-dashed border-muted rounded-md overflow-hidden">
+            <img
+              src={value}
+              alt="Variant image"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="absolute top-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
+              aria-label="Remove image"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="relative group">
         <div className="relative w-full h-40 border-2 border-dashed border-muted rounded-lg overflow-hidden">
@@ -103,7 +129,7 @@ export const ImageUpload = ({ value, onChange, onRemove }: ImageUploadProps) => 
             alt="Product image" 
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = '/placeholder.svg';
+              (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
             }}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
@@ -119,6 +145,43 @@ export const ImageUpload = ({ value, onChange, onRemove }: ImageUploadProps) => 
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-1">
+        <div
+          className={`relative w-28 h-16 border-2 border-dashed rounded-md transition-colors cursor-pointer ${
+            isDragOver ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'
+          } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+            {isUploading ? (
+              <>
+                <Upload className="h-4 w-4 animate-pulse" />
+                <p className="text-[10px] mt-1">Uploading...</p>
+              </>
+            ) : (
+              <>
+                <Image className="h-4 w-4" />
+                <p className="text-[10px] mt-1">Upload</p>
+              </>
+            )}
+          </div>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
       </div>
     );
   }

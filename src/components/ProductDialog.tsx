@@ -434,9 +434,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="max-h-64 overflow-auto">
-                      <Table>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <div className="max-h-96 overflow-auto">
+                      <Table className="min-w-[900px]">
                         <TableHeader>
                           <TableRow>
                             <TableHead>Variant</TableHead>
@@ -445,7 +445,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             <TableHead>Cost</TableHead>
                             <TableHead>Qty</TableHead>
                             <TableHead>Low Stock</TableHead>
-                            <TableHead>Image URL</TableHead>
+                            <TableHead>Image</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -471,9 +471,16 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <TableCell>
                                   <Input type="number" min={0} value={v.low_stock_threshold ?? ""} onChange={(e) => setVariant(key, { low_stock_threshold: e.target.value ? parseInt(e.target.value) : null })} placeholder={`${formData.low_stock_threshold}`} />
                                 </TableCell>
-                                <TableCell>
-                                  <Input value={v.image_url || ""} onChange={(e) => setVariant(key, { image_url: e.target.value })} placeholder="https://..." />
-                                </TableCell>
+                                  <TableCell>
+                                    <div className="min-w-[120px]">
+                                      <ImageUpload
+                                        compact
+                                        value={v.image_url || ""}
+                                        onChange={(url) => setVariant(key, { image_url: url })}
+                                        onRemove={() => setVariant(key, { image_url: "" })}
+                                      />
+                                    </div>
+                                  </TableCell>
                               </TableRow>
                             );
                           })}
@@ -507,7 +514,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="image_url">Product Image</Label>
+            <Label htmlFor="image_url">Featured Image</Label>
             <ImageUpload
               value={formData.image_url}
               onChange={(url) => handleChange("image_url", url)}
