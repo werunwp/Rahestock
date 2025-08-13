@@ -14,6 +14,7 @@ import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
@@ -23,15 +24,18 @@ const Sales = () => {
   const [viewingSaleId, setViewingSaleId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid" | "cancelled">("all");
   
   const { sales, isLoading } = useSales();
   const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
   const { formatAmount } = useCurrency();
 
-  const filteredSales = sales.filter(sale =>
-    sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSales = sales
+    .filter(sale =>
+      sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter(sale => (statusFilter === "all" ? true : sale.payment_status === statusFilter));
 
   const handleEditSale = (saleId: string) => {
     setEditingSaleId(saleId);
@@ -146,10 +150,13 @@ const Sales = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
-        </Button>
+        <ToggleGroup type="single" value={statusFilter} onValueChange={(val) => setStatusFilter((val as any) || "all")}>
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+          <ToggleGroupItem value="pending">Pending</ToggleGroupItem>
+          <ToggleGroupItem value="partial">Partial</ToggleGroupItem>
+          <ToggleGroupItem value="paid">Paid</ToggleGroupItem>
+          <ToggleGroupItem value="cancelled">Cancelled</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <Card>
@@ -194,7 +201,8 @@ const Sales = () => {
                           variant={
                             sale.payment_status === "paid" ? "default" : 
                             sale.payment_status === "partial" ? "secondary" : 
-                            "destructive"
+                            sale.payment_status === "cancelled" ? "destructive" :
+                            "outline"
                           }
                         >
                           {sale.payment_status}

@@ -173,6 +173,8 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
 
   // Auto-update payment status based on amount paid
   useEffect(() => {
+    // Do not auto-change status if explicitly set to cancelled
+    if (formData.payment_status === "cancelled") return;
     if (formData.amount_paid === 0) {
       setFormData(prev => ({ ...prev, payment_status: "pending" }));
     } else if (formData.amount_paid >= grandTotal) {
@@ -180,7 +182,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
     } else {
       setFormData(prev => ({ ...prev, payment_status: "partial" }));
     }
-  }, [formData.amount_paid, grandTotal]);
+  }, [formData.amount_paid, grandTotal, formData.payment_status]);
 
   const handleCustomerSelect = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
@@ -529,6 +531,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="partial">Partial</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
