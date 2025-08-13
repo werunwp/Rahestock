@@ -79,15 +79,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ))
               ) : (
-                (() => {
-                  console.log('🚀 Filtering menu items, isLoading:', isLoading);
-                  const filteredItems = menuItems.filter((item) => {
-                    const hasAccess = hasPermission(item.permissionKey);
-                    console.log(`📋 Menu item "${item.title}" (${item.permissionKey}):`, hasAccess);
-                    return hasAccess;
-                  });
-                  console.log('📝 Final filtered items:', filteredItems.map(i => i.title));
-                  return filteredItems.map((item) => (
+                menuItems.filter((item) => hasPermission(item.permissionKey)).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink 
@@ -100,8 +92,7 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                   </SidebarMenuItem>
-                  ));
-                })()
+              ))
               )}
             </SidebarMenu>
           </SidebarGroupContent>
