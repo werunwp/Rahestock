@@ -34,7 +34,7 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: Home, permissionKey: 'access.dashboard' },
   { title: "Products", url: "/products", icon: Package, permissionKey: 'products.view' },
   { title: "Inventory", url: "/inventory", icon: Archive, permissionKey: 'inventory.view' },
-  { title: "Sales (POS)", url: "/sales", icon: ShoppingCart, permissionKey: 'sales.view' },
+  { title: "Sales (POS)", url: "/sales", icon: ShoppingCart, permissionKey: 'sales.create' },
   { title: "Customers", url: "/customers", icon: Users, permissionKey: 'customers.view' },
   { title: "Reports", url: "/reports", icon: BarChart3, permissionKey: 'reports.view' },
   { title: "Invoices", url: "/invoices", icon: FileText, permissionKey: 'invoices.view' },

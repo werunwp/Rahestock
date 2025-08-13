@@ -47,18 +47,18 @@ export const useUserRole = () => {
   const isStaff = userRole?.role === 'staff';
   const isViewer = userRole?.role === 'viewer';
 
-  // Permission helpers (role-based defaults)
-  const canManageUsers = isAdmin;
-  const canManageBusiness = isAdmin || isManager;
-  const canCreateSales = isAdmin || isManager || isStaff;
-  const canViewReports = isAdmin || isManager || isStaff || isViewer;
-  const isReadOnly = isViewer;
-
-  // Permission checker: admins bypass checks
+  // Permission checker: admins bypass checks, others use dynamic permissions
   const hasPermission = (key: string) => {
     if (isAdmin) return true;
     return !!rolePermissions?.some(p => p.permission_key === key && p.allowed);
   };
+
+  // Permission helpers using dynamic permissions
+  const canManageUsers = hasPermission('admin.manage_roles');
+  const canManageBusiness = hasPermission('settings.edit_business');
+  const canCreateSales = hasPermission('sales.create');
+  const canViewReports = hasPermission('reports.view');
+  const isReadOnly = userRole?.role === 'viewer';
 
   return {
     userRole: userRole?.role,
