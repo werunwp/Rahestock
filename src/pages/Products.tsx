@@ -446,17 +446,24 @@ const Products = () => {
                     </div>
                     
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(product)} className="flex-1">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleEdit(product)}
+                        aria-label="Edit product"
+                      >
+                        <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
-                        onClick={() =>
+                        size="icon"
+                        onClick={() => {
+                          const base = (product.sku || '').toString().trim();
+                          const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+                          const newSku = `${base ? base : 'SKU'}-${suffix}`;
                           createProduct.mutate({
                             name: `${product.name} (duplicated)`,
-                            sku: product.sku || undefined,
+                            sku: newSku,
                             rate: product.rate,
                             cost: product.cost || undefined,
                             stock_quantity: product.stock_quantity,
@@ -465,21 +472,22 @@ const Products = () => {
                             color: product.color || undefined,
                             image_url: product.image_url || undefined,
                             has_variants: product.has_variants,
-                          })
-                        }
+                          });
+                        }}
                         disabled={createProduct.isPending}
+                        aria-label="Duplicate product"
                       >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Duplicate
+                        <Copy className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="outline" 
-                        size="sm" 
+                        size="icon" 
                         onClick={() => handleDelete(product.id)}
                         disabled={deleteProduct.isPending}
                         className="text-destructive hover:text-destructive"
+                        aria-label="Delete product"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
