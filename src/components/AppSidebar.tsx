@@ -31,21 +31,21 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { PanelLeft } from "lucide-react";
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: Home },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Inventory", url: "/inventory", icon: Archive },
-  { title: "Sales (POS)", url: "/sales", icon: ShoppingCart },
-  { title: "Customers", url: "/customers", icon: Users },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-  { title: "Invoices", url: "/invoices", icon: FileText },
-  { title: "Alerts", url: "/alerts", icon: Bell },
+  { title: "Dashboard", url: "/", icon: Home, permissionKey: 'access.dashboard' },
+  { title: "Products", url: "/products", icon: Package, permissionKey: 'products.view' },
+  { title: "Inventory", url: "/inventory", icon: Archive, permissionKey: 'inventory.view' },
+  { title: "Sales (POS)", url: "/sales", icon: ShoppingCart, permissionKey: 'sales.view' },
+  { title: "Customers", url: "/customers", icon: Users, permissionKey: 'customers.view' },
+  { title: "Reports", url: "/reports", icon: BarChart3, permissionKey: 'reports.view' },
+  { title: "Invoices", url: "/invoices", icon: FileText, permissionKey: 'invoices.view' },
+  { title: "Alerts", url: "/alerts", icon: Bell, permissionKey: 'access.alerts' },
 ];
 
 export function AppSidebar() {
   const { state, setOpenMobile, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { signOut } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, hasPermission } = useUserRole();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -71,7 +71,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {menuItems.filter((item) => hasPermission(item.permissionKey)).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink 
@@ -92,18 +92,20 @@ export function AppSidebar() {
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink 
-                    to="/settings" 
-                    className={`flex items-center gap-3 ${getNavClass("/settings")}`}
-                    onClick={handleMobileNavClick}
-                  >
-                    <Settings className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && <span>Settings</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {hasPermission('settings.view_business') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/settings" 
+                      className={`flex items-center gap-3 ${getNavClass("/settings")}`}
+                      onClick={handleMobileNavClick}
+                    >
+                      <Settings className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span>Settings</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               
               {/* Admin Panel - Only for admins */}
               {isAdmin && (

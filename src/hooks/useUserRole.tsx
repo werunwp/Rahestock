@@ -31,7 +31,7 @@ export const useUserRole = () => {
     queryKey: ["role-permissions", userRole?.role],
     queryFn: async () => {
       if (!userRole?.role) return [] as { permission_key: string; allowed: boolean }[];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("role_permissions")
         .select("permission_key, allowed")
         .eq("role", userRole.role);

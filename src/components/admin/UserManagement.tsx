@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,7 +128,7 @@ export function UserManagement() {
   const { data: rolePerms, isLoading: permsLoading } = useQuery({
     queryKey: ["role-permissions-editor", selectedRole],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('role_permissions')
         .select('permission_key, allowed')
         .eq('role', selectedRole);
@@ -149,10 +149,12 @@ export function UserManagement() {
   };
 
   const [initializedRole, setInitializedRole] = useState<string>('');
-  if (initializedRole !== selectedRole && !permsLoading) {
-    setToggles(computeDefaults());
-    setInitializedRole(selectedRole);
-  }
+  useEffect(() => {
+    if (!permsLoading) {
+      setToggles(computeDefaults());
+      setInitializedRole(selectedRole);
+    }
+  }, [selectedRole, rolePerms, permsLoading]);
 
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
@@ -486,7 +488,75 @@ export function UserManagement() {
         </CardContent>
       </Card>
 
-      {/* Edit User Dialog */}
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>User Role Permission Management</CardTitle>
+            <CardDescription>Control which features each role can access</CardDescription>
+          </div>
+          <div className="w-full sm:w-64">
+            <Label className="sr-only">Role</Label>
+            <Select value={selectedRole} onValueChange={(v: 'admin' | 'manager' | 'staff' | 'viewer') => setSelectedRole(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="staff">Staff</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="products_inventory">Products & Inventory</TabsTrigger>
+              <TabsTrigger value="sales_invoices">Sales & Invoices</TabsTrigger>
+              <TabsTrigger value="customers">Customers</TabsTrigger>
+              <TabsTrigger value="reports">Reports & Analytics</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="administration">Administration</TabsTrigger>
+            </TabsList>
+
+            {(['general','products_inventory','sales_invoices','customers','reports','settings','administration'] as const).map((tabKey) => (
+              <TabsContent key={tabKey} value={tabKey} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">Select all in this tab</div>
+                  <Switch checked={allInTabOn} onCheckedChange={(v) => setAllInTab(!!v)} />
+                </div>
+                <div className="divide-y rounded-md border">
+                  {PERMISSIONS[tabKey].map((p) => (
+                    <div key={p.key} className="flex items-center justify-between p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">{p.label}</div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-muted-foreground underline decoration-dotted cursor-help">?</span>
+                            </TooltipTrigger>
+                            <TooltipContent>{p.description}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <Switch checked={!!toggles[p.key]} onCheckedChange={() => togglePermission(p.key)} />
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+
+          <div className="flex justify-end">
+            <Button onClick={() => savePermissionsMutation.mutate()} disabled={savePermissionsMutation.isPending}>
+              {savePermissionsMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
