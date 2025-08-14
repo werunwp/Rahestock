@@ -14,6 +14,12 @@ export interface BusinessSettings {
   address?: string;
   invoice_prefix: string;
   invoice_footer_message: string;
+  brand_color?: string;
+  primary_email?: string;
+  secondary_email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  business_hours?: string;
   created_at: string;
   updated_at: string;
 }

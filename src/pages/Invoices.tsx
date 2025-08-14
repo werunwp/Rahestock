@@ -14,6 +14,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
 import { downloadInvoicePDF, printInvoicePDF } from "@/lib/invoicePdf";
+import { createPrintableInvoice, downloadInvoiceHtml } from "@/lib/generateInvoiceHtml";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const Invoices = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
@@ -23,6 +25,7 @@ const Invoices = () => {
   
   const { sales, isLoading, getSaleWithItems } = useSales();
   const { businessSettings } = useBusinessSettings();
+  const { systemSettings } = useSystemSettings();
   const { formatAmount } = useCurrency();
 
   const filteredSales = sales.filter(sale =>
@@ -190,20 +193,22 @@ const Invoices = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handlePrintInvoice(sale)}
-                            >
-                              <Printer className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleDownloadInvoice(sale)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="sm"
+                               onClick={() => handlePrintInvoice(sale)}
+                               title="Print Invoice (HTML)"
+                             >
+                               <Printer className="h-4 w-4" />
+                             </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="sm"
+                               onClick={() => handleDownloadInvoice(sale)}
+                               title="Download Invoice (HTML)"
+                             >
+                               <Download className="h-4 w-4" />
+                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -238,14 +243,14 @@ const Invoices = () => {
 
   async function handlePrintInvoice(sale: any) {
     try {
-      if (!businessSettings) {
-        toast.error("Business settings not loaded");
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
         return;
       }
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      await printInvoicePDF(saleWithItems, businessSettings);
+      createPrintableInvoice(saleWithItems, businessSettings, systemSettings);
       toast.success("Invoice sent to printer");
     } catch (error) {
       toast.error("Failed to print invoice");
@@ -255,15 +260,15 @@ const Invoices = () => {
 
   async function handleDownloadInvoice(sale: any) {
     try {
-      if (!businessSettings) {
-        toast.error("Business settings not loaded");
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
         return;
       }
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      await downloadInvoicePDF(saleWithItems, businessSettings);
-      toast.success("Invoice downloaded successfully");
+      downloadInvoiceHtml(saleWithItems, businessSettings, systemSettings);
+      toast.success("Invoice HTML downloaded successfully");
     } catch (error) {
       toast.error("Failed to download invoice");
       console.error("Download error:", error);

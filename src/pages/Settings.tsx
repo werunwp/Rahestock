@@ -30,7 +30,13 @@ const Settings = () => {
     facebook: '',
     address: '',
     invoice_prefix: 'INV',
-    invoice_footer_message: 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য'
+    invoice_footer_message: 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+    brand_color: '#2c7be5',
+    primary_email: '',
+    secondary_email: '',
+    address_line1: '',
+    address_line2: '',
+    business_hours: ''
   });
 
   const [systemForm, setSystemForm] = useState({
@@ -50,7 +56,13 @@ const Settings = () => {
         facebook: businessSettings.facebook || '',
         address: businessSettings.address || '',
         invoice_prefix: businessSettings.invoice_prefix || 'INV',
-        invoice_footer_message: businessSettings.invoice_footer_message || 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য'
+        invoice_footer_message: businessSettings.invoice_footer_message || 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+        brand_color: businessSettings.brand_color || '#2c7be5',
+        primary_email: businessSettings.primary_email || '',
+        secondary_email: businessSettings.secondary_email || '',
+        address_line1: businessSettings.address_line1 || '',
+        address_line2: businessSettings.address_line2 || '',
+        business_hours: businessSettings.business_hours || ''
       };
       setBusinessForm(prev => {
         return JSON.stringify(prev) === JSON.stringify(nextForm) ? prev : nextForm;
@@ -137,13 +149,23 @@ const Settings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="primaryEmail">Primary Email</Label>
                   <Input 
-                    id="email" 
+                    id="primaryEmail" 
                     type="email"
-                    value={businessForm.email}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter email address" 
+                    value={businessForm.primary_email}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, primary_email: e.target.value }))}
+                    placeholder="Enter primary email address" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="secondaryEmail">Secondary Email</Label>
+                  <Input 
+                    id="secondaryEmail" 
+                    type="email"
+                    value={businessForm.secondary_email}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, secondary_email: e.target.value }))}
+                    placeholder="Enter secondary email address" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -164,14 +186,61 @@ const Settings = () => {
                     placeholder="INV" 
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="businessHours">Business Hours</Label>
+                  <Input 
+                    id="businessHours" 
+                    value={businessForm.business_hours}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, business_hours: e.target.value }))}
+                    placeholder="Mon-Fri 9AM-6PM" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brandColor">Brand Color</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="brandColor" 
+                      type="color"
+                      value={businessForm.brand_color}
+                      onChange={(e) => setBusinessForm(prev => ({ ...prev, brand_color: e.target.value }))}
+                      className="w-20 h-10 p-1"
+                    />
+                    <Input 
+                      value={businessForm.brand_color}
+                      onChange={(e) => setBusinessForm(prev => ({ ...prev, brand_color: e.target.value }))}
+                      placeholder="#2c7be5"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="addressLine1">Address Line 1</Label>
+                  <Input 
+                    id="addressLine1" 
+                    value={businessForm.address_line1}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, address_line1: e.target.value }))}
+                    placeholder="Street address" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressLine2">Address Line 2</Label>
+                  <Input 
+                    id="addressLine2" 
+                    value={businessForm.address_line2}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, address_line2: e.target.value }))}
+                    placeholder="City, State, ZIP" 
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">Full Address (Legacy)</Label>
                 <Textarea 
                   id="address" 
                   value={businessForm.address}
                   onChange={(e) => setBusinessForm(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Enter business address" 
+                  placeholder="Complete business address" 
                 />
               </div>
               <div className="space-y-2">
