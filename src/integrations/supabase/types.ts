@@ -17,6 +17,10 @@ export type Database = {
       business_settings: {
         Row: {
           address: string | null
+          address_line1: string | null
+          address_line2: string | null
+          brand_color: string | null
+          business_hours: string | null
           business_name: string
           created_at: string
           created_by: string | null
@@ -27,11 +31,17 @@ export type Database = {
           invoice_prefix: string | null
           logo_url: string | null
           phone: string | null
+          primary_email: string | null
+          secondary_email: string | null
           updated_at: string
           whatsapp: string | null
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          brand_color?: string | null
+          business_hours?: string | null
           business_name?: string
           created_at?: string
           created_by?: string | null
@@ -42,11 +52,17 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           phone?: string | null
+          primary_email?: string | null
+          secondary_email?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          brand_color?: string | null
+          business_hours?: string | null
           business_name?: string
           created_at?: string
           created_by?: string | null
@@ -57,6 +73,8 @@ export type Database = {
           invoice_prefix?: string | null
           logo_url?: string | null
           phone?: string | null
+          primary_email?: string | null
+          secondary_email?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
