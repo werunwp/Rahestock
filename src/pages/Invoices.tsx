@@ -13,8 +13,7 @@ import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
-import { downloadInvoicePDF, printInvoicePDF } from "@/lib/invoicePdf";
-import { createPrintableInvoice, downloadInvoiceHtml } from "@/lib/generateInvoiceHtml";
+import { createPrintableInvoice, downloadInvoiceHtml, downloadInvoicePDFFromHtml } from "@/lib/generateInvoiceHtml";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const Invoices = () => {
@@ -260,14 +259,14 @@ const Invoices = () => {
 
   async function handleDownloadInvoicePDF(sale: any) {
     try {
-      if (!businessSettings) {
-        toast.error("Business settings not loaded");
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
         return;
       }
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      await downloadInvoicePDF(saleWithItems, businessSettings);
+      await downloadInvoicePDFFromHtml(saleWithItems, businessSettings, systemSettings);
       toast.success("Invoice PDF downloaded successfully");
     } catch (error) {
       toast.error("Failed to download invoice");
@@ -282,16 +281,16 @@ const Invoices = () => {
         return;
       }
 
-      if (!businessSettings) {
-        toast.error("Business settings not loaded");
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
         return;
       }
 
-      // Export each invoice as a separate PDF
+      // Export each invoice as a separate PDF using HTML template
       for (const sale of filteredSales) {
         try {
           const saleWithItems = await getSaleWithItems(sale.id);
-          await downloadInvoicePDF(saleWithItems, businessSettings);
+          await downloadInvoicePDFFromHtml(saleWithItems, businessSettings, systemSettings);
         } catch (error) {
           console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
         }

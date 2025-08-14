@@ -84,3 +84,46 @@ export const downloadInvoiceHtml = (
   
   URL.revokeObjectURL(url);
 };
+
+// New function to convert HTML to PDF and download
+export const downloadInvoicePDFFromHtml = async (
+  sale: SaleData,
+  businessSettings: BusinessSettings,
+  systemSettings: SystemSettings,
+  filename?: string
+): Promise<void> => {
+  const html = generateInvoiceHtml(sale, businessSettings, systemSettings);
+  
+  // Create a new window/iframe to render the HTML for PDF conversion
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '210mm';
+  iframe.style.height = '297mm';
+  
+  document.body.appendChild(iframe);
+  
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) throw new Error('Could not access iframe document');
+    
+    doc.open();
+    doc.write(html);
+    doc.close();
+    
+    // Wait for content to load
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Use the browser's print functionality to generate PDF
+    const printWindow = iframe.contentWindow;
+    if (printWindow) {
+      printWindow.focus();
+      printWindow.print();
+    }
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw error;
+  } finally {
+    document.body.removeChild(iframe);
+  }
+};
