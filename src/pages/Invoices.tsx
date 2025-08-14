@@ -204,8 +204,8 @@ const Invoices = () => {
                              <Button 
                                variant="ghost" 
                                size="sm"
-                               onClick={() => handleDownloadInvoice(sale)}
-                               title="Download Invoice (HTML)"
+                               onClick={() => handleDownloadInvoicePDF(sale)}
+                               title="Download Invoice (PDF)"
                              >
                                <Download className="h-4 w-4" />
                              </Button>
@@ -258,17 +258,17 @@ const Invoices = () => {
     }
   }
 
-  async function handleDownloadInvoice(sale: any) {
+  async function handleDownloadInvoicePDF(sale: any) {
     try {
-      if (!businessSettings || !systemSettings) {
-        toast.error("Settings not loaded");
+      if (!businessSettings) {
+        toast.error("Business settings not loaded");
         return;
       }
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      downloadInvoiceHtml(saleWithItems, businessSettings, systemSettings);
-      toast.success("Invoice HTML downloaded successfully");
+      await downloadInvoicePDF(saleWithItems, businessSettings);
+      toast.success("Invoice PDF downloaded successfully");
     } catch (error) {
       toast.error("Failed to download invoice");
       console.error("Download error:", error);

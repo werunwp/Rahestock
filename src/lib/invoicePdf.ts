@@ -19,11 +19,13 @@ interface SaleData {
   payment_method: string;
   payment_status: string;
   created_at: string;
-  items: Array<{
+  sale_items?: Array<{
+    id: string;
     product_name: string;
     quantity: number;
     rate: number;
     total: number;
+    variant_id?: string;
   }>;
 }
 
@@ -96,7 +98,7 @@ export const generateInvoicePDF = async (
 
   // Items Table
   const tableColumns = ['Description', 'Qty', 'Rate (৳)', 'Total (৳)'];
-  const tableRows = sale.items.map(item => [
+  const tableRows = (sale.sale_items || []).map(item => [
     item.product_name,
     item.quantity.toString(),
     item.rate.toFixed(2),
