@@ -85,45 +85,102 @@ export const downloadInvoiceHtml = (
   URL.revokeObjectURL(url);
 };
 
-// New function to convert HTML to PDF and download
+// Convert HTML to PDF and download using html2canvas and jsPDF
 export const downloadInvoicePDFFromHtml = async (
   sale: SaleData,
   businessSettings: BusinessSettings,
   systemSettings: SystemSettings,
   filename?: string
 ): Promise<void> => {
+  // Dynamic imports for better performance
+  const [html2canvas, jsPDF] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf')
+  ]);
+
   const html = generateInvoiceHtml(sale, businessSettings, systemSettings);
   
-  // Create a new window/iframe to render the HTML for PDF conversion
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.left = '-9999px';
-  iframe.style.width = '210mm';
-  iframe.style.height = '297mm';
+  // Create a temporary container for the invoice
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.style.position = 'fixed';
+  container.style.top = '-9999px';
+  container.style.left = '-9999px';
+  container.style.width = '210mm';
+  container.style.backgroundColor = 'white';
+  container.style.padding = '20px';
+  container.style.fontFamily = 'Arial, sans-serif';
   
-  document.body.appendChild(iframe);
+  document.body.appendChild(container);
   
   try {
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) throw new Error('Could not access iframe document');
-    
-    doc.open();
-    doc.write(html);
-    doc.close();
-    
     // Wait for content to load
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Use the browser's print functionality to generate PDF
-    const printWindow = iframe.contentWindow;
-    if (printWindow) {
-      printWindow.focus();
-      printWindow.print();
+    // Convert HTML to canvas
+    const canvas = await html2canvas.default(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: container.offsetWidth,
+      height: container.offsetHeight
+    });
+    
+    // Create PDF
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF.jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    // Calculate dimensions to fit A4
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pdfWidth - 20; // 10mm margin on each side
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Add image to PDF
+    pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pdfHeight - 20));
+    
+    // If content is too tall, add more pages
+    if (imgHeight > pdfHeight - 20) {
+      let position = pdfHeight - 20;
+      while (position < imgHeight) {
+        pdf.addPage();
+        const remainingHeight = imgHeight - position;
+        const pageHeight = Math.min(remainingHeight, pdfHeight - 20);
+        
+        // Create a new canvas for the remaining content
+        const remainingCanvas = document.createElement('canvas');
+        const ctx = remainingCanvas.getContext('2d');
+        remainingCanvas.width = canvas.width;
+        remainingCanvas.height = (pageHeight * canvas.width) / imgWidth;
+        
+        ctx?.drawImage(
+          canvas, 
+          0, (position * canvas.width) / imgWidth,
+          canvas.width, remainingCanvas.height,
+          0, 0,
+          remainingCanvas.width, remainingCanvas.height
+        );
+        
+        const remainingImgData = remainingCanvas.toDataURL('image/png');
+        pdf.addImage(remainingImgData, 'PNG', 10, 10, imgWidth, pageHeight);
+        
+        position += pageHeight;
+      }
     }
+    
+    // Download the PDF
+    const pdfFilename = filename || `invoice-${sale.invoice_number}.pdf`;
+    pdf.save(pdfFilename);
+    
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw error;
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
   }
 };
