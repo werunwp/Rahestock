@@ -93,7 +93,7 @@ export const downloadInvoicePDFFromHtml = async (
   filename?: string
 ): Promise<void> => {
   // Dynamic imports for better performance
-  const [html2canvas, jsPDF] = await Promise.all([
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
     import('html2canvas'),
     import('jspdf')
   ]);
@@ -118,7 +118,7 @@ export const downloadInvoicePDFFromHtml = async (
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Convert HTML to canvas
-    const canvas = await html2canvas.default(container, {
+    const canvas = await html2canvas(container, {
       scale: 2,
       useCORS: true,
       allowTaint: true,
@@ -129,7 +129,7 @@ export const downloadInvoicePDFFromHtml = async (
     
     // Create PDF
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF.jsPDF({
+    const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
