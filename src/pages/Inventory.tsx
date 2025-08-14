@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Archive, TrendingUp, TrendingDown, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,27 +6,97 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useProducts } from "@/hooks/useProducts";
 import { useCurrency } from "@/hooks/useCurrency";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { format, isAfter, isBefore, isEqual } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const Inventory = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
+  const { user } = useAuth();
 
-  const filteredProducts = products.filter(product => {
+  // Fetch all product variants for inventory display
+  const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
+    queryKey: ["all_product_variants"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_variants")
+        .select(`
+          *,
+          products!inner(name, sku)
+        `)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Create combined inventory items (products + variants)
+  const inventoryItems = useMemo(() => {
+    const items: any[] = [];
+    
+    // Add products
+    products.forEach(product => {
+      if (!product.has_variants) {
+        items.push({
+          id: product.id,
+          type: 'product',
+          name: product.name,
+          sku: product.sku,
+          stock_quantity: product.stock_quantity,
+          low_stock_threshold: product.low_stock_threshold,
+          updated_at: product.updated_at,
+          variant_info: null
+        });
+      }
+    });
+    
+    // Add variants
+    allVariants.forEach(variant => {
+      const variantDisplay = Object.entries(variant.attributes)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
+      
+      items.push({
+        id: variant.id,
+        type: 'variant',
+        name: variant.products.name,
+        sku: variant.sku || variant.products.sku,
+        stock_quantity: variant.stock_quantity,
+        low_stock_threshold: variant.low_stock_threshold,
+        updated_at: variant.updated_at,
+        variant_info: variantDisplay
+      });
+    });
+    
+    return items;
+  }, [products, allVariants]);
+
+  const filteredItems = inventoryItems.filter(item => {
     // Text search filter
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.variant_info && item.variant_info.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Stock filter
+    const matchesStock = stockFilter === "all" || 
+      (stockFilter === "in_stock" && item.stock_quantity > 0) ||
+      (stockFilter === "out_of_stock" && item.stock_quantity === 0);
     
     // Date range filter
-    const productDate = new Date(product.updated_at);
+    const itemDate = new Date(item.updated_at);
     let matchesDate = true;
     
     if (dateRange.from && dateRange.to) {
@@ -35,19 +105,19 @@ const Inventory = () => {
       fromDate.setHours(0, 0, 0, 0);
       toDate.setHours(23, 59, 59, 999);
       
-      matchesDate = (isAfter(productDate, fromDate) || isEqual(productDate, fromDate)) &&
-                    (isBefore(productDate, toDate) || isEqual(productDate, toDate));
+      matchesDate = (isAfter(itemDate, fromDate) || isEqual(itemDate, fromDate)) &&
+                    (isBefore(itemDate, toDate) || isEqual(itemDate, toDate));
     } else if (dateRange.from) {
       const fromDate = new Date(dateRange.from);
       fromDate.setHours(0, 0, 0, 0);
-      matchesDate = isAfter(productDate, fromDate) || isEqual(productDate, fromDate);
+      matchesDate = isAfter(itemDate, fromDate) || isEqual(itemDate, fromDate);
     } else if (dateRange.to) {
       const toDate = new Date(dateRange.to);
       toDate.setHours(23, 59, 59, 999);
-      matchesDate = isBefore(productDate, toDate) || isEqual(productDate, toDate);
+      matchesDate = isBefore(itemDate, toDate) || isEqual(itemDate, toDate);
     }
     
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesStock && matchesDate;
   });
 
   const totalProducts = products.length;
@@ -150,10 +220,22 @@ const Inventory = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
-        </Button>
+        <ToggleGroup
+          type="single"
+          value={stockFilter}
+          onValueChange={(value) => setStockFilter(value as typeof stockFilter || "all")}
+          className="flex gap-1"
+        >
+          <ToggleGroupItem value="all" variant="outline" size="sm">
+            All
+          </ToggleGroupItem>
+          <ToggleGroupItem value="in_stock" variant="outline" size="sm">
+            In Stock
+          </ToggleGroupItem>
+          <ToggleGroupItem value="out_of_stock" variant="outline" size="sm">
+            Out of Stock
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <Card>
@@ -161,7 +243,7 @@ const Inventory = () => {
           <CardTitle>Inventory Levels</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading || variantsLoading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
@@ -172,6 +254,7 @@ const Inventory = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
+                  <TableHead>Variant</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Current Stock</TableHead>
                   <TableHead>Min. Threshold</TableHead>
@@ -180,27 +263,36 @@ const Inventory = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No products found
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No inventory items found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => {
-                    const status = product.stock_quantity === 0 
+                  filteredItems.map((item) => {
+                    const status = item.stock_quantity === 0 
                       ? "Out of Stock" 
-                      : product.stock_quantity <= product.low_stock_threshold 
+                      : item.stock_quantity <= (item.low_stock_threshold || 0)
                         ? "Low Stock" 
                         : "In Stock";
                     
                     return (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.sku || "-"}</TableCell>
-                        <TableCell>{product.stock_quantity}</TableCell>
-                        <TableCell>{product.low_stock_threshold}</TableCell>
-                        <TableCell>{format(new Date(product.updated_at), "MMM dd, yyyy")}</TableCell>
+                      <TableRow key={`${item.type}-${item.id}`}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>
+                          {item.variant_info ? (
+                            <Badge variant="outline" className="text-xs">
+                              {item.variant_info}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{item.sku || "-"}</TableCell>
+                        <TableCell>{item.stock_quantity}</TableCell>
+                        <TableCell>{item.low_stock_threshold || "-"}</TableCell>
+                        <TableCell>{format(new Date(item.updated_at), "MMM dd, yyyy")}</TableCell>
                         <TableCell>
                           <Badge 
                             variant={
