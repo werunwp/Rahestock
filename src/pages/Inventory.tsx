@@ -47,13 +47,15 @@ const Inventory = () => {
         .from("product_variants")
         .select(`
           *,
-          products (
+          products!inner (
             id,
             name,
             sku,
-            image_url
+            image_url,
+            is_deleted
           )
         `)
+        .eq("products.is_deleted", false)
         .order("created_at", { ascending: true });
       
       if (error) {
@@ -81,7 +83,7 @@ const Inventory = () => {
     }
     
     // Add products without variants
-    const productsWithoutVariants = products.filter(product => !product.has_variants);
+    const productsWithoutVariants = products.filter(product => !product.has_variants && !product.is_deleted);
     console.log("Products without variants:", productsWithoutVariants);
     
     productsWithoutVariants.forEach(product => {
@@ -98,7 +100,7 @@ const Inventory = () => {
     });
     
     // Group variants by product and add products with variants
-    const productsWithVariants = products.filter(product => product.has_variants);
+    const productsWithVariants = products.filter(product => product.has_variants && !product.is_deleted);
     console.log("Products with variants:", productsWithVariants);
     
     const variantsByProduct = new Map();
@@ -290,11 +292,11 @@ const Inventory = () => {
     }
   }, [selectedImage]);
 
-  // Calculate stats
-  const totalProducts = products.length;
-  const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
-  const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
-  const totalValue = products.reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
+  // Calculate stats (excluding deleted products)
+  const totalProducts = products.filter(p => !p.is_deleted).length;
+  const lowStockProducts = products.filter(p => !p.is_deleted && p.stock_quantity <= p.low_stock_threshold);
+  const outOfStockProducts = products.filter(p => !p.is_deleted && p.stock_quantity === 0);
+  const totalValue = products.filter(p => !p.is_deleted).reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
   
   return (
     <div className="space-y-6">

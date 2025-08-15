@@ -15,6 +15,8 @@ export interface Product {
   color: string | null;
   image_url: string | null;
   has_variants: boolean; 
+  is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -47,6 +49,7 @@ export const useProducts = () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -98,20 +101,15 @@ export const useProducts = () => {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      // Check if product has sales items
-      const { data: salesItems, error: salesError } = await supabase
-        .from("sales_items")
-        .select("id")
-        .eq("product_id", id)
-        .limit(1);
+      // Soft delete the product by marking it as deleted
+      const { error } = await supabase
+        .from("products")
+        .update({ 
+          is_deleted: true, 
+          deleted_at: new Date().toISOString() 
+        })
+        .eq("id", id);
       
-      if (salesError) throw salesError;
-      
-      if (salesItems && salesItems.length > 0) {
-        throw new Error("Cannot delete product as it has been sold. Consider setting stock to 0 instead.");
-      }
-      
-      const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -120,6 +118,29 @@ export const useProducts = () => {
     },
     onError: (error) => {
       toast.error("Failed to delete product: " + error.message);
+    },
+  });
+
+  const restoreProduct = useMutation({
+    mutationFn: async (id: string) => {
+      // Restore the product by marking it as not deleted
+      const { error } = await supabase
+        .from("products")
+        .update({ 
+          is_deleted: false, 
+          deleted_at: null 
+        })
+        .eq("id", id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["all_products"] });
+      toast.success("Product restored successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to restore product: " + error.message);
     },
   });
 
@@ -208,6 +229,36 @@ export const useProducts = () => {
     createProduct,
     updateProduct,
     deleteProduct,
+    restoreProduct,
     duplicateProduct,
+  };
+};
+
+// Hook to get all products including deleted ones (for sales/invoices)
+export const useAllProducts = () => {
+  const { user } = useAuth();
+
+  const {
+    data: allProducts = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["all_products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as Product[];
+    },
+    enabled: !!user,
+  });
+
+  return {
+    allProducts,
+    isLoading,
+    error,
   };
 };

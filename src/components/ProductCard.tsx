@@ -62,7 +62,12 @@ export const ProductCard = ({
             </div>
           )}
         </div>
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex gap-2">
+          {product.is_deleted && (
+            <Badge variant="destructive" className="shadow-md">
+              Deleted
+            </Badge>
+          )}
           <Badge 
             variant={
               status === "In Stock" ? "default" : 
@@ -148,9 +153,9 @@ export const ProductCard = ({
               variant="outline" 
               size="icon" 
               onClick={() => onDelete(product.id)}
-              disabled={isDeleting}
+              disabled={isDeleting || product.is_deleted}
               className="text-destructive hover:text-destructive"
-              aria-label="Delete product"
+              aria-label={product.is_deleted ? "Product already deleted" : "Delete product"}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

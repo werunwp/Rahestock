@@ -357,9 +357,11 @@ export type Database = {
           cost: number | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           has_variants: boolean
           id: string
           image_url: string | null
+          is_deleted: boolean
           last_synced_at: string | null
           low_stock_threshold: number | null
           name: string
@@ -376,9 +378,11 @@ export type Database = {
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           has_variants?: boolean
           id?: string
           image_url?: string | null
+          is_deleted?: boolean
           last_synced_at?: string | null
           low_stock_threshold?: number | null
           name: string
@@ -395,9 +399,11 @@ export type Database = {
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           has_variants?: boolean
           id?: string
           image_url?: string | null
+          is_deleted?: boolean
           last_synced_at?: string | null
           low_stock_threshold?: number | null
           name?: string
