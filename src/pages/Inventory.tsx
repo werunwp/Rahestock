@@ -121,10 +121,31 @@ const Inventory = () => {
     productsWithVariants.forEach(product => {
       const productVariants = variantsByProduct.get(product.id) || [];
       console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants in Map`);
-      console.log(`All variants in Map:`, Array.from(variantsByProduct.keys()));
+      console.log(`Product variants for ${product.name}:`, productVariants);
       
-      // Use actual variants from database, no fallback logic needed
-      let processedVariants = productVariants;
+      // Process variants to show all attributes dynamically
+      const processedVariants = productVariants.map(variant => {
+        // Create display name from all attributes
+        const attributeEntries = Object.entries(variant.attributes || {});
+        const displayName = attributeEntries.length > 0 
+          ? attributeEntries.map(([key, value]) => {
+              // Clean up the key by removing "Select " prefix and ":" suffix
+              const cleanKey = key.replace(/^Select\s+/, '').replace(/:$/, '');
+              return `${cleanKey}: ${value}`;
+            }).join(', ')
+          : 'Default Variant';
+        
+        return {
+          id: variant.id,
+          name: displayName,
+          sku: variant.sku || product.sku,
+          stock_quantity: variant.stock_quantity,
+          low_stock_threshold: variant.low_stock_threshold,
+          attributes: variant.attributes || {}
+        };
+      });
+      
+      console.log(`Processed variants for ${product.name}:`, processedVariants);
       
       parents.push({
         id: product.id,
@@ -134,16 +155,7 @@ const Inventory = () => {
         stock_quantity: processedVariants.length > 0 ? null : product.stock_quantity,
         low_stock_threshold: processedVariants.length > 0 ? null : product.low_stock_threshold,
         image_url: product.image_url,
-        variants: processedVariants.map(variant => ({
-          id: variant.id,
-          name: Object.entries(variant.attributes || {})
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', '),
-          sku: variant.sku || product.sku,
-          stock_quantity: variant.stock_quantity,
-          low_stock_threshold: variant.low_stock_threshold,
-          attributes: variant.attributes || {}
-        }))
+        variants: processedVariants
       });
     });
     
