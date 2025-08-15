@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, Archive, TrendingUp, TrendingDown, Search, AlertTriangle } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Plus, Archive, TrendingUp, TrendingDown, Search, AlertTriangle, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,23 +8,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useProducts } from "@/hooks/useProducts";
 import { useCurrency } from "@/hooks/useCurrency";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import Fuse from "fuse.js";
 
 const Inventory = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+  const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const itemsPerPage = 20;
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
   const { user } = useAuth();
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page on search
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch all product variants for inventory display
   const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
@@ -43,14 +60,14 @@ const Inventory = () => {
     enabled: !!user,
   });
 
-  // Create flattened inventory items with proper grouping
-  const inventoryItems = useMemo(() => {
-    const flattenedItems: any[] = [];
+  // Create parent products list for search and pagination
+  const parentProducts = useMemo(() => {
+    const parents: any[] = [];
     
     // Add products without variants
     products.forEach(product => {
       if (!product.has_variants) {
-        flattenedItems.push({
+        parents.push({
           id: product.id,
           type: 'product',
           name: product.name,
@@ -58,13 +75,12 @@ const Inventory = () => {
           stock_quantity: product.stock_quantity,
           low_stock_threshold: product.low_stock_threshold,
           image_url: product.image_url,
-          isParent: true,
-          parentId: null
+          variants: []
         });
       }
     });
     
-    // Group variants by product and add parent + children
+    // Group variants by product and add products with variants
     const variantsByProduct = new Map();
     allVariants.forEach(variant => {
       const productId = variant.product_id;
@@ -74,84 +90,153 @@ const Inventory = () => {
       variantsByProduct.get(productId).push(variant);
     });
     
-    // Add products with variants (parent + variation rows)
     products.forEach(product => {
       if (product.has_variants) {
         const productVariants = variantsByProduct.get(product.id) || [];
         
-        // Add parent product row
-        flattenedItems.push({
+        parents.push({
           id: product.id,
           type: 'parent_product',
           name: product.name,
           sku: product.sku,
-          stock_quantity: null, // Parent doesn't have stock
+          stock_quantity: null,
           low_stock_threshold: null,
           image_url: product.image_url,
-          isParent: true,
-          parentId: null
-        });
-        
-        // Add variation rows
-        productVariants.forEach(variant => {
-          const variantDisplay = Object.entries(variant.attributes)
-            .map(([key, value]) => value) // Remove key prefix, just show values
-            .join(', ');
-          
-          flattenedItems.push({
+          variants: productVariants.map(variant => ({
             id: variant.id,
-            type: 'variant',
-            name: variantDisplay,
+            name: Object.entries(variant.attributes)
+              .map(([key, value]) => value)
+              .join(', '),
             sku: variant.sku || product.sku,
             stock_quantity: variant.stock_quantity,
             low_stock_threshold: variant.low_stock_threshold,
-            image_url: null, // Variants don't show images
-            isParent: false,
-            parentId: product.id
-          });
+            attributes: variant.attributes
+          }))
         });
       }
     });
     
-    return flattenedItems;
+    return parents;
   }, [products, allVariants]);
 
-  const filteredItems = inventoryItems.filter(item => {
-    // Enhanced text search filter - search by name, SKU, or stock quantity
-    const searchLower = searchTerm.toLowerCase();
-    const nameMatch = item.name?.toLowerCase().includes(searchLower) || false;
-    const skuMatch = item.sku?.toLowerCase().includes(searchLower) || false;
-    const stockMatch = item.stock_quantity?.toString().includes(searchTerm) || false;
+  // Fuzzy search using Fuse.js
+  const fuse = useMemo(() => {
+    const searchData: any[] = [];
     
-    const matchesSearch = nameMatch || skuMatch || stockMatch;
+    parentProducts.forEach(parent => {
+      // Add parent product for search
+      searchData.push({
+        ...parent,
+        searchType: 'parent',
+        searchText: `${parent.name} ${parent.sku || ''}`.toLowerCase()
+      });
+      
+      // Add variants for search
+      parent.variants.forEach((variant: any) => {
+        searchData.push({
+          ...variant,
+          parentId: parent.id,
+          parentName: parent.name,
+          parentImageUrl: parent.image_url,
+          searchType: 'variant',
+          searchText: `${parent.name} ${variant.name} ${variant.sku || ''}`.toLowerCase()
+        });
+      });
+    });
+
+    return new Fuse(searchData, {
+      keys: ['searchText', 'name', 'sku'],
+      threshold: 0.4, // More tolerant for typos
+      includeScore: true,
+      minMatchCharLength: 1
+    });
+  }, [parentProducts]);
+
+  // Filter and search logic
+  const filteredParentProducts = useMemo(() => {
+    let filtered = parentProducts;
     
-    // Stock filter - check individual items
-    let matchesStock = false;
-    if (stockFilter === "all") {
-      matchesStock = true;
-    } else if (item.type === "parent_product") {
-      // Parent products always show when not filtering by stock
-      matchesStock = true;
-    } else {
-      const stockQty = item.stock_quantity || 0;
-      matchesStock = stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+    // Apply fuzzy search
+    if (debouncedSearchTerm.trim()) {
+      const searchResults = fuse.search(debouncedSearchTerm.trim());
+      const matchedParentIds = new Set();
+      
+      searchResults.forEach(result => {
+        if (result.item.searchType === 'parent') {
+          matchedParentIds.add(result.item.id);
+        } else if (result.item.searchType === 'variant') {
+          matchedParentIds.add(result.item.parentId);
+        }
+      });
+      
+      filtered = parentProducts.filter(parent => matchedParentIds.has(parent.id));
     }
     
-    return matchesSearch && matchesStock;
-  });
+    // Apply stock filter
+    if (stockFilter !== "all") {
+      filtered = filtered.filter(parent => {
+        if (parent.type === 'product') {
+          const stockQty = parent.stock_quantity || 0;
+          return stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+        } else {
+          // For parent products with variants, check if any variant matches the filter
+          return parent.variants.some((variant: any) => {
+            const stockQty = variant.stock_quantity || 0;
+            return stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+          });
+        }
+      });
+    }
+    
+    return filtered;
+  }, [parentProducts, debouncedSearchTerm, stockFilter, fuse]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  // Pagination calculations (based on parent products only)
+  const totalParentProducts = filteredParentProducts.length;
+  const totalPages = Math.ceil(totalParentProducts / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedParentProducts = filteredParentProducts.slice(startIndex, startIndex + itemsPerPage);
 
-  // Check if there are any low stock items
-  const hasLowStockItems = inventoryItems.some(item => {
-    if (item.type === "variant" || item.type === "product") {
-      return item.stock_quantity && item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0;
+  // Handle image hover with delay
+  const handleImageHover = useCallback((imageUrl: string) => {
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
     }
-    return false;
-  });
+    
+    const timer = setTimeout(() => {
+      setPreviewImage(imageUrl);
+    }, 200);
+    
+    setHoverTimer(timer);
+    setHoveredImage(imageUrl);
+  }, [hoverTimer]);
+
+  const handleImageLeave = useCallback(() => {
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
+      setHoverTimer(null);
+    }
+    setHoveredImage(null);
+    setPreviewImage(null);
+  }, [hoverTimer]);
+
+  const handleImageClick = useCallback((imageUrl: string) => {
+    setSelectedImage(imageUrl);
+  }, []);
+
+  // Handle escape key for modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedImage(null);
+      }
+    };
+
+    if (selectedImage) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [selectedImage]);
 
   const totalProducts = products.length;
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
@@ -297,51 +382,81 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedItems.length === 0 ? (
+                  {paginatedParentProducts.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground">
                         No inventory items found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedItems.map((item) => {
-                      if (item.type === "parent_product") {
-                        // Parent product row (shows image and product name, empty other cells)
-                        return (
-                          <TableRow key={`parent-${item.id}`}>
-                            <TableCell>
-                              {item.image_url ? (
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-md object-cover"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                    paginatedParentProducts.map((parent) => [
+                      // Parent product row
+                      <TableRow key={`parent-${parent.id}`} className="bg-background">
+                        <TableCell>
+                          {parent.image_url ? (
+                            <div className="relative">
+                              <img 
+                                src={parent.image_url} 
+                                alt={parent.name}
+                                className="h-14 w-14 rounded-md object-cover cursor-pointer hover:shadow-lg transition-shadow"
+                                onMouseEnter={() => handleImageHover(parent.image_url)}
+                                onMouseLeave={handleImageLeave}
+                                onClick={() => handleImageClick(parent.image_url)}
+                                loading="lazy"
+                              />
+                              {/* Hover preview */}
+                              {previewImage === parent.image_url && (
+                                <div className="fixed z-50 pointer-events-none">
+                                  <div 
+                                    className="absolute bg-background border rounded-lg shadow-xl p-2"
+                                    style={{
+                                      left: '50%',
+                                      top: '50%',
+                                      transform: 'translate(-50%, -50%)',
+                                      maxWidth: '300px',
+                                      maxHeight: '300px'
+                                    }}
+                                  >
+                                    <img 
+                                      src={parent.image_url}
+                                      alt={parent.name}
+                                      className="max-w-full max-h-full object-contain rounded"
+                                    />
+                                  </div>
                                 </div>
                               )}
-                            </TableCell>
-                            <TableCell className="font-semibold">{item.name}</TableCell>
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
-                        );
-                      } else if (item.type === "variant") {
-                        // Variant row (empty image cell, variant name, SKU, stock, status)
-                        const status = item.stock_quantity === 0 
+                            </div>
+                          ) : (
+                            <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
+                              <Archive className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-semibold text-foreground">{parent.name}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>,
+                      // Variant rows for this parent
+                      ...parent.variants.map((variant: any) => {
+                        const status = variant.stock_quantity === 0 
                           ? "Out of Stock" 
-                          : item.stock_quantity <= (item.low_stock_threshold || 0)
+                          : variant.stock_quantity <= (variant.low_stock_threshold || 0)
                             ? "Low Stock" 
                             : "In Stock";
                         
                         return (
-                          <TableRow key={`variant-${item.id}`}>
-                            <TableCell></TableCell>
-                            <TableCell className="pl-6 text-muted-foreground">{item.name}</TableCell>
-                            <TableCell>{item.sku || "-"}</TableCell>
-                            <TableCell>{item.stock_quantity}</TableCell>
+                          <TableRow key={`variant-${variant.id}`} className="bg-muted/20 border-l-4 border-l-muted">
+                            <TableCell>
+                              <div className="h-14 w-14 flex items-center justify-center">
+                                <div className="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="pl-6 text-gray-800 dark:text-gray-200 font-medium">
+                              {variant.name}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{variant.sku || "-"}</TableCell>
+                            <TableCell className="text-foreground font-medium">{variant.stock_quantity}</TableCell>
                             <TableCell>
                               <Badge 
                                 variant={
@@ -356,145 +471,174 @@ const Inventory = () => {
                             </TableCell>
                           </TableRow>
                         );
-                      } else {
-                        // Single product without variants
-                        const status = item.stock_quantity === 0 
-                          ? "Out of Stock" 
-                          : item.stock_quantity <= (item.low_stock_threshold || 0)
-                            ? "Low Stock" 
-                            : "In Stock";
-                        
-                        return (
-                          <TableRow key={`product-${item.id}`}>
-                            <TableCell>
-                              {item.image_url ? (
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-md object-cover"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                                  <Archive className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell>{item.sku || "-"}</TableCell>
-                            <TableCell>{item.stock_quantity}</TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={
-                                  status === "In Stock" ? "default" : 
-                                  status === "Low Stock" ? "secondary" : 
-                                  "destructive"
-                                }
-                              >
-                                {status}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }
-                    })
+                      }),
+                      // Single product without variants (show stock data in parent row)
+                      ...(parent.type === 'product' ? [
+                        <TableRow key={`product-stock-${parent.id}`} className="bg-muted/10 border-l-4 border-l-muted">
+                          <TableCell>
+                            <div className="h-14 w-14 flex items-center justify-center">
+                              <div className="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="pl-6 text-gray-800 dark:text-gray-200 font-medium">
+                            Stock Details
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{parent.sku || "-"}</TableCell>
+                          <TableCell className="text-foreground font-medium">{parent.stock_quantity}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                parent.stock_quantity === 0 ? "destructive" :
+                                parent.stock_quantity <= (parent.low_stock_threshold || 0) ? "secondary" :
+                                "default"
+                              }
+                              className="text-xs"
+                            >
+                              {parent.stock_quantity === 0 ? "Out of Stock" :
+                               parent.stock_quantity <= (parent.low_stock_threshold || 0) ? "Low Stock" :
+                               "In Stock"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ] : [])
+                    ]).flat()
                   )}
                 </TableBody>
               </Table>
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredItems.length)} of {filteredItems.length} items
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      
-                      {/* Dynamic page numbers */}
-                      {(() => {
-                        const maxVisiblePages = 5;
-                        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-                        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4">
+                  <div className="flex items-center" role="status" aria-live="polite">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalParentProducts)} of {totalParentProducts} items
+                    </p>
+                  </div>
+                  <div className="flex-1 flex justify-center sm:justify-end">
+                    <Pagination className="mx-0">
+                      <PaginationContent className="flex-wrap gap-1">
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
+                            aria-label="Go to previous page"
+                          />
+                          {/* Mobile previous */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="sm:hidden"
+                            aria-label="Previous page"
+                          >
+                            Prev
+                          </Button>
+                        </PaginationItem>
                         
-                        // Adjust start page if we're near the end
-                        if (endPage - startPage + 1 < maxVisiblePages) {
-                          startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                        }
+                        {/* Mobile page indicator */}
+                        <div className="sm:hidden flex items-center px-3 py-2 text-sm">
+                          Page {currentPage} of {totalPages}
+                        </div>
                         
-                        const pages = [];
+                        {/* Desktop page numbers */}
+                        <div className="hidden sm:flex items-center gap-1">
+                          {(() => {
+                            const maxVisiblePages = 5;
+                            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                            
+                            // Adjust start page if we're near the end
+                            if (endPage - startPage + 1 < maxVisiblePages) {
+                              startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                            }
+                            
+                            const pages = [];
+                            
+                            // Show first page if not in range
+                            if (startPage > 1) {
+                              pages.push(
+                                <PaginationItem key={1}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPage(1)}
+                                    className="cursor-pointer"
+                                    aria-label="Go to page 1"
+                                  >
+                                    1
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                              if (startPage > 2) {
+                                pages.push(
+                                  <PaginationItem key="start-ellipsis">
+                                    <span className="px-3 py-2 text-muted-foreground">...</span>
+                                  </PaginationItem>
+                                );
+                              }
+                            }
+                            
+                            // Show visible page range
+                            for (let page = startPage; page <= endPage; page++) {
+                              pages.push(
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPage(page)}
+                                    isActive={currentPage === page}
+                                    className="cursor-pointer"
+                                    aria-label={`Go to page ${page}`}
+                                    aria-current={currentPage === page ? "page" : undefined}
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            }
+                            
+                            // Show last page if not in range
+                            if (endPage < totalPages) {
+                              if (endPage < totalPages - 1) {
+                                pages.push(
+                                  <PaginationItem key="end-ellipsis">
+                                    <span className="px-3 py-2 text-muted-foreground">...</span>
+                                  </PaginationItem>
+                                );
+                              }
+                              pages.push(
+                                <PaginationItem key={totalPages}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    className="cursor-pointer"
+                                    aria-label={`Go to page ${totalPages}`}
+                                  >
+                                    {totalPages}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            }
+                            
+                            return pages;
+                          })()}
+                        </div>
                         
-                        // Show first page if not in range
-                        if (startPage > 1) {
-                          pages.push(
-                            <PaginationItem key={1}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(1)}
-                                className="cursor-pointer"
-                              >
-                                1
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                          if (startPage > 2) {
-                            pages.push(
-                              <PaginationItem key="start-ellipsis">
-                                <span className="px-3 py-2">...</span>
-                              </PaginationItem>
-                            );
-                          }
-                        }
-                        
-                        // Show visible page range
-                        for (let page = startPage; page <= endPage; page++) {
-                          pages.push(
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(page)}
-                                isActive={currentPage === page}
-                                className="cursor-pointer"
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
-                        
-                        // Show last page if not in range
-                        if (endPage < totalPages) {
-                          if (endPage < totalPages - 1) {
-                            pages.push(
-                              <PaginationItem key="end-ellipsis">
-                                <span className="px-3 py-2">...</span>
-                              </PaginationItem>
-                            );
-                          }
-                          pages.push(
-                            <PaginationItem key={totalPages}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(totalPages)}
-                                className="cursor-pointer"
-                              >
-                                {totalPages}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
-                        
-                        return pages;
-                      })()}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            className={`${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
+                            aria-label="Go to next page"
+                          />
+                          {/* Mobile next */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            className="sm:hidden"
+                            aria-label="Next page"
+                          >
+                            Next
+                          </Button>
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
                 </div>
               )}
             </>
@@ -503,6 +647,36 @@ const Inventory = () => {
       </Card>
 
       <StockAdjustmentDialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog} />
+      
+      {/* Image Preview Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0" aria-modal="true">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="flex items-center justify-between">
+              Product Image Preview
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedImage(null)}
+                className="h-6 w-6 p-0"
+                aria-label="Close preview"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-6 pt-0">
+            {selectedImage && (
+              <img 
+                src={selectedImage}
+                alt="Product preview"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                style={{ aspectRatio: 'auto' }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
