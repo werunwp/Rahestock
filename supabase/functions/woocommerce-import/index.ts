@@ -487,10 +487,25 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
         return { success: 1, failed: 0 };
       }
 
-      // Create new product
+      // Create new product with unique SKU handling
+      const baseSku = wcProduct.sku || `wc_${wcProduct.id}`;
+      let finalSku = baseSku;
+      
+      // Check if SKU already exists and make it unique
+      const { data: existingSku } = await supabase
+        .from('products')
+        .select('sku')
+        .eq('sku', baseSku)
+        .single();
+      
+      if (existingSku) {
+        finalSku = `${baseSku}_${wcProduct.id}_${Date.now()}`;
+        console.log(`SKU ${baseSku} already exists, using ${finalSku}`);
+      }
+
       const productData = {
         name: wcProduct.name || `Product ${wcProduct.id}`,
-        sku: wcProduct.sku || `wc_${wcProduct.id}`,
+        sku: finalSku,
         rate: currentPrice,
         cost: parseFloat(wcProduct.regular_price) || currentPrice,
         stock_quantity: currentStock,
@@ -514,7 +529,8 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
         .single();
 
       if (productError) {
-        console.error(`Failed to insert product ${wcProduct.name}:`, productError.message);
+        console.error(`Failed to insert product ${wcProduct.name}:`, productError);
+        console.error(`Product data that failed:`, JSON.stringify(productData, null, 2));
         return { success: 0, failed: 1 };
       }
 
