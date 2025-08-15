@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt, Search, Filter, Eye, Edit } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, Edit, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,16 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PathaoOrderDialog } from "@/components/PathaoOrderDialog";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showPathaoDialog, setShowPathaoDialog] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [viewingSaleId, setViewingSaleId] = useState<string | null>(null);
+  const [pathaoSaleId, setPathaoSaleId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid" | "cancelled">("all");
@@ -47,6 +50,11 @@ const Sales = () => {
     setShowDetailsDialog(true);
   };
 
+  const handlePathaoOrder = (saleId: string) => {
+    setPathaoSaleId(saleId);
+    setShowPathaoDialog(true);
+  };
+
   const handleCloseEditDialog = (open: boolean) => {
     setShowEditDialog(open);
     if (!open) {
@@ -58,6 +66,13 @@ const Sales = () => {
     setShowDetailsDialog(open);
     if (!open) {
       setViewingSaleId(null);
+    }
+  };
+
+  const handleClosePathaoDialog = (open: boolean) => {
+    setShowPathaoDialog(open);
+    if (!open) {
+      setPathaoSaleId(null);
     }
   };
   return (
@@ -208,24 +223,34 @@ const Sales = () => {
                           {sale.payment_status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleViewSale(sale.id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditSale(sale.id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                       <TableCell>
+                         <div className="flex gap-1">
+                           <Button 
+                             variant="ghost" 
+                             size="sm"
+                             onClick={() => handleViewSale(sale.id)}
+                           >
+                             <Eye className="h-4 w-4" />
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="sm"
+                             onClick={() => handleEditSale(sale.id)}
+                           >
+                             <Edit className="h-4 w-4" />
+                           </Button>
+                           {sale.payment_status === "paid" && (
+                             <Button 
+                               variant="ghost" 
+                               size="sm"
+                               onClick={() => handlePathaoOrder(sale.id)}
+                               title="Send to Pathao Courier"
+                             >
+                               <Truck className="h-4 w-4" />
+                             </Button>
+                           )}
+                         </div>
+                       </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -245,6 +270,11 @@ const Sales = () => {
         open={showDetailsDialog} 
         onOpenChange={handleCloseDetailsDialog}
         saleId={viewingSaleId}
+      />
+      <PathaoOrderDialog 
+        open={showPathaoDialog} 
+        onOpenChange={handleClosePathaoDialog}
+        saleId={pathaoSaleId}
       />
     </div>
   );
