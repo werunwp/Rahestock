@@ -272,6 +272,7 @@ export type Database = {
           sku: string | null
           stock_quantity: number
           updated_at: string
+          woocommerce_connection_id: string | null
           woocommerce_id: number | null
         }
         Insert: {
@@ -287,6 +288,7 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          woocommerce_connection_id?: string | null
           woocommerce_id?: number | null
         }
         Update: {
@@ -302,6 +304,7 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          woocommerce_connection_id?: string | null
           woocommerce_id?: number | null
         }
         Relationships: [
@@ -310,6 +313,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_woocommerce_connection_id_fkey"
+            columns: ["woocommerce_connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections"
             referencedColumns: ["id"]
           },
         ]
