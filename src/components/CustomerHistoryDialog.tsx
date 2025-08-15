@@ -90,8 +90,10 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
     }
   };
 
-  const totalSpent = sales.reduce((sum, sale) => sum + sale.grand_total, 0);
-  const totalOrders = sales.length;
+  // Only calculate totals for paid orders (exclude cancelled orders)
+  const paidSales = sales.filter(sale => sale.payment_status === 'paid');
+  const totalSpent = paidSales.reduce((sum, sale) => sum + sale.grand_total, 0);
+  const totalOrders = paidSales.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
