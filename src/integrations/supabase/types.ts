@@ -80,6 +80,33 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_settings: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_enabled: boolean
+          setting_type: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          setting_type: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          setting_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null

@@ -20,6 +20,7 @@ import { AppearanceTab } from "@/components/AppearanceTab";
 import { DataBackupControls } from "@/components/DataBackupControls";
 import { WooCommerceImport } from "@/components/WooCommerceImport";
 import { AppResetControls } from "@/components/AppResetControls";
+import { CustomCodeSettings } from "@/components/CustomCodeSettings";
 
 const Settings = () => {
   const { businessSettings, updateBusinessSettings, isUpdating } = useBusinessSettings();
@@ -369,6 +370,8 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
+          
+          <CustomCodeSettings />
           
           <DataBackupControls />
           

@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
 import { ThemeProvider } from "next-themes";
 import { ThemeInitializer } from "@/components/ThemeInitializer";
+import { CustomCodeInjector } from "@/components/CustomCodeInjector";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 // Direct imports for faster loading
@@ -31,6 +32,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <AuthProvider>
         <ThemeInitializer />
+        <CustomCodeInjector />
         <SystemSettingsProvider>
           <TooltipProvider>
             <Toaster />
