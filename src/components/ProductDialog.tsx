@@ -42,6 +42,7 @@ const [variantState, setVariantState] = useState<Record<string, VariantFormRow>>
 const [bulkRate, setBulkRate] = useState<string>("");
 const [bulkCost, setBulkCost] = useState<string>("");
 const [bulkLow, setBulkLow] = useState<string>("");
+const [bulkQty, setBulkQty] = useState<string>("");
 
 const setVariant = (key: string, patch: Partial<VariantFormRow>) => {
   setVariantState((prev) => ({
@@ -54,6 +55,7 @@ const applyBulk = () => {
   const r = bulkRate ? parseFloat(bulkRate) : undefined;
   const c = bulkCost ? parseFloat(bulkCost) : undefined;
   const l = bulkLow ? parseInt(bulkLow) : undefined;
+  const q = bulkQty ? parseInt(bulkQty) : undefined;
   const next: Record<string, VariantFormRow> = {};
   combos.forEach((attrs) => {
     const key = JSON.stringify(attrs);
@@ -63,6 +65,7 @@ const applyBulk = () => {
       rate: r ?? cur.rate ?? formData.rate,
       cost: c ?? cur.cost ?? (formData.cost || null),
       low_stock_threshold: l ?? cur.low_stock_threshold ?? formData.low_stock_threshold,
+      quantity: q ?? cur.quantity,
     };
   });
   setVariantState(next);
@@ -416,7 +419,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               {/* Bulk Actions + Variants Matrix */}
               {combos.length > 0 && (
                 <>
-                  <div className="rounded-lg bg-muted p-3 grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+                  <div className="rounded-lg bg-muted p-3 grid grid-cols-1 sm:grid-cols-9 gap-2 items-end">
                     <div className="sm:col-span-2">
                       <Label>Bulk Price</Label>
                       <Input type="number" step="0.01" value={bulkRate} onChange={(e) => setBulkRate(e.target.value)} placeholder={`${formData.rate}`} />
@@ -428,6 +431,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <div className="sm:col-span-2">
                       <Label>Bulk Low Stock</Label>
                       <Input type="number" value={bulkLow} onChange={(e) => setBulkLow(e.target.value)} placeholder={`${formData.low_stock_threshold}`} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Bulk Qty</Label>
+                      <Input type="number" min="0" value={bulkQty} onChange={(e) => setBulkQty(e.target.value)} placeholder="0" />
                     </div>
                     <div className="sm:col-span-1">
                       <Button type="button" className="w-full" onClick={applyBulk}>Apply</Button>
