@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Fuse from "fuse.js";
 
 const Inventory = () => {
+  console.log("Inventory component loaded successfully - cache refreshed");
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
