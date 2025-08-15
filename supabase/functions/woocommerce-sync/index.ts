@@ -292,12 +292,19 @@ async function syncProducts(connection: any, syncLogId: string) {
           }
 
           // Check if product exists in local database
-          const { data: existingProduct } = await supabase
+          console.log(`Checking for existing product with WooCommerce ID: ${wcProduct.id}`);
+          const { data: existingProduct, error: existingProductError } = await supabase
             .from('products')
             .select('*')
             .eq('woocommerce_id', wcProduct.id)
             .eq('woocommerce_connection_id', connection.id)
             .single();
+
+          if (existingProductError && existingProductError.code !== 'PGRST116') { // PGRST116 is "not found"
+            console.error(`Error checking existing product:`, existingProductError);
+            productsFailed++;
+            continue;
+          }
 
           if (existingProduct) {
             // Check if product needs updating

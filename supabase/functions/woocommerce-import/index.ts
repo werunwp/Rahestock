@@ -364,11 +364,18 @@ async function importProducts(connection: any, importLogId: string) {
             }
 
             // Check if product already exists and compare for changes
-            const { data: existingProduct } = await supabase
+            console.log(`Checking for existing product with SKU: ${wcProduct.sku || `wc_${wcProduct.id}`} or WooCommerce ID: ${wcProduct.id}`);
+            const { data: existingProduct, error: existingProductError } = await supabase
               .from('products')
               .select('id, name, rate, stock_quantity, last_synced_at, woocommerce_id, sku')
               .or(`sku.eq.${wcProduct.sku || `wc_${wcProduct.id}`},woocommerce_id.eq.${wcProduct.id}`)
               .maybeSingle();
+
+            if (existingProductError) {
+              console.error(`Error checking existing product:`, existingProductError);
+              failedCount++;
+              continue;
+            }
 
             if (existingProduct) {
               // Check if product needs updating
