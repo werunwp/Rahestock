@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Minus, Trash2 } from "lucide-react";
+import { Plus, Minus, Trash2, Search } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { toast } from "sonner";
+import Fuse from "fuse.js";
 
 interface SaleDialogProps {
   open: boolean;
@@ -67,6 +68,80 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+
+  // Searchable products functionality
+  const normalizeText = useMemo(() => (text: string) => {
+    return text.toLowerCase()
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+      .replace(/[^\w\s]/g, ' ') // Replace non-alphanumeric with spaces
+      .replace(/\s+/g, ' ') // Normalize spaces
+      .trim();
+  }, []);
+
+  const fuse = useMemo(() => {
+    if (!products) return null;
+    
+    const searchData: any[] = [];
+    
+    products.forEach(product => {
+      // For products without variants or simple products
+      if (!product.has_variants) {
+        searchData.push({
+          ...product,
+          searchType: 'product',
+          searchText: `${product.name} ${product.sku || ''}`.toLowerCase()
+        });
+      } else {
+        // For products with variants, we'll search by the parent product name
+        // The actual variant selection will happen after product is selected
+        searchData.push({
+          ...product,
+          searchType: 'product',
+          searchText: `${product.name} ${product.sku || ''}`.toLowerCase()
+        });
+      }
+    });
+
+    return new Fuse(searchData, {
+      keys: ['searchText', 'name', 'sku'],
+      threshold: 0.4,
+      includeScore: true,
+      minMatchCharLength: 1
+    });
+  }, [products, normalizeText]);
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    
+    if (!productSearchTerm.trim()) {
+      return products;
+    }
+
+    const normalizedQuery = normalizeText(productSearchTerm.trim());
+    
+    // Check for exact matches first
+    const exactMatches = products.filter(product => {
+      const normalizedName = normalizeText(product.name);
+      return normalizedName === normalizedQuery;
+    });
+    
+    if (exactMatches.length > 0) {
+      return exactMatches;
+    }
+    
+    // Use fuzzy search
+    if (!fuse) return [];
+    
+    const searchResults = fuse.search(productSearchTerm.trim());
+    const matchedProductIds = new Set();
+    
+    searchResults.forEach(result => {
+      matchedProductIds.add(result.item.id);
+    });
+    
+    return products.filter(product => matchedProductIds.has(product.id));
+  }, [products, productSearchTerm, fuse, normalizeText]);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
   const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
@@ -87,6 +162,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
         items: [],
       });
       setSelectedProductId("");
+      setProductSearchTerm("");
     }
   }, [open]);
 
@@ -347,22 +423,33 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
           <div className="space-y-4">
             <Label>Add Products</Label>
-            <div className="flex gap-2">
-              <Select value={selectedProductId} onValueChange={(val) => { setSelectedProductId(val); setSelectedVariantId(null); }}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} - {currencySymbol}{product.rate}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
-                <Plus className="h-4 w-4" />
-              </Button>
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search products..."
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={selectedProductId} onValueChange={(val) => { setSelectedProductId(val); setSelectedVariantId(null); }}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredProducts.map(product => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name} - {currencySymbol}{product.rate}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {selectedProduct?.has_variants && (
