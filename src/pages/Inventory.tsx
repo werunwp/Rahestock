@@ -117,6 +117,7 @@ const Inventory = () => {
     productsWithVariants.forEach(product => {
       const productVariants = variantsByProduct.get(product.id) || [];
       console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants`);
+      console.log(`Product variants for ${product.name}:`, productVariants);
       
       // If no variants found in allVariants, try to fetch them directly from products that have stock in sizes
       let processedVariants = productVariants;
