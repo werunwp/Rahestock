@@ -242,8 +242,8 @@ async function importProducts(connection: any, importLogId: string) {
       'Content-Type': 'application/json',
     };
 
-    // First, get total number of products
-    const totalResponse = await fetch(`${apiUrl}/products?per_page=1`, { headers });
+    // First, get total number of published products only
+    const totalResponse = await fetchWithRetry(`${apiUrl}/products?per_page=1&status=publish`, { headers });
     if (!totalResponse.ok) {
       throw new Error(`Failed to fetch product count: ${totalResponse.statusText}`);
     }
@@ -261,14 +261,16 @@ async function importProducts(connection: any, importLogId: string) {
 
     let importedCount = 0;
     let failedCount = 0;
+    let processedCount = 0;
 
     // Import products page by page
     for (let page = 1; page <= totalPages; page++) {
       console.log(`Processing page ${page} of ${totalPages}`);
       
-      const response = await fetch(`${apiUrl}/products?per_page=100&page=${page}`, { headers });
+      const response = await fetchWithRetry(`${apiUrl}/products?per_page=100&page=${page}&status=publish`, { headers });
       if (!response.ok) {
         console.error(`Failed to fetch page ${page}: ${response.statusText}`);
+        failedCount += 100; // Assume failure for all products on this page
         continue;
       }
 
@@ -276,11 +278,19 @@ async function importProducts(connection: any, importLogId: string) {
 
       for (const wcProduct of products) {
         try {
+          processedCount++;
+          
+          // Skip draft or trashed products
+          if (wcProduct.status !== 'publish') {
+            console.log(`Skipping product ${wcProduct.name} with status: ${wcProduct.status}`);
+            continue;
+          }
+
           // Check if product already exists (by SKU or WooCommerce ID)
           const { data: existingProduct } = await supabase
             .from('products')
             .select('id')
-            .or(`sku.eq.${wcProduct.sku || `wc_${wcProduct.id}`}`)
+            .or(`sku.eq.${wcProduct.sku || `wc_${wcProduct.id}`},woocommerce_id.eq.${wcProduct.id}`)
             .single();
 
           if (existingProduct) {
@@ -299,6 +309,8 @@ async function importProducts(connection: any, importLogId: string) {
             image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
             has_variants: wcProduct.variations.length > 0,
             created_by: connection.user_id,
+            woocommerce_id: wcProduct.id,
+            woocommerce_connection_id: connection.id,
           };
 
           // Insert the product
@@ -321,22 +333,29 @@ async function importProducts(connection: any, importLogId: string) {
 
           importedCount++;
           
-          // Update progress every 10 products
-          if (importedCount % 10 === 0) {
+          // Update progress more frequently for better UX
+          if (processedCount % 5 === 0) {
             await supabase
               .from('woocommerce_import_logs')
               .update({ 
                 imported_products: importedCount,
-                failed_products: failedCount 
+                failed_products: failedCount,
+                progress_message: `Importing product ${processedCount} of ${totalProducts}`
               })
               .eq('id', importLogId);
           }
+
+          // Small delay to avoid overwhelming the API
+          await new Promise(resolve => setTimeout(resolve, 100));
 
         } catch (error) {
           console.error(`Error processing product ${wcProduct.name}:`, error);
           failedCount++;
         }
       }
+      
+      // Delay between pages to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     // Update connection stats
@@ -376,6 +395,38 @@ async function importProducts(connection: any, importLogId: string) {
   }
 }
 
+// Retry logic with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited, wait and retry
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '30');
+        console.log(`Rate limited, waiting ${retryAfter} seconds before retry ${attempt}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff: 2^attempt seconds
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 async function importProductVariations(
   wcProduct: WooCommerceProduct, 
   productId: string, 
@@ -384,7 +435,7 @@ async function importProductVariations(
 ) {
   try {
     for (const variationId of wcProduct.variations) {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `${apiUrl}/products/${wcProduct.id}/variations/${variationId}`, 
         { headers }
       );
@@ -410,6 +461,7 @@ async function importProductVariations(
         cost: parseFloat(variation.regular_price) || parseFloat(variation.price) || 0,
         stock_quantity: variation.stock_quantity || 0,
         image_url: variation.image?.src || null,
+        woocommerce_id: variation.id,
       };
 
       const { error: variantError } = await supabase
@@ -419,6 +471,9 @@ async function importProductVariations(
       if (variantError) {
         console.error(`Failed to insert variant for product ${wcProduct.name}:`, variantError);
       }
+      
+      // Small delay between variation imports
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
   } catch (error) {
     console.error(`Error importing variations for product ${wcProduct.name}:`, error);
