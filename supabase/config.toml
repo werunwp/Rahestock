@@ -21,5 +21,8 @@ verify_jwt = true
 [functions.reset-app]
 verify_jwt = true
 
+[functions.restore-admin]
+verify_jwt = true
+
 [functions.woocommerce-import]
 verify_jwt = true
