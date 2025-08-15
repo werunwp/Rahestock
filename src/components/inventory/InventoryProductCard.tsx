@@ -81,6 +81,13 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
   // For products with variants
   const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock_quantity, 0);
   
+  // Get unique attribute keys from all variants
+  const attributeKeys = Array.from(
+    new Set(
+      product.variants.flatMap(variant => Object.keys(variant.attributes))
+    )
+  );
+  
   return (
     <Card className="w-full">
       <CardHeader>
@@ -117,7 +124,9 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Attributes</TableHead>
+              {attributeKeys.map(key => (
+                <TableHead key={key}>{key}</TableHead>
+              ))}
               <TableHead>Stock</TableHead>
             </TableRow>
           </TableHeader>
@@ -127,15 +136,13 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
               
               return (
                 <TableRow key={variant.id}>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(variant.attributes).map(([key, value]) => (
-                        <Badge key={key} variant="outline" className="text-xs">
-                          {value}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
+                  {attributeKeys.map(key => (
+                    <TableCell key={key}>
+                      <Badge variant="outline" className="text-xs">
+                        {variant.attributes[key] || '-'}
+                      </Badge>
+                    </TableCell>
+                  ))}
                   <TableCell>
                     <span className="font-medium">{variant.stock_quantity}</span>
                   </TableCell>
