@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Archive, TrendingUp, TrendingDown, Search, Filter } from "lucide-react";
+import { Plus, Archive, TrendingUp, TrendingDown, Search, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useProducts } from "@/hooks/useProducts";
 import { useCurrency } from "@/hooks/useCurrency";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
-import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
-import { format, isAfter, isBefore, isEqual } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,8 +18,9 @@ import { useAuth } from "@/hooks/useAuth";
 const Inventory = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
@@ -34,7 +34,7 @@ const Inventory = () => {
         .from("product_variants")
         .select(`
           *,
-          products!inner(name, sku)
+          products!inner(name, sku, image_url)
         `)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -58,7 +58,8 @@ const Inventory = () => {
           stock_quantity: product.stock_quantity,
           low_stock_threshold: product.low_stock_threshold,
           updated_at: product.updated_at,
-          variant_info: null
+          variant_info: null,
+          image_url: product.image_url
         });
       }
     });
@@ -77,7 +78,8 @@ const Inventory = () => {
         stock_quantity: variant.stock_quantity,
         low_stock_threshold: variant.low_stock_threshold,
         updated_at: variant.updated_at,
-        variant_info: variantDisplay
+        variant_info: variantDisplay,
+        image_url: variant.image_url || variant.products.image_url
       });
     });
     
@@ -85,45 +87,35 @@ const Inventory = () => {
   }, [products, allVariants]);
 
   const filteredItems = inventoryItems.filter(item => {
-    // Text search filter
+    // Enhanced text search filter - search by name, stock quantity, or SKU
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (item.variant_info && item.variant_info.toLowerCase().includes(searchTerm.toLowerCase()));
+      (item.variant_info && item.variant_info.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      item.stock_quantity.toString().includes(searchTerm);
     
     // Stock filter
     const matchesStock = stockFilter === "all" || 
       (stockFilter === "in_stock" && item.stock_quantity > 0) ||
       (stockFilter === "out_of_stock" && item.stock_quantity === 0);
     
-    // Date range filter
-    const itemDate = new Date(item.updated_at);
-    let matchesDate = true;
-    
-    if (dateRange.from && dateRange.to) {
-      const fromDate = new Date(dateRange.from);
-      const toDate = new Date(dateRange.to);
-      fromDate.setHours(0, 0, 0, 0);
-      toDate.setHours(23, 59, 59, 999);
-      
-      matchesDate = (isAfter(itemDate, fromDate) || isEqual(itemDate, fromDate)) &&
-                    (isBefore(itemDate, toDate) || isEqual(itemDate, toDate));
-    } else if (dateRange.from) {
-      const fromDate = new Date(dateRange.from);
-      fromDate.setHours(0, 0, 0, 0);
-      matchesDate = isAfter(itemDate, fromDate) || isEqual(itemDate, fromDate);
-    } else if (dateRange.to) {
-      const toDate = new Date(dateRange.to);
-      toDate.setHours(23, 59, 59, 999);
-      matchesDate = isBefore(itemDate, toDate) || isEqual(itemDate, toDate);
-    }
-    
-    return matchesSearch && matchesStock && matchesDate;
+    return matchesSearch && matchesStock;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+
+  // Check if there are any low stock items
+  const hasLowStockItems = inventoryItems.some(item => 
+    item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0
+  );
 
   const totalProducts = products.length;
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
   const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
   const totalValue = products.reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -134,7 +126,6 @@ const Inventory = () => {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
           <Button onClick={() => setShowAdjustmentDialog(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Adjust Stock
@@ -211,31 +202,39 @@ const Inventory = () => {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Search inventory..." 
+            placeholder="Search by name, SKU, or stock quantity..." 
             className="pl-9"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <ToggleGroup
-          type="single"
-          value={stockFilter}
-          onValueChange={(value) => setStockFilter(value as typeof stockFilter || "all")}
-          className="flex gap-1"
-        >
-          <ToggleGroupItem value="all" variant="outline" size="sm">
-            All
-          </ToggleGroupItem>
-          <ToggleGroupItem value="in_stock" variant="outline" size="sm">
-            In Stock
-          </ToggleGroupItem>
-          <ToggleGroupItem value="out_of_stock" variant="outline" size="sm">
-            Out of Stock
-          </ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex items-center gap-4">
+          {hasLowStockItems && (
+            <Badge variant="destructive" className="flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Low Stock Alert
+            </Badge>
+          )}
+          <ToggleGroup
+            type="single"
+            value={stockFilter}
+            onValueChange={(value) => setStockFilter(value as typeof stockFilter || "all")}
+            className="flex gap-1"
+          >
+            <ToggleGroupItem value="all" variant="outline" size="sm">
+              All
+            </ToggleGroupItem>
+            <ToggleGroupItem value="in_stock" variant="outline" size="sm">
+              In Stock
+            </ToggleGroupItem>
+            <ToggleGroupItem value="out_of_stock" variant="outline" size="sm">
+              Out of Stock
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
       <Card>
@@ -250,66 +249,113 @@ const Inventory = () => {
               ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Variant</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Current Stock</TableHead>
-                  <TableHead>Min. Threshold</TableHead>
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length === 0 ? (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      No inventory items found
-                    </TableCell>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Variant</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Current Stock</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ) : (
-                  filteredItems.map((item) => {
-                    const status = item.stock_quantity === 0 
-                      ? "Out of Stock" 
-                      : item.stock_quantity <= (item.low_stock_threshold || 0)
-                        ? "Low Stock" 
-                        : "In Stock";
-                    
-                    return (
-                      <TableRow key={`${item.type}-${item.id}`}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>
-                          {item.variant_info ? (
-                            <Badge variant="outline" className="text-xs">
-                              {item.variant_info}
+                </TableHeader>
+                <TableBody>
+                  {paginatedItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        No inventory items found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedItems.map((item) => {
+                      const status = item.stock_quantity === 0 
+                        ? "Out of Stock" 
+                        : item.stock_quantity <= (item.low_stock_threshold || 0)
+                          ? "Low Stock" 
+                          : "In Stock";
+                      
+                      return (
+                        <TableRow key={`${item.type}-${item.id}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              {item.image_url ? (
+                                <img 
+                                  src={item.image_url} 
+                                  alt={item.name}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                              <span>{item.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {item.variant_info ? (
+                              <Badge variant="outline" className="text-xs">
+                                {item.variant_info}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{item.sku || "-"}</TableCell>
+                          <TableCell>{item.stock_quantity}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                status === "In Stock" ? "default" : 
+                                status === "Low Stock" ? "secondary" : 
+                                "destructive"
+                              }
+                            >
+                              {status}
                             </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{item.sku || "-"}</TableCell>
-                        <TableCell>{item.stock_quantity}</TableCell>
-                        <TableCell>{item.low_stock_threshold || "-"}</TableCell>
-                        <TableCell>{format(new Date(item.updated_at), "MMM dd, yyyy")}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              status === "In Stock" ? "default" : 
-                              status === "Low Stock" ? "secondary" : 
-                              "destructive"
-                            }
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
                           >
-                            {status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
