@@ -65,57 +65,77 @@ const Inventory = () => {
   const parentProducts = useMemo(() => {
     const parents: any[] = [];
     
+    console.log("=== INVENTORY DEBUG ===");
+    console.log("Raw products from hook:", products?.length || 0);
+    console.log("All variants from query:", allVariants?.length || 0);
+    
+    if (!products || !Array.isArray(products)) {
+      console.log("No products available");
+      return [];
+    }
+    
     // Add products without variants
-    products.forEach(product => {
-      if (!product.has_variants) {
-        parents.push({
-          id: product.id,
-          type: 'product',
-          name: product.name,
-          sku: product.sku,
-          stock_quantity: product.stock_quantity,
-          low_stock_threshold: product.low_stock_threshold,
-          image_url: product.image_url,
-          variants: []
-        });
-      }
+    const productsWithoutVariants = products.filter(product => !product.has_variants);
+    console.log("Products without variants:", productsWithoutVariants.length);
+    
+    productsWithoutVariants.forEach(product => {
+      parents.push({
+        id: product.id,
+        type: 'product',
+        name: product.name,
+        sku: product.sku,
+        stock_quantity: product.stock_quantity,
+        low_stock_threshold: product.low_stock_threshold,
+        image_url: product.image_url,
+        variants: []
+      });
     });
     
     // Group variants by product and add products with variants
+    const productsWithVariants = products.filter(product => product.has_variants);
+    console.log("Products with variants:", productsWithVariants.length);
+    
     const variantsByProduct = new Map();
-    allVariants.forEach(variant => {
-      const productId = variant.product_id;
-      if (!variantsByProduct.has(productId)) {
-        variantsByProduct.set(productId, []);
-      }
-      variantsByProduct.get(productId).push(variant);
+    if (allVariants && Array.isArray(allVariants)) {
+      allVariants.forEach(variant => {
+        const productId = variant.product_id;
+        if (!variantsByProduct.has(productId)) {
+          variantsByProduct.set(productId, []);
+        }
+        variantsByProduct.get(productId).push(variant);
+      });
+    }
+    
+    console.log("Variants grouped by product:", variantsByProduct.size);
+    
+    productsWithVariants.forEach(product => {
+      const productVariants = variantsByProduct.get(product.id) || [];
+      console.log(`Product "${product.name}" has ${productVariants.length} variants`);
+      
+      parents.push({
+        id: product.id,
+        type: 'parent',
+        name: product.name,
+        sku: product.sku,
+        stock_quantity: null,
+        low_stock_threshold: null,
+        image_url: product.image_url,
+        variants: productVariants.map(variant => ({
+          id: variant.id,
+          name: Object.entries(variant.attributes || {})
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', '),
+          sku: variant.sku || product.sku,
+          stock_quantity: variant.stock_quantity,
+          low_stock_threshold: variant.low_stock_threshold,
+          attributes: variant.attributes
+        }))
+      });
     });
     
-    products.forEach(product => {
-      if (product.has_variants) {
-        const productVariants = variantsByProduct.get(product.id) || [];
-        
-        parents.push({
-          id: product.id,
-          type: 'parent',
-          name: product.name,
-          sku: product.sku,
-          stock_quantity: null,
-          low_stock_threshold: null,
-          image_url: product.image_url,
-          variants: productVariants.map(variant => ({
-            id: variant.id,
-            name: Object.entries(variant.attributes || {})
-              .map(([key, value]) => value)
-              .join(', '),
-            sku: variant.sku || product.sku,
-            stock_quantity: variant.stock_quantity,
-            low_stock_threshold: variant.low_stock_threshold,
-            attributes: variant.attributes
-          }))
-        });
-      }
-    });
+    console.log("Total parent products created:", parents.length);
+    console.log("First few parent products:", parents.slice(0, 3));
+    console.log("=== END INVENTORY DEBUG ===");
     
     return parents;
   }, [products, allVariants]);
@@ -175,6 +195,10 @@ const Inventory = () => {
 
   // Filter and search logic with exact matching priority
   const { filteredParentProducts, hasExactMatch } = useMemo(() => {
+    console.log("=== SEARCH DEBUG ===");
+    console.log("Search term:", debouncedSearchTerm);
+    console.log("Parent products available:", parentProducts.length);
+    
     let filtered = parentProducts;
     let isExactMatch = false;
     
@@ -192,6 +216,7 @@ const Inventory = () => {
         // Exact match found - return only exact matches
         filtered = exactMatches;
         isExactMatch = true;
+        console.log("Exact matches found:", exactMatches.length);
       } else {
         // No exact match - fall back to fuzzy search
         const searchResults = fuse.search(debouncedSearchTerm.trim());
@@ -206,6 +231,9 @@ const Inventory = () => {
         });
         
         filtered = parentProducts.filter(parent => matchedParentIds.has(parent.id));
+        console.log("Fuzzy search results:", searchResults.length);
+        console.log("Matched parent IDs:", Array.from(matchedParentIds));
+        console.log("Filtered products:", filtered.length);
       }
     }
     
@@ -225,6 +253,9 @@ const Inventory = () => {
         return false;
       });
     }
+    
+    console.log("Final filtered products:", filtered.length);
+    console.log("=== END SEARCH DEBUG ===");
     
     return { filteredParentProducts: filtered, hasExactMatch: isExactMatch };
   }, [parentProducts, debouncedSearchTerm, stockFilter, fuse, normalizeText]);
