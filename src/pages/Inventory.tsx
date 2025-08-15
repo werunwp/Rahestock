@@ -278,6 +278,16 @@ const Inventory = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedParentProducts = filteredParentProducts.slice(startIndex, startIndex + itemsPerPage);
 
+  console.log("=== PAGINATION DEBUG ===");
+  console.log("Total filtered products:", totalParentProducts);
+  console.log("Total pages:", totalPages);
+  console.log("Current page:", currentPage);
+  console.log("Items per page:", itemsPerPage);
+  console.log("Start index:", startIndex);
+  console.log("Paginated products:", paginatedParentProducts.length);
+  console.log("First paginated product:", paginatedParentProducts[0]?.name);
+  console.log("=== END PAGINATION DEBUG ===");
+
   // Handle image hover with delay
   const handleImageHover = useCallback((imageUrl: string) => {
     if (hoverTimer) {
