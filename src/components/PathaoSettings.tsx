@@ -12,7 +12,7 @@ export const PathaoSettings = () => {
   const { pathaoSettings, updatePathaoSettings, isUpdating } = usePathaoSettings();
   
   const [form, setForm] = useState({
-    api_base_url: 'https://api-hermes.pathao.com',
+    api_base_url: '',
     access_token: '',
     store_id: 0,
     default_delivery_type: 48,
@@ -33,6 +33,11 @@ export const PathaoSettings = () => {
       setForm(prev => {
         return JSON.stringify(prev) === JSON.stringify(nextForm) ? prev : nextForm;
       });
+      
+      // Hide token if it exists (show masked version)
+      if (pathaoSettings.access_token) {
+        setShowToken(false);
+      }
     }
   }, [pathaoSettings]);
 
@@ -40,10 +45,19 @@ export const PathaoSettings = () => {
     updatePathaoSettings(form);
   };
 
-  const maskToken = (token: string) => {
-    if (!token || token.length <= 8) return token;
-    return token.substring(0, 4) + '*'.repeat(token.length - 8) + token.substring(token.length - 4);
-  };
+  const deliveryTypeOptions = [
+    { value: 48, label: "Normal Delivery" },
+    { value: 12, label: "On-Demand Delivery" }
+  ];
+
+  const itemTypeOptions = [
+    { value: 1, label: "Document" },
+    { value: 2, label: "Parcel" }
+  ];
+
+  const displayToken = form.access_token && !showToken ? 
+    '*'.repeat(Math.min(form.access_token.length, 20)) : 
+    form.access_token;
 
   return (
     <Card>
@@ -56,57 +70,62 @@ export const PathaoSettings = () => {
       <CardContent className="space-y-6">
         {/* API Credentials Section */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-foreground">API Credentials</h3>
-          <div className="grid gap-4 sm:grid-cols-1">
-            <div className="space-y-2">
-              <Label htmlFor="apiBaseUrl">Pathao API Base URL</Label>
-              <Input 
-                id="apiBaseUrl" 
-                value={form.api_base_url}
-                onChange={(e) => setForm(prev => ({ ...prev, api_base_url: e.target.value }))}
-                placeholder="https://api-hermes.pathao.com" 
-              />
-              <p className="text-xs text-muted-foreground">
-                The base URL for Pathao's API endpoints
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="accessToken">Access Token</Label>
-              <div className="flex gap-2">
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">API Credentials</h3>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="apiBaseUrl">Pathao API Base URL</Label>
                 <Input 
-                  id="accessToken" 
-                  type={showToken ? "text" : "password"}
-                  value={showToken ? form.access_token : (form.access_token ? maskToken(form.access_token) : '')}
-                  onChange={(e) => setForm(prev => ({ ...prev, access_token: e.target.value }))}
-                  placeholder="Enter your Pathao access token" 
-                  className="flex-1"
+                  id="apiBaseUrl" 
+                  value={form.api_base_url}
+                  onChange={(e) => setForm(prev => ({ ...prev, api_base_url: e.target.value }))}
+                  placeholder="https://api-hermes.pathao.com" 
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowToken(!showToken)}
-                  className="px-3"
-                >
-                  {showToken ? "Hide" : "Show"}
-                </Button>
+                <p className="text-xs text-muted-foreground">
+                  The base URL for Pathao API requests
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Your API access token from Pathao merchant dashboard
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="storeId">Store ID</Label>
-              <Input 
-                id="storeId" 
-                type="number"
-                value={form.store_id}
-                onChange={(e) => setForm(prev => ({ ...prev, store_id: parseInt(e.target.value) || 0 }))}
-                placeholder="Enter your merchant store ID" 
-              />
-              <p className="text-xs text-muted-foreground">
-                Your merchant store ID from Pathao dashboard
-              </p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="accessToken">Access Token</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="accessToken" 
+                    type={showToken ? "text" : "password"}
+                    value={displayToken}
+                    onChange={(e) => setForm(prev => ({ ...prev, access_token: e.target.value }))}
+                    placeholder="Enter your Pathao access token"
+                    className="flex-1"
+                  />
+                  {form.access_token && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowToken(!showToken)}
+                    >
+                      {showToken ? "Hide" : "Show"}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Your secure API access token from Pathao merchant dashboard
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="storeId">Store ID</Label>
+                <Input 
+                  id="storeId" 
+                  type="number"
+                  value={form.store_id || ''}
+                  onChange={(e) => setForm(prev => ({ ...prev, store_id: parseInt(e.target.value) || 0 }))}
+                  placeholder="Enter your merchant store ID" 
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your merchant store ID from Pathao merchant dashboard
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -115,43 +134,52 @@ export const PathaoSettings = () => {
 
         {/* Default Settings Section */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-foreground">Default Order Settings</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="deliveryType">Default Delivery Type</Label>
-              <Select 
-                value={form.default_delivery_type.toString()} 
-                onValueChange={(value) => setForm(prev => ({ ...prev, default_delivery_type: parseInt(value) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select delivery type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="48">Normal Delivery (48)</SelectItem>
-                  <SelectItem value="12">On-Demand Delivery (12)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Default delivery type for new orders
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="itemType">Default Item Type</Label>
-              <Select 
-                value={form.default_item_type.toString()} 
-                onValueChange={(value) => setForm(prev => ({ ...prev, default_item_type: parseInt(value) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select item type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Document (1)</SelectItem>
-                  <SelectItem value="2">Parcel (2)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Default item type for new orders
-              </p>
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Default Order Settings</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="deliveryType">Default Delivery Type</Label>
+                <Select 
+                  value={form.default_delivery_type.toString()} 
+                  onValueChange={(value) => setForm(prev => ({ ...prev, default_delivery_type: parseInt(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select delivery type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deliveryTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Default delivery speed for new orders
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="itemType">Default Item Type</Label>
+                <Select 
+                  value={form.default_item_type.toString()} 
+                  onValueChange={(value) => setForm(prev => ({ ...prev, default_item_type: parseInt(value) }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select item type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {itemTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Default item category for new orders
+                </p>
+              </div>
             </div>
           </div>
         </div>
