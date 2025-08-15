@@ -123,6 +123,84 @@ export const useProducts = () => {
     },
   });
 
+  const duplicateProduct = useMutation({
+    mutationFn: async (productId: string) => {
+      // First, get the original product
+      const { data: originalProduct, error: productError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (productError) throw productError;
+
+      // Generate new SKU for the duplicated product
+      const base = (originalProduct.sku || '').toString().trim();
+      const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+      const newSku = `${base ? base : 'SKU'}-${suffix}`;
+
+      // Create the new product
+      const { data: newProduct, error: createError } = await supabase
+        .from("products")
+        .insert([{
+          name: `${originalProduct.name} (duplicated)`,
+          sku: newSku,
+          rate: originalProduct.rate,
+          cost: originalProduct.cost,
+          stock_quantity: originalProduct.stock_quantity,
+          low_stock_threshold: originalProduct.low_stock_threshold,
+          size: originalProduct.size,
+          color: originalProduct.color,
+          image_url: originalProduct.image_url,
+          has_variants: originalProduct.has_variants,
+          created_by: user?.id
+        }])
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // If the original product has variants, duplicate them too
+      if (originalProduct.has_variants) {
+        const { data: originalVariants, error: variantsError } = await supabase
+          .from("product_variants")
+          .select("*")
+          .eq("product_id", productId);
+
+        if (variantsError) throw variantsError;
+
+        if (originalVariants && originalVariants.length > 0) {
+          const newVariants = originalVariants.map(variant => ({
+            product_id: newProduct.id,
+            attributes: variant.attributes,
+            rate: variant.rate,
+            cost: variant.cost,
+            stock_quantity: variant.stock_quantity,
+            low_stock_threshold: variant.low_stock_threshold,
+            sku: variant.sku ? `${variant.sku}-${suffix}` : null,
+            image_url: variant.image_url
+          }));
+
+          const { error: createVariantsError } = await supabase
+            .from("product_variants")
+            .insert(newVariants);
+
+          if (createVariantsError) throw createVariantsError;
+        }
+      }
+
+      return newProduct;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["all_product_variants"] });
+      toast.success("Product duplicated successfully with all variants");
+    },
+    onError: (error) => {
+      toast.error("Failed to duplicate product: " + error.message);
+    },
+  });
+
   return {
     products,
     isLoading,
@@ -130,5 +208,6 @@ export const useProducts = () => {
     createProduct,
     updateProduct,
     deleteProduct,
+    duplicateProduct,
   };
 };

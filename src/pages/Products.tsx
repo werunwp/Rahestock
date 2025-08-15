@@ -11,7 +11,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import * as XLSX from "xlsx";
 
 const Products = () => {
-  const { products, isLoading, deleteProduct, createProduct, updateProduct } = useProducts();
+  const { products, isLoading, deleteProduct, createProduct, updateProduct, duplicateProduct } = useProducts();
   const { formatAmount } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -458,23 +458,9 @@ const Products = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => {
-                          const base = (product.sku || '').toString().trim();
-                          const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-                          const newSku = `${base ? base : 'SKU'}-${suffix}`;
-                          createProduct.mutate({
-                            name: `${product.name} (duplicated)`,
-                            sku: newSku,
-                            rate: product.rate,
-                            cost: product.cost || undefined,
-                            stock_quantity: product.stock_quantity,
-                            low_stock_threshold: product.low_stock_threshold,
-                            size: product.size || undefined,
-                            color: product.color || undefined,
-                            image_url: product.image_url || undefined,
-                            has_variants: product.has_variants,
-                          });
+                          duplicateProduct.mutate(product.id);
                         }}
-                        disabled={createProduct.isPending}
+                        disabled={duplicateProduct.isPending}
                         aria-label="Duplicate product"
                       >
                         <Copy className="h-4 w-4" />
