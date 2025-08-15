@@ -457,10 +457,7 @@ const Inventory = () => {
                   <TableRow>
                     <TableHead className="w-20">Image</TableHead>
                     <TableHead>Product / Variant</TableHead>
-                    <TableHead>SKU</TableHead>
                     <TableHead>Rate</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead>Stock</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>WC ID</TableHead>
                   </TableRow>
@@ -468,7 +465,7 @@ const Inventory = () => {
                 <TableBody>
                   {paginatedItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No inventory items found
                       </TableCell>
                     </TableRow>
@@ -510,21 +507,7 @@ const Inventory = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-mono text-sm">{item.sku || '-'}</span>
-                        </TableCell>
-                        <TableCell>
                           {formatAmount(item.rate)}
-                        </TableCell>
-                        <TableCell>
-                          {formatAmount(item.cost)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="font-medium">{item.stock_quantity}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Threshold: {item.low_stock_threshold}
-                            </div>
-                          </div>
                         </TableCell>
                         <TableCell>
                           {getStockStatus(item)}
