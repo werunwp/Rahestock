@@ -226,7 +226,7 @@ const Reports = () => {
         'Rate': product.rate,
         'Cost': product.cost || '',
         'Stock Value': product.stock_quantity * (product.cost || product.rate),
-        'Status': product.stock_quantity === 0 ? 'Out of Stock' : 
+        'Status': product.stock_quantity <= 0 ? 'Stock Out' : 
                  product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock'
       }));
 

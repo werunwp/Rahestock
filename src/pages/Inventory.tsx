@@ -475,8 +475,8 @@ const Inventory = () => {
                       </TableRow>,
                       // Variant rows for this parent
                       ...parent.variants.map((variant: any) => {
-                        const status = variant.stock_quantity === 0 
-                          ? "Out of Stock" 
+                        const status = variant.stock_quantity <= 0 
+                          ? "Stock Out" 
                           : variant.stock_quantity <= (variant.low_stock_threshold || 0)
                             ? "Low Stock" 
                             : "In Stock";
@@ -523,14 +523,14 @@ const Inventory = () => {
                           <TableCell className="text-foreground font-medium">{parent.stock_quantity}</TableCell>
                           <TableCell>
                             <Badge 
-                              variant={
-                                parent.stock_quantity === 0 ? "destructive" :
+                               variant={
+                                parent.stock_quantity <= 0 ? "destructive" :
                                 parent.stock_quantity <= (parent.low_stock_threshold || 0) ? "secondary" :
                                 "default"
                               }
                               className="text-xs"
                             >
-                              {parent.stock_quantity === 0 ? "Out of Stock" :
+                              {parent.stock_quantity <= 0 ? "Stock Out" :
                                parent.stock_quantity <= (parent.low_stock_threshold || 0) ? "Low Stock" :
                                "In Stock"}
                             </Badge>

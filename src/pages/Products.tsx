@@ -285,7 +285,7 @@ const Products = () => {
       Color: product.color || '',
       'Image URL': product.image_url || '',
       'Stock Value': product.stock_quantity * (product.cost || product.rate),
-      Status: product.stock_quantity === 0 ? 'Out of Stock' : 
+      Status: product.stock_quantity <= 0 ? 'Stock Out' : 
               product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
       'Created At': new Date(product.created_at).toLocaleDateString(),
       'Updated At': new Date(product.updated_at).toLocaleDateString()
@@ -375,7 +375,7 @@ const Products = () => {
         ) : (
           filteredProducts.map((product) => {
             const getStatus = () => {
-              if (product.stock_quantity === 0) return "Out of Stock";
+              if (product.stock_quantity <= 0) return "Stock Out";
               if (product.stock_quantity <= product.low_stock_threshold) return "Low Stock";
               return "In Stock";
             };
