@@ -176,7 +176,8 @@ const Inventory = () => {
             });
           });
         } else {
-          // Product has variants but none found - show as regular product
+          // Product marked as having variants but no variants found - treat as regular product
+          console.log(`Product "${product.name}" has has_variants=true but no variants found`);
           items.push({
             id: product.id,
             type: 'product',
@@ -187,7 +188,7 @@ const Inventory = () => {
             stock_quantity: product.stock_quantity,
             low_stock_threshold: product.low_stock_threshold,
             image_url: product.image_url,
-            has_variants: true,
+            has_variants: false, // Don't show "Has Variants" badge for products without actual variants
             woocommerce_id: (product as any).woocommerce_id
           });
         }
@@ -459,13 +460,12 @@ const Inventory = () => {
                     <TableHead>Product / Variant</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>WC ID</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                         No inventory items found
                       </TableCell>
                     </TableRow>
@@ -499,11 +499,6 @@ const Inventory = () => {
                                 {item.variantName}
                               </div>
                             )}
-                            {item.has_variants && item.type === 'product' && (
-                              <Badge variant="outline" className="text-xs">
-                                Has Variants
-                              </Badge>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -511,11 +506,6 @@ const Inventory = () => {
                         </TableCell>
                         <TableCell>
                           {getStockStatus(item)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-mono text-sm">
-                            {item.woocommerce_id || '-'}
-                          </span>
                         </TableCell>
                       </TableRow>
                     ))
