@@ -102,9 +102,6 @@ const Inventory = () => {
     console.log("Products with variants:", productsWithVariants);
     
     const variantsByProduct = new Map();
-    console.log("AllVariants received:", allVariants);
-    console.log("AllVariants length:", allVariants?.length || 0);
-    
     if (allVariants && Array.isArray(allVariants)) {
       allVariants.forEach(variant => {
         const productId = variant.product_id;
@@ -116,36 +113,28 @@ const Inventory = () => {
     }
     
     console.log("Variants grouped by product:", variantsByProduct);
-    console.log("Number of products with variants:", variantsByProduct.size);
     
     productsWithVariants.forEach(product => {
       const productVariants = variantsByProduct.get(product.id) || [];
-      console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants in Map`);
+      console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants`);
       console.log(`Product variants for ${product.name}:`, productVariants);
       
-      // Process variants to show all attributes dynamically
-      const processedVariants = productVariants.map(variant => {
-        // Create display name from all attributes
-        const attributeEntries = Object.entries(variant.attributes || {});
-        const displayName = attributeEntries.length > 0 
-          ? attributeEntries.map(([key, value]) => {
-              // Clean up the key by removing "Select " prefix and ":" suffix
-              const cleanKey = key.replace(/^Select\s+/, '').replace(/:$/, '');
-              return `${cleanKey}: ${value}`;
-            }).join(', ')
-          : 'Default Variant';
-        
-        return {
-          id: variant.id,
-          name: displayName,
-          sku: variant.sku || product.sku,
-          stock_quantity: variant.stock_quantity,
-          low_stock_threshold: variant.low_stock_threshold,
-          attributes: variant.attributes || {}
-        };
-      });
+      // If no variants found in allVariants, try to fetch them directly from products that have stock in sizes
+      let processedVariants = productVariants;
       
-      console.log(`Processed variants for ${product.name}:`, processedVariants);
+      if (productVariants.length === 0 && product.size && product.size.includes(',')) {
+        // This might be a product imported with sizes in the size field
+        console.log(`No variants found for ${product.name}, but has size field:`, product.size);
+        const sizes = product.size.split(',').map(s => s.trim());
+        processedVariants = sizes.map((size, index) => ({
+          id: `${product.id}_${index}`,
+          name: `Size: ${size}`,
+          sku: product.sku,
+          stock_quantity: Math.floor(product.stock_quantity / sizes.length),
+          low_stock_threshold: product.low_stock_threshold,
+          attributes: { Size: size }
+        }));
+      }
       
       parents.push({
         id: product.id,
@@ -155,7 +144,16 @@ const Inventory = () => {
         stock_quantity: processedVariants.length > 0 ? null : product.stock_quantity,
         low_stock_threshold: processedVariants.length > 0 ? null : product.low_stock_threshold,
         image_url: product.image_url,
-        variants: processedVariants
+        variants: processedVariants.map(variant => ({
+          id: variant.id,
+          name: Object.entries(variant.attributes || {})
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', '),
+          sku: variant.sku || product.sku,
+          stock_quantity: variant.stock_quantity,
+          low_stock_threshold: variant.low_stock_threshold,
+          attributes: variant.attributes || {}
+        }))
       });
     });
     
