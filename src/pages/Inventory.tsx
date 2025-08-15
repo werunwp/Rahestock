@@ -103,16 +103,31 @@ const Inventory = () => {
           stock_quantity: null,
           low_stock_threshold: null,
           image_url: product.image_url,
-          variants: productVariants.map(variant => ({
-            id: variant.id,
-            name: Object.entries(variant.attributes)
-              .map(([key, value]) => value)
-              .join(', '),
-            sku: variant.sku || product.sku,
-            stock_quantity: variant.stock_quantity,
-            low_stock_threshold: variant.low_stock_threshold,
-            attributes: variant.attributes
-          }))
+          variants: productVariants.map(variant => {
+            // Create a meaningful variant name from attributes or fall back to SKU/ID
+            let variantName = 'Variant';
+            
+            if (variant.attributes && typeof variant.attributes === 'object' && Object.keys(variant.attributes).length > 0) {
+              // Show attribute name: value pairs for better readability
+              variantName = Object.entries(variant.attributes)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ');
+            } else if (variant.sku) {
+              variantName = `SKU: ${variant.sku}`;
+            } else {
+              variantName = `Variant #${variant.id.slice(-8)}`;
+            }
+            
+            return {
+              id: variant.id,
+              name: variantName,
+              sku: variant.sku || product.sku,
+              stock_quantity: variant.stock_quantity,
+              low_stock_threshold: variant.low_stock_threshold,
+              attributes: variant.attributes,
+              image_url: variant.image_url
+            };
+          })
         });
       }
     });
@@ -482,12 +497,47 @@ const Inventory = () => {
                             : "In Stock";
                         
                         return (
-                          <TableRow key={`variant-${variant.id}`} className="bg-muted/20 border-l-4 border-l-muted">
-                            <TableCell>
-                              <div className="h-14 w-14 flex items-center justify-center">
-                                <div className="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
-                              </div>
-                            </TableCell>
+                           <TableRow key={`variant-${variant.id}`} className="bg-muted/20 border-l-4 border-l-muted">
+                             <TableCell>
+                               {variant.image_url ? (
+                                 <div className="relative">
+                                   <img 
+                                     src={variant.image_url} 
+                                     alt={variant.name}
+                                     className="h-12 w-12 rounded-md object-cover cursor-pointer hover:shadow-lg transition-shadow"
+                                     onMouseEnter={() => handleImageHover(variant.image_url)}
+                                     onMouseLeave={handleImageLeave}
+                                     onClick={() => handleImageClick(variant.image_url)}
+                                     loading="lazy"
+                                   />
+                                   {/* Hover preview for variant images */}
+                                   {previewImage === variant.image_url && (
+                                     <div className="fixed z-50 pointer-events-none">
+                                       <div 
+                                         className="absolute bg-background border rounded-lg shadow-xl p-2"
+                                         style={{
+                                           left: '50%',
+                                           top: '50%',
+                                           transform: 'translate(-50%, -50%)',
+                                           maxWidth: '300px',
+                                           maxHeight: '300px'
+                                         }}
+                                       >
+                                         <img 
+                                           src={variant.image_url}
+                                           alt={variant.name}
+                                           className="max-w-full max-h-full object-contain rounded"
+                                         />
+                                       </div>
+                                     </div>
+                                   )}
+                                 </div>
+                               ) : (
+                                 <div className="h-12 w-12 flex items-center justify-center">
+                                   <div className="w-2 h-2 rounded-full bg-muted-foreground/30"></div>
+                                 </div>
+                               )}
+                             </TableCell>
                             <TableCell className="pl-6 text-gray-800 dark:text-gray-200 font-medium">
                               {variant.name}
                             </TableCell>
