@@ -407,150 +407,168 @@ const Inventory = () => {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {paginatedParentProducts.length === 0 ? (
-                  <div className="col-span-full text-center py-12">
-                    <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground text-lg">No inventory items found</p>
-                  </div>
-                ) : (
-                  paginatedParentProducts.map((parent) => {
-                    // For products without variants
-                    if (parent.type === 'product') {
-                      const status = parent.stock_quantity <= 0 
-                        ? "Stock Out" 
-                        : parent.stock_quantity <= (parent.low_stock_threshold || 0)
-                          ? "Low Stock" 
-                          : "In Stock";
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Attributes</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedParentProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-12">
+                        <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground text-lg">No inventory items found</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedParentProducts.map((parent) => {
+                      // For products without variants
+                      if (parent.type === 'product') {
+                        const status = parent.stock_quantity <= 0 
+                          ? "Out of Stock" 
+                          : parent.stock_quantity <= (parent.low_stock_threshold || 0)
+                            ? "Low Stock" 
+                            : "In Stock";
 
-                      return (
-                        <Card key={`product-${parent.id}`} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                          <div className="aspect-square relative overflow-hidden">
-                            {parent.image_url ? (
-                              <img 
-                                src={parent.image_url} 
-                                alt={parent.name}
-                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
-                                onClick={() => handleImageClick(parent.image_url)}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-muted flex items-center justify-center">
-                                <Archive className="h-16 w-16 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="absolute top-2 right-2">
+                        return (
+                          <TableRow key={`product-${parent.id}`}>
+                            <TableCell>
+                              {parent.image_url ? (
+                                <img 
+                                  src={parent.image_url} 
+                                  alt={parent.name}
+                                  className="w-12 h-12 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+                                  onClick={() => handleImageClick(parent.image_url)}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-muted flex items-center justify-center rounded">
+                                  <Archive className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{parent.name}</div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-mono text-sm">{parent.sku || '-'}</span>
+                            </TableCell>
+                            <TableCell>-</TableCell>
+                            <TableCell>
+                              <span className="font-medium">{parent.stock_quantity}</span>
+                            </TableCell>
+                            <TableCell>
                               <Badge 
                                 variant={
                                   status === "In Stock" ? "default" : 
                                   status === "Low Stock" ? "secondary" : 
                                   "destructive"
                                 }
-                                className="text-xs shadow-md"
                               >
                                 {status}
                               </Badge>
-                            </div>
-                          </div>
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold text-lg mb-2 line-clamp-2">{parent.name}</h3>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Stock:</span>
-                                <span className="font-medium">{parent.stock_quantity}</span>
-                              </div>
-                              {parent.sku && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-muted-foreground">SKU:</span>
-                                  <span className="font-mono text-xs">{parent.sku}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // Add adjustment action here if needed
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      // For products with variants - show each variant as a separate row
+                      return parent.variants.map((variant: any) => {
+                        const status = variant.stock_quantity <= 0 
+                          ? "Out of Stock" 
+                          : variant.stock_quantity <= (variant.low_stock_threshold || 0)
+                            ? "Low Stock" 
+                            : "In Stock";
+
+                        return (
+                          <TableRow key={`variant-${variant.id}`}>
+                            <TableCell>
+                              {parent.image_url ? (
+                                <img 
+                                  src={parent.image_url} 
+                                  alt={parent.name}
+                                  className="w-12 h-12 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+                                  onClick={() => handleImageClick(parent.image_url)}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-muted flex items-center justify-center rounded">
+                                  <Archive className="h-6 w-6 text-muted-foreground" />
                                 </div>
                               )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    // For products with variants
-                    return parent.variants.map((variant: any) => {
-                      const status = variant.stock_quantity <= 0 
-                        ? "Stock Out" 
-                        : variant.stock_quantity <= (variant.low_stock_threshold || 0)
-                          ? "Low Stock" 
-                          : "In Stock";
-
-                      return (
-                        <Card key={`variant-${variant.id}`} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                          <div className="aspect-square relative overflow-hidden">
-                            {parent.image_url ? (
-                              <img 
-                                src={parent.image_url} 
-                                alt={parent.name}
-                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
-                                onClick={() => handleImageClick(parent.image_url)}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-muted flex items-center justify-center">
-                                <Archive className="h-16 w-16 text-muted-foreground" />
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{parent.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                <Badge variant="outline" className="text-xs">Variant</Badge>
                               </div>
-                            )}
-                            <div className="absolute top-2 right-2">
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-mono text-sm">{variant.sku || '-'}</span>
+                            </TableCell>
+                            <TableCell>
+                              {variant.attributes && Object.keys(variant.attributes).length > 0 ? (
+                                <div className="space-y-1">
+                                  {Object.entries(variant.attributes).map(([key, value]) => (
+                                    <div key={key} className="text-sm">
+                                      <span className="font-medium capitalize">{key}:</span> {String(value)}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{variant.stock_quantity}</span>
+                            </TableCell>
+                            <TableCell>
                               <Badge 
                                 variant={
                                   status === "In Stock" ? "default" : 
                                   status === "Low Stock" ? "secondary" : 
                                   "destructive"
                                 }
-                                className="text-xs shadow-md"
                               >
                                 {status}
                               </Badge>
-                            </div>
-                            <div className="absolute top-2 left-2">
-                              <Badge variant="outline" className="text-xs bg-background/90 backdrop-blur">
-                                Variant
-                              </Badge>
-                            </div>
-                          </div>
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold text-lg mb-1 line-clamp-1">{parent.name}</h3>
-                            <p className="text-sm text-muted-foreground mb-3">({variant.name})</p>
-                            
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Stock:</span>
-                                <span className="font-medium">{variant.stock_quantity}</span>
-                              </div>
-                              {variant.sku && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-muted-foreground">SKU:</span>
-                                  <span className="font-mono text-xs">{variant.sku}</span>
-                                </div>
-                              )}
-                              
-                              {/* Product Attributes */}
-                              {variant.attributes && Object.keys(variant.attributes).length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-border/50">
-                                  <p className="text-xs font-medium text-muted-foreground mb-2">Attributes:</p>
-                                  <div className="space-y-1">
-                                     {Object.entries(variant.attributes).map(([key, value]) => (
-                                       <div key={key} className="flex justify-between items-center text-xs">
-                                         <span className="text-muted-foreground capitalize">{key}:</span>
-                                         <span className="font-medium text-foreground">{String(value)}</span>
-                                       </div>
-                                     ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    });
-                  }).flat()
-                )}
-              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // Add adjustment action here if needed
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    }).flat()
+                  )}
+                </TableBody>
+              </Table>
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4">
                   <div className="flex items-center" role="status" aria-live="polite">
@@ -567,7 +585,6 @@ const Inventory = () => {
                             className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
                             aria-label="Go to previous page"
                           />
-                          {/* Mobile previous */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -580,26 +597,22 @@ const Inventory = () => {
                           </Button>
                         </PaginationItem>
                         
-                        {/* Mobile page indicator */}
                         <div className="sm:hidden flex items-center px-3 py-2 text-sm">
                           Page {currentPage} of {totalPages}
                         </div>
                         
-                        {/* Desktop page numbers */}
                         <div className="hidden sm:flex items-center gap-1">
                           {(() => {
                             const maxVisiblePages = 5;
                             let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
                             let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
                             
-                            // Adjust start page if we're near the end
                             if (endPage - startPage + 1 < maxVisiblePages) {
                               startPage = Math.max(1, endPage - maxVisiblePages + 1);
                             }
                             
                             const pages = [];
                             
-                            // Show first page if not in range
                             if (startPage > 1) {
                               pages.push(
                                 <PaginationItem key={1}>
@@ -621,7 +634,6 @@ const Inventory = () => {
                               }
                             }
                             
-                            // Show visible page range
                             for (let page = startPage; page <= endPage; page++) {
                               pages.push(
                                 <PaginationItem key={page}>
@@ -638,7 +650,6 @@ const Inventory = () => {
                               );
                             }
                             
-                            // Show last page if not in range
                             if (endPage < totalPages) {
                               if (endPage < totalPages - 1) {
                                 pages.push(
@@ -670,7 +681,6 @@ const Inventory = () => {
                             className={`${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
                             aria-label="Go to next page"
                           />
-                          {/* Mobile next */}
                           <Button
                             variant="outline"
                             size="sm"
