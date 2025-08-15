@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Minus, Trash2, Search } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Minus, Trash2, Search, Check, ChevronsUpDown } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
@@ -14,6 +16,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { toast } from "sonner";
 import Fuse from "fuse.js";
+import { cn } from "@/lib/utils";
 
 interface SaleDialogProps {
   open: boolean;
@@ -69,6 +72,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [productComboOpen, setProductComboOpen] = useState(false);
 
   // Searchable products functionality
   const normalizeText = useMemo(() => (text: string) => {
@@ -143,7 +147,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
     return products.filter(product => matchedProductIds.has(product.id));
   }, [products, productSearchTerm, fuse, normalizeText]);
 
-  const selectedProduct = products.find(p => p.id === selectedProductId);
+  const selectedProduct = filteredProducts.find(p => p.id === selectedProductId);
   const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
 
   useEffect(() => {
@@ -163,6 +167,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
       });
       setSelectedProductId("");
       setProductSearchTerm("");
+      setProductComboOpen(false);
     }
   }, [open]);
 
@@ -282,6 +287,8 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
     setSelectedProductId("");
     setSelectedVariantId(null);
+    setProductSearchTerm("");
+    setProductComboOpen(false);
   };
 
   const updateQuantity = (productId: string, newQuantity: number, variantId?: string | null) => {
@@ -423,33 +430,59 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
           <div className="space-y-4">
             <Label>Add Products</Label>
-            <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search products..."
-                  value={productSearchTerm}
-                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Select value={selectedProductId} onValueChange={(val) => { setSelectedProductId(val); setSelectedVariantId(null); }}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredProducts.map(product => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} - {currencySymbol}{product.rate}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Popover open={productComboOpen} onOpenChange={setProductComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={productComboOpen}
+                    className="flex-1 justify-between"
+                  >
+                    {selectedProductId ? 
+                      `${selectedProduct?.name} - ${currencySymbol}${selectedProduct?.rate}` : 
+                      "Search and select product..."
+                    }
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search products..." 
+                      value={productSearchTerm}
+                      onValueChange={setProductSearchTerm}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No products found.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredProducts.map((product) => (
+                          <CommandItem
+                            key={product.id}
+                            value={product.id}
+                            onSelect={(currentValue) => {
+                              setSelectedProductId(currentValue === selectedProductId ? "" : currentValue);
+                              setSelectedVariantId(null);
+                              setProductComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedProductId === product.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {product.name} - {currencySymbol}{product.rate}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
 
             {selectedProduct?.has_variants && (
