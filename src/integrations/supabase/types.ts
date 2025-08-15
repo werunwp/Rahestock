@@ -227,6 +227,39 @@ export type Database = {
           },
         ]
       }
+      pathao_settings: {
+        Row: {
+          access_token: string
+          api_base_url: string
+          created_at: string
+          default_delivery_type: number
+          default_item_type: number
+          id: string
+          store_id: number
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          api_base_url?: string
+          created_at?: string
+          default_delivery_type?: number
+          default_item_type?: number
+          id?: string
+          store_id: number
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          api_base_url?: string
+          created_at?: string
+          default_delivery_type?: number
+          default_item_type?: number
+          id?: string
+          store_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_attribute_values: {
         Row: {
           attribute_id: string
