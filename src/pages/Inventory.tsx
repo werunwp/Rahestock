@@ -43,14 +43,14 @@ const Inventory = () => {
     enabled: !!user,
   });
 
-  // Create grouped inventory items (products with their variants)
+  // Create flattened inventory items with proper grouping
   const inventoryItems = useMemo(() => {
-    const groupedItems: any[] = [];
+    const flattenedItems: any[] = [];
     
     // Add products without variants
     products.forEach(product => {
       if (!product.has_variants) {
-        groupedItems.push({
+        flattenedItems.push({
           id: product.id,
           type: 'product',
           name: product.name,
@@ -58,12 +58,13 @@ const Inventory = () => {
           stock_quantity: product.stock_quantity,
           low_stock_threshold: product.low_stock_threshold,
           image_url: product.image_url,
-          variants: []
+          isParent: true,
+          parentId: null
         });
       }
     });
     
-    // Group variants by product
+    // Group variants by product and add parent + children
     const variantsByProduct = new Map();
     allVariants.forEach(variant => {
       const productId = variant.product_id;
@@ -73,64 +74,67 @@ const Inventory = () => {
       variantsByProduct.get(productId).push(variant);
     });
     
-    // Add products with variants
+    // Add products with variants (parent + variation rows)
     products.forEach(product => {
       if (product.has_variants) {
         const productVariants = variantsByProduct.get(product.id) || [];
-        groupedItems.push({
+        
+        // Add parent product row
+        flattenedItems.push({
           id: product.id,
-          type: 'product_with_variants',
+          type: 'parent_product',
           name: product.name,
           sku: product.sku,
+          stock_quantity: null, // Parent doesn't have stock
+          low_stock_threshold: null,
           image_url: product.image_url,
-          variants: productVariants.map(variant => {
-            const variantDisplay = Object.entries(variant.attributes)
-              .map(([key, value]) => value) // Remove key prefix, just show values
-              .join(', ');
-            
-            return {
-              id: variant.id,
-              label: variantDisplay,
-              sku: variant.sku || product.sku,
-              stock_quantity: variant.stock_quantity,
-              low_stock_threshold: variant.low_stock_threshold,
-              image_url: variant.image_url
-            };
-          })
+          isParent: true,
+          parentId: null
+        });
+        
+        // Add variation rows
+        productVariants.forEach(variant => {
+          const variantDisplay = Object.entries(variant.attributes)
+            .map(([key, value]) => value) // Remove key prefix, just show values
+            .join(', ');
+          
+          flattenedItems.push({
+            id: variant.id,
+            type: 'variant',
+            name: variantDisplay,
+            sku: variant.sku || product.sku,
+            stock_quantity: variant.stock_quantity,
+            low_stock_threshold: variant.low_stock_threshold,
+            image_url: null, // Variants don't show images
+            isParent: false,
+            parentId: product.id
+          });
         });
       }
     });
     
-    return groupedItems;
+    return flattenedItems;
   }, [products, allVariants]);
 
   const filteredItems = inventoryItems.filter(item => {
-    // Enhanced text search filter - search by name, SKU, or variants
+    // Enhanced text search filter - search by name, SKU, or stock quantity
     const searchLower = searchTerm.toLowerCase();
     const nameMatch = item.name?.toLowerCase().includes(searchLower) || false;
     const skuMatch = item.sku?.toLowerCase().includes(searchLower) || false;
-    const variantMatch = item.variants?.some((variant: any) => 
-      (variant.label?.toLowerCase().includes(searchLower)) ||
-      (variant.sku?.toLowerCase().includes(searchLower)) ||
-      (variant.stock_quantity?.toString().includes(searchTerm))
-    ) || false;
     const stockMatch = item.stock_quantity?.toString().includes(searchTerm) || false;
     
-    const matchesSearch = nameMatch || skuMatch || variantMatch || stockMatch;
+    const matchesSearch = nameMatch || skuMatch || stockMatch;
     
-    // Stock filter - check product and variants
+    // Stock filter - check individual items
     let matchesStock = false;
     if (stockFilter === "all") {
       matchesStock = true;
-    } else if (item.type === "product") {
+    } else if (item.type === "parent_product") {
+      // Parent products always show when not filtering by stock
+      matchesStock = true;
+    } else {
       const stockQty = item.stock_quantity || 0;
       matchesStock = stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
-    } else {
-      // For products with variants, check if any variant matches the filter
-      matchesStock = item.variants?.some((variant: any) => {
-        const variantStockQty = variant.stock_quantity || 0;
-        return stockFilter === "in_stock" ? variantStockQty > 0 : variantStockQty === 0;
-      }) || false;
     }
     
     return matchesSearch && matchesStock;
@@ -143,13 +147,10 @@ const Inventory = () => {
 
   // Check if there are any low stock items
   const hasLowStockItems = inventoryItems.some(item => {
-    if (item.type === "product") {
-      return item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0;
-    } else {
-      return item.variants?.some((variant: any) => 
-        variant.stock_quantity <= (variant.low_stock_threshold || 0) && variant.stock_quantity > 0
-      );
+    if (item.type === "variant" || item.type === "product") {
+      return item.stock_quantity && item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0;
     }
+    return false;
   });
 
   const totalProducts = products.length;
@@ -242,45 +243,39 @@ const Inventory = () => {
         )}
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Search by name, SKU, or stock quantity..." 
-            className="pl-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          {hasLowStockItems && (
-            <Badge variant="destructive" className="flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Low Stock Alert
-            </Badge>
-          )}
-          <ToggleGroup
-            type="single"
-            value={stockFilter}
-            onValueChange={(value) => setStockFilter(value as typeof stockFilter || "all")}
-            className="flex gap-1"
-          >
-            <ToggleGroupItem value="all" variant="outline" size="sm">
-              All
-            </ToggleGroupItem>
-            <ToggleGroupItem value="in_stock" variant="outline" size="sm">
-              In Stock
-            </ToggleGroupItem>
-            <ToggleGroupItem value="out_of_stock" variant="outline" size="sm">
-              Out of Stock
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+      <div className="flex items-center gap-4">
+        <ToggleGroup
+          type="single"
+          value={stockFilter}
+          onValueChange={(value) => setStockFilter(value as typeof stockFilter || "all")}
+          className="flex gap-1"
+        >
+          <ToggleGroupItem value="all" variant="outline" size="sm">
+            All
+          </ToggleGroupItem>
+          <ToggleGroupItem value="in_stock" variant="outline" size="sm">
+            In Stock
+          </ToggleGroupItem>
+          <ToggleGroupItem value="out_of_stock" variant="outline" size="sm">
+            Out of Stock
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Inventory Levels</CardTitle>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle>Inventory Levels</CardTitle>
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input 
+                placeholder="Search by name, SKU, or stock quantity..." 
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading || variantsLoading ? (
@@ -309,18 +304,12 @@ const Inventory = () => {
                     </TableRow>
                   ) : (
                     paginatedItems.map((item) => {
-                      if (item.type === "product") {
-                        // Single product without variants
-                        const status = item.stock_quantity === 0 
-                          ? "Out of Stock" 
-                          : item.stock_quantity <= (item.low_stock_threshold || 0)
-                            ? "Low Stock" 
-                            : "In Stock";
-                        
+                      if (item.type === "parent_product") {
+                        // Parent product row (shows image and product name)
                         return (
-                          <TableRow key={`product-${item.id}`}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-start gap-3">
+                          <TableRow key={`parent-${item.id}`} className="border-b-2 border-muted/50">
+                            <TableCell className="font-semibold bg-muted/20">
+                              <div className="flex items-center gap-3">
                                 {item.image_url ? (
                                   <img 
                                     src={item.image_url} 
@@ -332,9 +321,72 @@ const Inventory = () => {
                                     <Archive className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 )}
-                                <div>
-                                  <div className="font-medium">{item.name}</div>
+                                <span className="font-medium">{item.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
+                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
+                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
+                          </TableRow>
+                        );
+                      } else if (item.type === "variant") {
+                        // Variant row (indented with variation details)
+                        const status = item.stock_quantity === 0 
+                          ? "Out of Stock" 
+                          : item.stock_quantity <= (item.low_stock_threshold || 0)
+                            ? "Low Stock" 
+                            : "In Stock";
+                        
+                        return (
+                          <TableRow key={`variant-${item.id}`} className="hover:bg-muted/20">
+                            <TableCell className="pl-8">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
                                 </div>
+                                <span className="text-muted-foreground">{item.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.sku || "-"}</TableCell>
+                            <TableCell>{item.stock_quantity}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  status === "In Stock" ? "default" : 
+                                  status === "Low Stock" ? "secondary" : 
+                                  "destructive"
+                                }
+                                className="text-xs"
+                              >
+                                {status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        // Single product without variants
+                        const status = item.stock_quantity === 0 
+                          ? "Out of Stock" 
+                          : item.stock_quantity <= (item.low_stock_threshold || 0)
+                            ? "Low Stock" 
+                            : "In Stock";
+                        
+                        return (
+                          <TableRow key={`product-${item.id}`}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                {item.image_url ? (
+                                  <img 
+                                    src={item.image_url} 
+                                    alt={item.name}
+                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                    <Archive className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <span>{item.name}</span>
                               </div>
                             </TableCell>
                             <TableCell>{item.sku || "-"}</TableCell>
@@ -350,66 +402,6 @@ const Inventory = () => {
                                 {status}
                               </Badge>
                             </TableCell>
-                          </TableRow>
-                        );
-                      } else {
-                        // Product with variants
-                        return (
-                          <TableRow key={`product-variants-${item.id}`}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-start gap-3">
-                                {item.image_url ? (
-                                  <img 
-                                    src={item.image_url} 
-                                    alt={item.name}
-                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                                    <Archive className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <div className="space-y-1">
-                                  <div className="font-medium">{item.name}</div>
-                                  {item.variants?.map((variant: any) => {
-                                    const variantStatus = variant.stock_quantity === 0 
-                                      ? "Out of Stock" 
-                                      : variant.stock_quantity <= (variant.low_stock_threshold || 0)
-                                        ? "Low Stock" 
-                                        : "In Stock";
-                                    
-                                    return (
-                                      <div key={variant.id} className="pl-4 border-l-2 border-muted flex items-center gap-4 text-sm">
-                                        <div className="flex-1">
-                                          <span className="text-muted-foreground">{variant.label}</span>
-                                        </div>
-                                        <div className="text-muted-foreground min-w-[80px]">
-                                          {variant.sku || "-"}
-                                        </div>
-                                        <div className="min-w-[60px]">
-                                          {variant.stock_quantity}
-                                        </div>
-                                        <div className="min-w-[100px]">
-                                          <Badge 
-                                            variant={
-                                              variantStatus === "In Stock" ? "default" : 
-                                              variantStatus === "Low Stock" ? "secondary" : 
-                                              "destructive"
-                                            }
-                                            className="text-xs"
-                                          >
-                                            {variantStatus}
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>-</TableCell>
-                            <TableCell>-</TableCell>
-                            <TableCell>-</TableCell>
                           </TableRow>
                         );
                       }
