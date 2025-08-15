@@ -705,6 +705,7 @@ export type Database = {
           completed_at: string | null
           connection_id: string
           created_at: string
+          current_page: number | null
           error_message: string | null
           failed_products: number | null
           id: string
@@ -712,12 +713,14 @@ export type Database = {
           progress_message: string | null
           started_at: string
           status: string
+          total_pages: number | null
           total_products: number | null
         }
         Insert: {
           completed_at?: string | null
           connection_id: string
           created_at?: string
+          current_page?: number | null
           error_message?: string | null
           failed_products?: number | null
           id?: string
@@ -725,12 +728,14 @@ export type Database = {
           progress_message?: string | null
           started_at?: string
           status: string
+          total_pages?: number | null
           total_products?: number | null
         }
         Update: {
           completed_at?: string | null
           connection_id?: string
           created_at?: string
+          current_page?: number | null
           error_message?: string | null
           failed_products?: number | null
           id?: string
@@ -738,6 +743,7 @@ export type Database = {
           progress_message?: string | null
           started_at?: string
           status?: string
+          total_pages?: number | null
           total_products?: number | null
         }
         Relationships: [
