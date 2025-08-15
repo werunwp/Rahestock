@@ -45,8 +45,8 @@ const Inventory = () => {
   }, [searchTerm]);
 
   // Fetch all product variants for inventory display
-  const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
-    queryKey: ["inventory_product_variants"],
+  const { data: allVariants = [], isLoading: variantsLoading, refetch: refetchVariants } = useQuery({
+    queryKey: ["product_variants_inventory", user?.id], // Include user ID to make it unique per user
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_variants")
@@ -61,11 +61,15 @@ const Inventory = () => {
           created_at
         `)
         .order("created_at", { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching variants:", error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!user,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
   });
 
   // Create parent products list for search and pagination
@@ -98,6 +102,7 @@ const Inventory = () => {
       variantsByProduct.get(productId).push(variant);
     });
     
+    
     products.forEach(product => {
       if (product.has_variants) {
         const productVariants = variantsByProduct.get(product.id) || [];
@@ -117,8 +122,13 @@ const Inventory = () => {
             if (variant.attributes && typeof variant.attributes === 'object' && Object.keys(variant.attributes).length > 0) {
               // Show only attribute values, not the names
               variantName = Object.values(variant.attributes)
-                .filter(value => value && value !== '')
+                .filter(value => value && value !== '' && value !== null && value !== undefined)
                 .join(', ');
+              
+              // If no valid values found, use fallback
+              if (!variantName || variantName.trim() === '') {
+                variantName = variant.sku ? `SKU: ${variant.sku}` : `Variant #${variant.id.slice(-8)}`;
+              }
             } else if (variant.sku) {
               variantName = `SKU: ${variant.sku}`;
             } else {
