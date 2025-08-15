@@ -120,6 +120,17 @@ const Inventory = () => {
     return parents;
   }, [products, allVariants]);
 
+  // Normalize text for exact matching
+  const normalizeText = useCallback((text: string) => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ') // Collapse multiple spaces to one
+      .replace(/[\/,\-\(\)\.]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Clean up spaces again after punctuation removal
+      .trim();
+  }, []);
+
   // Fuzzy search using Fuse.js
   const fuse = useMemo(() => {
     const searchData: any[] = [];
@@ -129,6 +140,7 @@ const Inventory = () => {
       searchData.push({
         ...parent,
         searchType: 'parent',
+        normalizedTitle: normalizeText(parent.name),
         searchText: `${parent.name} ${parent.sku || ''}`.toLowerCase()
       });
       
@@ -151,26 +163,42 @@ const Inventory = () => {
       includeScore: true,
       minMatchCharLength: 1
     });
-  }, [parentProducts]);
+  }, [parentProducts, normalizeText]);
 
-  // Filter and search logic
-  const filteredParentProducts = useMemo(() => {
+  // Filter and search logic with exact matching priority
+  const { filteredParentProducts, hasExactMatch } = useMemo(() => {
     let filtered = parentProducts;
+    let isExactMatch = false;
     
-    // Apply fuzzy search
+    // Apply search logic
     if (debouncedSearchTerm.trim()) {
-      const searchResults = fuse.search(debouncedSearchTerm.trim());
-      const matchedParentIds = new Set();
+      const normalizedQuery = normalizeText(debouncedSearchTerm.trim());
       
-      searchResults.forEach(result => {
-        if (result.item.searchType === 'parent') {
-          matchedParentIds.add(result.item.id);
-        } else if (result.item.searchType === 'variant') {
-          matchedParentIds.add(result.item.parentId);
-        }
+      // First, check for exact title matches
+      const exactMatches = parentProducts.filter(parent => {
+        const normalizedTitle = normalizeText(parent.name);
+        return normalizedTitle === normalizedQuery;
       });
       
-      filtered = parentProducts.filter(parent => matchedParentIds.has(parent.id));
+      if (exactMatches.length > 0) {
+        // Exact match found - return only exact matches
+        filtered = exactMatches;
+        isExactMatch = true;
+      } else {
+        // No exact match - fall back to fuzzy search
+        const searchResults = fuse.search(debouncedSearchTerm.trim());
+        const matchedParentIds = new Set();
+        
+        searchResults.forEach(result => {
+          if (result.item.searchType === 'parent') {
+            matchedParentIds.add(result.item.id);
+          } else if (result.item.searchType === 'variant') {
+            matchedParentIds.add(result.item.parentId);
+          }
+        });
+        
+        filtered = parentProducts.filter(parent => matchedParentIds.has(parent.id));
+      }
     }
     
     // Apply stock filter
@@ -189,8 +217,8 @@ const Inventory = () => {
       });
     }
     
-    return filtered;
-  }, [parentProducts, debouncedSearchTerm, stockFilter, fuse]);
+    return { filteredParentProducts: filtered, hasExactMatch: isExactMatch };
+  }, [parentProducts, debouncedSearchTerm, stockFilter, fuse, normalizeText]);
 
   // Pagination calculations (based on parent products only)
   const totalParentProducts = filteredParentProducts.length;
@@ -351,7 +379,14 @@ const Inventory = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Inventory Levels</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>Inventory Levels</CardTitle>
+              {hasExactMatch && debouncedSearchTerm.trim() && (
+                <Badge variant="secondary" className="text-xs">
+                  Exact match
+                </Badge>
+              )}
+            </div>
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input 
