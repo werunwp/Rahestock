@@ -561,13 +561,18 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
             }
 
             // Import product attributes if available
+            console.log(`Checking attributes for product ${wcProduct.name}: ${JSON.stringify(wcProduct.attributes)}`);
             if (wcProduct.attributes && wcProduct.attributes.length > 0) {
+              console.log(`Found ${wcProduct.attributes.length} attributes for ${wcProduct.name}, importing...`);
               try {
                 await importProductAttributes(supabase, wcProduct, newProduct.id);
+                console.log(`Successfully imported attributes for ${wcProduct.name}`);
               } catch (attrError) {
                 console.error(`Failed to import attributes for ${wcProduct.name}:`, attrError);
                 // Don't fail the entire product for attribute errors
               }
+            } else {
+              console.log(`No attributes found for product ${wcProduct.name}`);
             }
 
       return { success: 1, failed: 0 };
@@ -757,13 +762,16 @@ async function isImportStopped(supabase: any, importLogId: string): Promise<bool
 // Import product attributes into dedicated table
 async function importProductAttributes(supabase: any, wcProduct: WooCommerceProduct, productId: string) {
   if (!wcProduct.attributes || wcProduct.attributes.length === 0) {
+    console.log(`No attributes to import for product ${wcProduct.name}`);
     return;
   }
 
-  console.log(`Importing ${wcProduct.attributes.length} attributes for product ${wcProduct.name}`);
+  console.log(`Importing ${wcProduct.attributes.length} attributes for product ${wcProduct.name}:`, JSON.stringify(wcProduct.attributes));
 
   for (const attribute of wcProduct.attributes) {
     try {
+      console.log(`Processing attribute: ${attribute.name} with options: ${JSON.stringify(attribute.options)}`);
+      
       // Insert or update the product attribute
       const { data: productAttribute, error: attributeError } = await supabase
         .from('product_attributes')
@@ -782,8 +790,11 @@ async function importProductAttributes(supabase: any, wcProduct: WooCommerceProd
         continue;
       }
 
+      console.log(`Successfully inserted attribute ${attribute.name} with ID: ${productAttribute.id}`);
+
       // Insert attribute values
       if (attribute.options && attribute.options.length > 0) {
+        console.log(`Inserting ${attribute.options.length} values for attribute ${attribute.name}`);
         for (const option of attribute.options) {
           const { error: valueError } = await supabase
             .from('product_attribute_values')
@@ -797,11 +808,17 @@ async function importProductAttributes(supabase: any, wcProduct: WooCommerceProd
 
           if (valueError) {
             console.error(`Failed to insert attribute value ${option}:`, valueError);
+          } else {
+            console.log(`Successfully inserted value: ${option} for attribute: ${attribute.name}`);
           }
         }
+      } else {
+        console.log(`No options found for attribute ${attribute.name}`);
       }
     } catch (error) {
       console.error(`Error importing attribute ${attribute.name}:`, error);
     }
   }
+  
+  console.log(`Finished importing attributes for product ${wcProduct.name}`);
 }
