@@ -393,7 +393,7 @@ const Customers = () => {
               <CardContent>
                 <div className="text-2xl font-bold">
                   {formatAmount(customers.length > 0 ? 
-                    (customers.reduce((sum, c) => sum + c.total_spent, 0) / 
+                    (customers.filter(c => c.order_count > 0).reduce((sum, c) => sum + c.total_spent, 0) / 
                     customers.filter(c => c.order_count > 0).length || 1) : 
                     0)}
                 </div>
