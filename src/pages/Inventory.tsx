@@ -46,14 +46,11 @@ const Inventory = () => {
 
   // Fetch all product variants for inventory display
   const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
-    queryKey: ["all_product_variants"],
+    queryKey: ["inventory_product_variants"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_variants")
-        .select(`
-          *,
-          products!inner(name, sku, image_url)
-        `)
+        .select("*")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
