@@ -553,10 +553,20 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
             // Import variations if they exist
             if (wcProduct.variations && wcProduct.variations.length > 0) {
               try {
-                await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers);
+                await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers, connection.id);
               } catch (varError) {
                 console.error(`Failed to import variations for ${wcProduct.name}:`, varError);
                 // Don't fail the entire product for variation errors
+              }
+            }
+
+            // Import product attributes if available
+            if (wcProduct.attributes && wcProduct.attributes.length > 0) {
+              try {
+                await importProductAttributes(supabase, wcProduct, newProduct.id);
+              } catch (attrError) {
+                console.error(`Failed to import attributes for ${wcProduct.name}:`, attrError);
+                // Don't fail the entire product for attribute errors
               }
             }
 
@@ -585,7 +595,7 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
 }
 
 // Optimized function to import product variations
-async function importProductVariations(supabase: any, wcProduct: WooCommerceProduct, productId: string, apiUrl: string, headers: any) {
+async function importProductVariations(supabase: any, wcProduct: WooCommerceProduct, productId: string, apiUrl: string, headers: any, connectionId?: string) {
   if (!wcProduct.variations || wcProduct.variations.length === 0) {
     return;
   }
@@ -633,7 +643,7 @@ async function importProductVariations(supabase: any, wcProduct: WooCommerceProd
             return acc;
           }, {}),
           woocommerce_id: variation.id,
-          woocommerce_connection_id: wcProduct.woocommerce_connection_id || null, // Link to WooCommerce connection
+          woocommerce_connection_id: connectionId || wcProduct.woocommerce_connection_id,
           last_synced_at: new Date().toISOString(),
         };
 
@@ -741,5 +751,57 @@ async function isImportStopped(supabase: any, importLogId: string): Promise<bool
   } catch (error) {
     console.error('Error checking import status:', error);
     return false;
+  }
+}
+
+// Import product attributes into dedicated table
+async function importProductAttributes(supabase: any, wcProduct: WooCommerceProduct, productId: string) {
+  if (!wcProduct.attributes || wcProduct.attributes.length === 0) {
+    return;
+  }
+
+  console.log(`Importing ${wcProduct.attributes.length} attributes for product ${wcProduct.name}`);
+
+  for (const attribute of wcProduct.attributes) {
+    try {
+      // Insert or update the product attribute
+      const { data: productAttribute, error: attributeError } = await supabase
+        .from('product_attributes')
+        .upsert({
+          product_id: productId,
+          name: attribute.name
+        }, {
+          onConflict: 'product_id,name',
+          ignoreDuplicates: false
+        })
+        .select('id')
+        .single();
+
+      if (attributeError) {
+        console.error(`Failed to insert attribute ${attribute.name}:`, attributeError);
+        continue;
+      }
+
+      // Insert attribute values
+      if (attribute.options && attribute.options.length > 0) {
+        for (const option of attribute.options) {
+          const { error: valueError } = await supabase
+            .from('product_attribute_values')
+            .upsert({
+              attribute_id: productAttribute.id,
+              value: option
+            }, {
+              onConflict: 'attribute_id,value',
+              ignoreDuplicates: true
+            });
+
+          if (valueError) {
+            console.error(`Failed to insert attribute value ${option}:`, valueError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error importing attribute ${attribute.name}:`, error);
+    }
   }
 }

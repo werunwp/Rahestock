@@ -318,9 +318,10 @@ async function processSyncBatch(supabase: any, products: WooCommerceProduct[], c
 
   const batchPromises = products.map(async (wcProduct) => {
     try {
-      // Skip non-published products
-      if (wcProduct.status !== 'publish') {
-        console.log(`Skipping product ${wcProduct.name} with status: ${wcProduct.status}`);
+      // Skip non-published products - if no status is provided, assume it's published
+      const productStatus = wcProduct.status || 'publish';
+      if (productStatus === 'draft' || productStatus === 'trash' || productStatus === 'private') {
+        console.log(`Skipping product ${wcProduct.name} with status: ${productStatus}`);
         return { created: 0, updated: 0, failed: 0 };
       }
 
@@ -369,7 +370,7 @@ async function processSyncBatch(supabase: any, products: WooCommerceProduct[], c
 
           // Update variations if they exist
           if (wcProduct.variations.length > 0) {
-            await syncProductVariations(supabase, wcProduct, existingProduct.id, apiUrl, headers);
+            await syncProductVariations(supabase, wcProduct, existingProduct.id, apiUrl, headers, connection);
           }
 
           return { created: 0, updated: 1, failed: 0 };
@@ -408,7 +409,7 @@ async function processSyncBatch(supabase: any, products: WooCommerceProduct[], c
 
         // Create variations if they exist
         if (wcProduct.variations.length > 0) {
-          await syncProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers);
+          await syncProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers, connection);
         }
 
         return { created: 1, updated: 0, failed: 0 };
@@ -438,7 +439,7 @@ async function processSyncBatch(supabase: any, products: WooCommerceProduct[], c
 }
 
 // Sync product variations
-async function syncProductVariations(supabase: any, wcProduct: WooCommerceProduct, productId: string, apiUrl: string, headers: any) {
+async function syncProductVariations(supabase: any, wcProduct: WooCommerceProduct, productId: string, apiUrl: string, headers: any, connection: any) {
   if (!wcProduct.variations || wcProduct.variations.length === 0) {
     return;
   }
@@ -479,7 +480,7 @@ async function syncProductVariations(supabase: any, wcProduct: WooCommerceProduc
             return acc;
           }, {}),
           woocommerce_id: variation.id,
-          woocommerce_connection_id: wcProduct.id,
+          woocommerce_connection_id: connection.id, // Link to WooCommerce connection
           last_synced_at: new Date().toISOString(),
         };
 
