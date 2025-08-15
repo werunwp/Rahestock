@@ -119,40 +119,42 @@ const Inventory = () => {
       console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants`);
       console.log(`Product variants for ${product.name}:`, productVariants);
       
-      // Only add products that actually have variants in the database
-      if (productVariants.length > 0) {
-        parents.push({
-          id: product.id,
-          type: 'parent',
-          name: product.name,
+      // If no variants found in allVariants, try to fetch them directly from products that have stock in sizes
+      let processedVariants = productVariants;
+      
+      if (productVariants.length === 0 && product.size && product.size.includes(',')) {
+        // This might be a product imported with sizes in the size field
+        console.log(`No variants found for ${product.name}, but has size field:`, product.size);
+        const sizes = product.size.split(',').map(s => s.trim());
+        processedVariants = sizes.map((size, index) => ({
+          id: `${product.id}_${index}`,
+          name: `Size: ${size}`,
           sku: product.sku,
-          stock_quantity: null,
-          low_stock_threshold: null,
-          image_url: product.image_url,
-          variants: productVariants.map(variant => ({
-            id: variant.id,
-            name: Object.entries(variant.attributes || {})
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(', '),
-            sku: variant.sku || product.sku,
-            stock_quantity: variant.stock_quantity,
-            low_stock_threshold: variant.low_stock_threshold,
-            attributes: variant.attributes || {}
-          }))
-        });
-      } else {
-        // If marked as has_variants but no variants found, treat as regular product
-        parents.push({
-          id: product.id,
-          type: 'product',
-          name: product.name,
-          sku: product.sku,
-          stock_quantity: product.stock_quantity,
+          stock_quantity: Math.floor(product.stock_quantity / sizes.length),
           low_stock_threshold: product.low_stock_threshold,
-          image_url: product.image_url,
-          variants: []
-        });
+          attributes: { Size: size }
+        }));
       }
+      
+      parents.push({
+        id: product.id,
+        type: processedVariants.length > 0 ? 'parent' : 'product',
+        name: product.name,
+        sku: product.sku,
+        stock_quantity: processedVariants.length > 0 ? null : product.stock_quantity,
+        low_stock_threshold: processedVariants.length > 0 ? null : product.low_stock_threshold,
+        image_url: product.image_url,
+        variants: processedVariants.map(variant => ({
+          id: variant.id,
+          name: Object.entries(variant.attributes || {})
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', '),
+          sku: variant.sku || product.sku,
+          stock_quantity: variant.stock_quantity,
+          low_stock_threshold: variant.low_stock_threshold,
+          attributes: variant.attributes || {}
+        }))
+      });
     });
     
     console.log("Final parent products:", parents);
