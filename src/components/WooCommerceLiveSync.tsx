@@ -119,43 +119,6 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
         Live Sync Products
       </h4>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="sync-interval">Sync Interval</Label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input
-                id="sync-interval"
-                type="number"
-                min="1"
-                value={syncInterval}
-                onChange={(e) => setSyncInterval(parseInt(e.target.value) || 1)}
-                className="flex-1 min-w-16"
-              />
-              <Select value={syncIntervalUnit} onValueChange={(value: 'minutes' | 'hours' | 'days') => setSyncIntervalUnit(value)}>
-                <SelectTrigger className="flex-1 min-w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minutes">Minutes</SelectItem>
-                  <SelectItem value="hours">Hours</SelectItem>
-                  <SelectItem value="days">Days</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sync-time">Specific Time (Optional)</Label>
-            <Input
-              id="sync-time"
-              type="time"
-              value={syncTime}
-              onChange={(e) => setSyncTime(e.target.value)}
-              placeholder="HH:MM"
-            />
-          </div>
-        </div>
-
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <Label htmlFor="active-sync">Enable Live Sync</Label>
@@ -166,89 +129,153 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
           <Switch
             id="active-sync"
             checked={isActiveSync}
-            onCheckedChange={setIsActiveSync}
+            onCheckedChange={(checked) => {
+              setIsActiveSync(checked);
+              // Auto-save when toggling to ensure state persists
+              const intervalInMinutes = syncIntervalUnit === 'hours' 
+                ? syncInterval * 60 
+                : syncIntervalUnit === 'days' 
+                ? syncInterval * 24 * 60 
+                : syncInterval;
+
+              const settingsData = {
+                connection_id: connectionId,
+                is_active: checked,
+                sync_interval_minutes: intervalInMinutes,
+                sync_time: syncTime || null,
+              };
+
+              if (settings) {
+                updateSettings({ id: settings.id, ...settingsData });
+              } else {
+                createSettings(settingsData);
+              }
+            }}
           />
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button 
-            onClick={handleSaveSettings} 
-            disabled={isCreating || isUpdating}
-            className="flex-1 sm:flex-initial"
-          >
-            {isCreating || isUpdating ? "Saving..." : "Save Sync Settings"}
-          </Button>
-          <Button 
-            onClick={handleManualSync} 
-            disabled={isSyncing}
-            variant="outline"
-            className="sm:w-auto"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? "Syncing..." : "Sync Now"}
-          </Button>
-        </div>
+        {isActiveSync && (
+          <>
+            <Separator />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sync-interval">Sync Interval</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    id="sync-interval"
+                    type="number"
+                    min="1"
+                    value={syncInterval}
+                    onChange={(e) => setSyncInterval(parseInt(e.target.value) || 1)}
+                    className="flex-1 min-w-16"
+                  />
+                  <Select value={syncIntervalUnit} onValueChange={(value: 'minutes' | 'hours' | 'days') => setSyncIntervalUnit(value)}>
+                    <SelectTrigger className="flex-1 min-w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minutes">Minutes</SelectItem>
+                      <SelectItem value="hours">Hours</SelectItem>
+                      <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <Separator />
+              <div className="space-y-2">
+                <Label htmlFor="sync-time">Specific Time (Optional)</Label>
+                <Input
+                  id="sync-time"
+                  type="time"
+                  value={syncTime}
+                  onChange={(e) => setSyncTime(e.target.value)}
+                  placeholder="HH:MM"
+                />
+              </div>
+            </div>
 
-        <div className="space-y-4">
-          <h5 className="font-medium text-sm">Recent Sync History</h5>
-          {syncLogs && syncLogs.length > 0 ? (
-            <div className="space-y-3">
-              {syncLogs.slice(0, 5).map((log) => (
-                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-3">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(log.status)}
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={getStatusColor(log.status)}>
-                          {log.status.replace('_', ' ')}
-                        </Badge>
-                        <Badge variant="outline">
-                          {log.sync_type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(log.started_at))} ago
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="text-right text-sm min-w-fit">
-                      {log.status === 'completed' && (
-                        <div className="space-y-1">
-                          <p className="text-green-600">
-                            {log.products_created} created, {log.products_updated} updated
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                onClick={handleSaveSettings} 
+                disabled={isCreating || isUpdating}
+                className="flex-1 sm:flex-initial"
+              >
+                {isCreating || isUpdating ? "Saving..." : "Save Sync Settings"}
+              </Button>
+              <Button 
+                onClick={handleManualSync} 
+                disabled={isSyncing}
+                variant="outline"
+                className="sm:w-auto"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? "Syncing..." : "Sync Now"}
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <h5 className="font-medium text-sm">Recent Sync History</h5>
+              {syncLogs && syncLogs.length > 0 ? (
+                <div className="space-y-3">
+                  {syncLogs.slice(0, 5).map((log) => (
+                    <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-3">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(log.status)}
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className={getStatusColor(log.status)}>
+                              {log.status.replace('_', ' ')}
+                            </Badge>
+                            <Badge variant="outline">
+                              {log.sync_type}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(log.started_at))} ago
                           </p>
-                          {log.products_failed > 0 && (
-                            <p className="text-red-600">{log.products_failed} failed</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="text-right text-sm min-w-fit">
+                          {log.status === 'completed' && (
+                            <div className="space-y-1">
+                              <p className="text-green-600">
+                                {log.products_created} created, {log.products_updated} updated
+                              </p>
+                              {log.products_failed > 0 && (
+                                <p className="text-red-600">{log.products_failed} failed</p>
+                              )}
+                            </div>
+                          )}
+                          {log.status === 'failed' && log.error_message && (
+                            <p className="text-red-600 text-xs break-words">{log.error_message}</p>
                           )}
                         </div>
-                      )}
-                      {log.status === 'failed' && log.error_message && (
-                        <p className="text-red-600 text-xs break-words">{log.error_message}</p>
-                      )}
+                        {log.status === 'in_progress' && (
+                          <Button
+                            onClick={() => stopSync(log.id)}
+                            disabled={isStopping}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 shrink-0"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            {isStopping ? "Stopping..." : "Stop Sync"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {log.status === 'in_progress' && (
-                      <Button
-                        onClick={() => stopSync(log.id)}
-                        disabled={isStopping}
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 shrink-0"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        {isStopping ? "Stopping..." : "Stop Sync"}
-                      </Button>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No sync history available</p>
+              )}
             </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-4">No sync history available</p>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
