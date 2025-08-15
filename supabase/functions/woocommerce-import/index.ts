@@ -433,10 +433,11 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
   // Process products in parallel within the batch for better performance
   const batchPromises = products.map(async (wcProduct) => {
     try {
-      // Skip non-published products
-      if (wcProduct.status !== 'publish') {
-        console.log(`Skipping product ${wcProduct.name} with status: ${wcProduct.status}`);
-        return { success: 1, failed: 0 };
+      // Skip non-published products - if no status is provided, assume it's published
+      const productStatus = wcProduct.status || 'publish';
+      if (productStatus === 'draft' || productStatus === 'trash' || productStatus === 'private') {
+        console.log(`Skipping product ${wcProduct.name} with status: ${productStatus}`);
+        return { success: 0, failed: 0 }; // Don't count skipped products as success
       }
 
       // Check if product already exists with better error handling
