@@ -66,7 +66,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
   });
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
+  const [discountType, setDiscountType] = useState<"percent" | "amount">("amount");
   const [isLoading, setIsLoading] = useState(false);
 
   const { products } = useProducts();

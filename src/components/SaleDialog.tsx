@@ -67,7 +67,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [productComboOpen, setProductComboOpen] = useState(false);
 
