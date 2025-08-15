@@ -31,19 +31,39 @@ export const AppResetControls = () => {
 
   const resetApp = useMutation({
     mutationFn: async () => {
-      // First create a backup
-      toast.loading("Creating backup before reset...", { id: "reset-progress" });
-      await exportData.mutateAsync({});
+      try {
+        // First create a backup
+        toast.loading("Creating backup before reset...", { id: "reset-progress" });
+        await exportData.mutateAsync({});
 
-      // Then proceed with reset
-      const { data, error } = await supabase.functions.invoke('reset-app', {
-        body: { userId: user?.id },
-      });
+        // Then proceed with reset
+        toast.loading("Resetting app data...", { id: "reset-progress" });
+        
+        console.log("Calling reset-app function...");
+        const { data, error } = await supabase.functions.invoke('reset-app', {
+          body: { userId: user?.id },
+        });
 
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+        console.log("Function response:", { data, error });
 
-      return data;
+        if (error) {
+          console.error("Supabase function error:", error);
+          throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+        }
+        
+        if (!data) {
+          throw new Error('No response data received from function');
+        }
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Reset operation was not successful');
+        }
+
+        return data;
+      } catch (error) {
+        console.error("Reset mutation error:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast.dismiss("reset-progress");
