@@ -46,17 +46,25 @@ export const useWooCommerceConnections = () => {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["woocommerce-connections"],
+    queryKey: ["woocommerce-connections", user?.id],
     queryFn: async () => {
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+
       const { data, error } = await supabase
         .from("woocommerce_connections")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching WooCommerce connections:", error);
+        throw error;
+      }
       return data as WooCommerceConnection[];
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const createConnection = useMutation({
@@ -74,7 +82,7 @@ export const useWooCommerceConnections = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
       toast.success("WooCommerce connection added successfully");
     },
     onError: (error) => {
@@ -96,7 +104,7 @@ export const useWooCommerceConnections = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
       toast.success("WooCommerce connection updated successfully");
     },
     onError: (error) => {
@@ -115,7 +123,7 @@ export const useWooCommerceConnections = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
       toast.success("WooCommerce connection deleted successfully");
     },
     onError: (error) => {
@@ -134,7 +142,7 @@ export const useWooCommerceConnections = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["import-logs"] });
       toast.success("Import started successfully");
     },
