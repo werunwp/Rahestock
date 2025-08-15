@@ -107,14 +107,14 @@ const Inventory = () => {
   const filteredItems = inventoryItems.filter(item => {
     // Enhanced text search filter - search by name, SKU, or variants
     const searchLower = searchTerm.toLowerCase();
-    const nameMatch = item.name.toLowerCase().includes(searchLower);
-    const skuMatch = item.sku && item.sku.toLowerCase().includes(searchLower);
+    const nameMatch = item.name?.toLowerCase().includes(searchLower) || false;
+    const skuMatch = item.sku?.toLowerCase().includes(searchLower) || false;
     const variantMatch = item.variants?.some((variant: any) => 
-      variant.label.toLowerCase().includes(searchLower) ||
-      variant.sku.toLowerCase().includes(searchLower) ||
-      variant.stock_quantity.toString().includes(searchTerm)
-    );
-    const stockMatch = item.stock_quantity && item.stock_quantity.toString().includes(searchTerm);
+      (variant.label?.toLowerCase().includes(searchLower)) ||
+      (variant.sku?.toLowerCase().includes(searchLower)) ||
+      (variant.stock_quantity?.toString().includes(searchTerm))
+    ) || false;
+    const stockMatch = item.stock_quantity?.toString().includes(searchTerm) || false;
     
     const matchesSearch = nameMatch || skuMatch || variantMatch || stockMatch;
     
@@ -123,12 +123,14 @@ const Inventory = () => {
     if (stockFilter === "all") {
       matchesStock = true;
     } else if (item.type === "product") {
-      matchesStock = stockFilter === "in_stock" ? item.stock_quantity > 0 : item.stock_quantity === 0;
+      const stockQty = item.stock_quantity || 0;
+      matchesStock = stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
     } else {
       // For products with variants, check if any variant matches the filter
-      matchesStock = item.variants?.some((variant: any) => 
-        stockFilter === "in_stock" ? variant.stock_quantity > 0 : variant.stock_quantity === 0
-      );
+      matchesStock = item.variants?.some((variant: any) => {
+        const variantStockQty = variant.stock_quantity || 0;
+        return stockFilter === "in_stock" ? variantStockQty > 0 : variantStockQty === 0;
+      }) || false;
     }
     
     return matchesSearch && matchesStock;
