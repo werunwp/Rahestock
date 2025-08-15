@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { Database, Building } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { currencyOptions, getCurrencySymbol } from "@/lib/currencySymbols";
-import { useState, useEffect } from "react";
+// Removed useState, useEffect from here since they're imported with React above
 import { ProfileTab } from "@/components/ProfileTab";
 import { NotificationsTab } from "@/components/NotificationsTab";
 import { SecurityTab } from "@/components/SecurityTab";
