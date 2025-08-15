@@ -31,6 +31,8 @@ interface SaleItem {
   quantity: number;
   rate: number;
   total: number;
+  variant_id: string | null;
+  variant_attributes?: Record<string, string>;
 }
 
 export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: CustomerHistoryDialogProps) => {
@@ -70,14 +72,27 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
         (salesData || []).map(async (sale) => {
           const { data: itemsData, error: itemsError } = await supabase
             .from("sales_items")
-            .select("id, product_name, quantity, rate, total")
+            .select(`
+              id, 
+              product_name, 
+              quantity, 
+              rate, 
+              total, 
+              variant_id,
+              product_variants!left(attributes)
+            `)
             .eq("sale_id", sale.id);
 
           if (itemsError) throw itemsError;
 
+          const itemsWithVariants = (itemsData || []).map(item => ({
+            ...item,
+            variant_attributes: (item as any).product_variants?.attributes || null
+          }));
+
           return {
             ...sale,
-            items: itemsData || []
+            items: itemsWithVariants
           };
         })
       );
@@ -197,6 +212,7 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                           <TableHeader>
                             <TableRow>
                               <TableHead>Product</TableHead>
+                              <TableHead>Variation</TableHead>
                               <TableHead>Quantity</TableHead>
                               <TableHead>Rate</TableHead>
                               <TableHead>Total</TableHead>
@@ -206,6 +222,17 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
                             {sale.items.map((item) => (
                               <TableRow key={item.id}>
                                 <TableCell>{item.product_name}</TableCell>
+                                <TableCell>
+                                  {item.variant_attributes ? (
+                                    <div className="text-sm">
+                                      {Object.entries(item.variant_attributes)
+                                        .map(([key, value]) => `${key}: ${value}`)
+                                        .join(', ')}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">Standard</span>
+                                  )}
+                                </TableCell>
                                 <TableCell>{item.quantity}</TableCell>
                                 <TableCell>{formatAmount(item.rate)}</TableCell>
                                 <TableCell>{formatAmount(item.total)}</TableCell>

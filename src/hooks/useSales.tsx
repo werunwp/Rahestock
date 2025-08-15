@@ -440,12 +440,20 @@ export const useSales = () => {
 
     const { data: items, error: itemsError } = await supabase
       .from("sales_items")
-      .select("*")
+      .select(`
+        *,
+        product_variants!left(attributes)
+      `)
       .eq("sale_id", saleId);
 
     if (itemsError) throw itemsError;
 
-    return { ...sale, items };
+    const itemsWithVariants = (items || []).map(item => ({
+      ...item,
+      variant_attributes: (item as any).product_variants?.attributes || null
+    }));
+
+    return { ...sale, items: itemsWithVariants };
   };
 
   return {

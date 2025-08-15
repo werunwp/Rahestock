@@ -39,6 +39,8 @@ interface SaleWithItems {
     quantity: number;
     rate: number;
     total: number;
+    variant_id: string | null;
+    variant_attributes?: Record<string, string>;
   }>;
 }
 
@@ -216,6 +218,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
+                    <TableHead>Variation</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead>Total</TableHead>
@@ -225,6 +228,17 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                   {saleData.items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.product_name}</TableCell>
+                      <TableCell>
+                        {item.variant_attributes ? (
+                          <div className="text-sm">
+                            {Object.entries(item.variant_attributes)
+                              .map(([key, value]) => `${key}: ${value}`)
+                              .join(', ')}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Standard</span>
+                        )}
+                      </TableCell>
                       <TableCell>{item.quantity}</TableCell>
                       <TableCell>{formatAmount(item.rate)}</TableCell>
                       <TableCell>{formatAmount(item.total)}</TableCell>
