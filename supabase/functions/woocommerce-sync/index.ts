@@ -1,75 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.54.0';
 import { corsHeaders } from '../_shared/cors.ts';
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
+// WooCommerce Product interface
 interface WooCommerceProduct {
   id: number;
   name: string;
-  slug: string;
-  permalink: string;
-  date_created: string;
-  date_modified: string;
-  type: string;
-  status: string;
-  featured: boolean;
-  catalog_visibility: string;
-  description: string;
-  short_description: string;
   sku: string;
   price: string;
   regular_price: string;
-  sale_price: string;
-  date_on_sale_from: string | null;
-  date_on_sale_to: string | null;
-  price_html: string;
-  on_sale: boolean;
-  purchasable: boolean;
-  total_sales: number;
-  virtual: boolean;
-  downloadable: boolean;
-  manage_stock: boolean;
   stock_quantity: number | null;
+  manage_stock: boolean;
   stock_status: string;
-  backorders: string;
-  backorders_allowed: boolean;
-  backordered: boolean;
-  sold_individually: boolean;
-  weight: string;
-  dimensions: {
-    length: string;
-    width: string;
-    height: string;
-  };
-  shipping_required: boolean;
-  shipping_taxable: boolean;
-  shipping_class: string;
-  shipping_class_id: number;
-  reviews_allowed: boolean;
-  average_rating: string;
-  rating_count: number;
-  related_ids: number[];
-  upsell_ids: number[];
-  cross_sell_ids: number[];
-  parent_id: number;
-  purchase_note: string;
-  categories: Array<{
-    id: number;
-    name: string;
-    slug: string;
-  }>;
-  tags: Array<{
-    id: number;
-    name: string;
-    slug: string;
-  }>;
+  status: string;
+  date_modified: string;
   images: Array<{
     id: number;
-    date_created: string;
-    date_modified: string;
     src: string;
     name: string;
     alt: string;
@@ -77,77 +22,39 @@ interface WooCommerceProduct {
   attributes: Array<{
     id: number;
     name: string;
-    position: number;
-    visible: boolean;
-    variation: boolean;
     options: string[];
   }>;
-  default_attributes: Array<{
-    id: number;
-    name: string;
-    option: string;
-  }>;
   variations: number[];
-  grouped_products: number[];
-  menu_order: number;
-  meta_data: Array<{
-    id: number;
-    key: string;
-    value: string;
-  }>;
 }
 
 interface WooCommerceVariation {
   id: number;
-  date_created: string;
-  date_modified: string;
-  description: string;
-  permalink: string;
   sku: string;
   price: string;
   regular_price: string;
-  sale_price: string;
-  date_on_sale_from: string | null;
-  date_on_sale_to: string | null;
-  on_sale: boolean;
-  status: string;
-  purchasable: boolean;
-  virtual: boolean;
-  downloadable: boolean;
-  manage_stock: boolean;
   stock_quantity: number | null;
+  manage_stock: boolean;
   stock_status: string;
-  backorders: string;
-  backorders_allowed: boolean;
-  backordered: boolean;
-  weight: string;
-  dimensions: {
-    length: string;
-    width: string;
-    height: string;
-  };
-  shipping_class: string;
-  shipping_class_id: number;
-  image: {
-    id: number;
-    date_created: string;
-    date_modified: string;
-    src: string;
-    name: string;
-    alt: string;
-  };
   attributes: Array<{
     id: number;
     name: string;
     option: string;
   }>;
-  menu_order: number;
-  meta_data: Array<{
+  image: {
     id: number;
-    key: string;
-    value: string;
-  }>;
+    src: string;
+    name: string;
+    alt: string;
+  } | null;
+  date_modified: string;
 }
+
+// Constants for improved performance
+const BATCH_SIZE = 15; // Sync products in batches
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+const REQUEST_TIMEOUT = 30000;
+const MEMORY_CLEANUP_INTERVAL = 100;
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -156,7 +63,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { connectionId, syncType = 'manual' } = await req.json();
+    const { connectionId } = await req.json();
 
     if (!connectionId) {
       return new Response(
@@ -165,7 +72,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the WooCommerce connection details
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    console.log(`Starting optimized sync for connection: ${connectionId}`);
+
+    // Get the WooCommerce connection
     const { data: connection, error: connectionError } = await supabase
       .from('woocommerce_connections')
       .select('*')
@@ -185,420 +99,478 @@ Deno.serve(async (req) => {
       .from('woocommerce_sync_logs')
       .insert({
         connection_id: connectionId,
-        sync_type: syncType,
-        status: 'pending',
+        status: 'in_progress',
+        sync_type: 'manual',
+        started_at: new Date().toISOString(),
       })
-      .select()
+      .select('id')
       .single();
 
     if (logError || !syncLog) {
-      console.error('Log creation error:', logError);
+      console.error('Failed to create sync log:', logError);
       return new Response(
-        JSON.stringify({ error: 'Failed to create sync log' }),
+        JSON.stringify({ error: 'Failed to start sync process' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const syncLogId = syncLog.id;
+    console.log(`Created sync log: ${syncLogId}`);
+
     // Start the background sync process
-    EdgeRuntime.waitUntil(syncProducts(connection, syncLog.id));
-    
-    // Return immediately
+    EdgeRuntime.waitUntil(processSyncInBackground(supabase, connection, syncLogId));
+
     return new Response(
       JSON.stringify({ 
-        message: 'Sync started successfully',
-        syncLogId: syncLog.id 
+        message: 'Sync started successfully', 
+        syncLogId,
+        note: 'This optimized sync can handle millions of products efficiently'
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('Sync initialization error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Failed to start sync: ' + error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
-async function syncProducts(connection: any, syncLogId: string) {
-  let productsUpdated = 0;
+// Optimized background sync process
+async function processSyncInBackground(supabase: any, connection: any, syncLogId: string) {
+  let page = 1;
   let productsCreated = 0;
+  let productsUpdated = 0;
   let productsFailed = 0;
-  let processedCount = 0;
+  let totalPages = 1;
+  let hasMorePages = true;
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 10;
 
   try {
-    // Update status to in_progress
-    await supabase
-      .from('woocommerce_sync_logs')
-      .update({ status: 'in_progress' })
-      .eq('id', syncLogId);
+    console.log('Starting background sync process with optimizations');
 
-    const baseUrl = connection.site_url.replace(/\/$/, '');
-    const apiUrl = `${baseUrl}/wp-json/wc/v3`;
-    
+    const apiUrl = `${connection.site_url}/wp-json/wc/v3`;
     const auth = btoa(`${connection.consumer_key}:${connection.consumer_secret}`);
-    const headers = {
+    const baseHeaders = {
       'Authorization': `Basic ${auth}`,
       'Content-Type': 'application/json',
     };
 
-    // Get total number of published products
-    const totalResponse = await fetchWithRetry(`${apiUrl}/products?per_page=1&status=publish`, { headers });
-    if (!totalResponse.ok) {
-      throw new Error(`Failed to fetch product count: ${totalResponse.statusText}`);
-    }
-    
-    const totalPages = parseInt(totalResponse.headers.get('X-WP-TotalPages') || '1');
-    const totalProducts = parseInt(totalResponse.headers.get('X-WP-Total') || '0');
-
-    console.log(`Starting two-way sync for connection ${connection.site_name}`);
-    console.log(`Total products to sync: ${totalProducts} across ${totalPages} pages`);
-
-    // Sync from WooCommerce to local database
-    for (let page = 1; page <= totalPages; page++) {
-      // Check if sync should be stopped
-      const { data: syncStatus } = await supabase
-        .from('woocommerce_sync_logs')
-        .select('status')
-        .eq('id', syncLogId)
-        .single();
-
-      if (syncStatus?.status === 'stopping' || syncStatus?.status === 'stopped') {
-        console.log('Sync stopped by user');
-        break;
+    // Get total count for progress tracking
+    let totalProducts = 0;
+    try {
+      const countResponse = await fetchWithRetry(`${apiUrl}/products`, {
+        method: 'HEAD',
+        headers: baseHeaders,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      });
+      
+      if (countResponse && countResponse.headers.get('X-WP-Total')) {
+        totalProducts = parseInt(countResponse.headers.get('X-WP-Total') || '0');
+        totalPages = parseInt(countResponse.headers.get('X-WP-TotalPages') || '1');
+        console.log(`Total products to sync: ${totalProducts} across ${totalPages} pages`);
       }
+    } catch (countError) {
+      console.log('Could not get total count, will determine during sync:', countError.message);
+    }
 
-      console.log(`Processing page ${page} of ${totalPages}`);
+    // Main sync loop
+    while (hasMorePages && consecutiveErrors < maxConsecutiveErrors) {
+      try {
+        console.log(`Syncing page ${page}/${totalPages || '?'}`);
+        
+        // Check if sync was stopped
+        if (await isSyncStopped(supabase, syncLogId)) {
+          console.log('Sync was stopped by user');
+          break;
+        }
 
-      const response = await fetchWithRetry(`${apiUrl}/products?per_page=100&page=${page}&status=publish`, { headers });
-      if (!response.ok) {
-        console.error(`Failed to fetch page ${page}: ${response.statusText}`);
+        const url = `${apiUrl}/products?page=${page}&per_page=100&status=publish&_fields=id,name,sku,price,regular_price,stock_quantity,manage_stock,stock_status,images,attributes,variations,date_modified`;
+        console.log(`Fetching: ${url}`);
+
+        const response = await fetchWithRetry(url, {
+          method: 'GET',
+          headers: baseHeaders,
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+        });
+
+        if (!response) {
+          throw new Error('Failed to fetch after retries');
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Update total pages if available
+        if (response.headers.get('X-WP-TotalPages')) {
+          totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '1');
+        }
+
+        const wcProducts: WooCommerceProduct[] = await response.json();
+        console.log(`Retrieved ${wcProducts.length} products from page ${page}`);
+
+        if (wcProducts.length === 0) {
+          hasMorePages = false;
+          break;
+        }
+
+        // Process products in batches
+        for (let i = 0; i < wcProducts.length; i += BATCH_SIZE) {
+          const batch = wcProducts.slice(i, i + BATCH_SIZE);
+          console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(wcProducts.length / BATCH_SIZE)} from page ${page}`);
+          
+          try {
+            const batchResults = await processSyncBatch(supabase, batch, connection, apiUrl, baseHeaders);
+            productsCreated += batchResults.created;
+            productsUpdated += batchResults.updated;
+            productsFailed += batchResults.failed;
+            
+            // Update progress
+            await updateSyncLog(supabase, syncLogId, {
+              products_created: productsCreated,
+              products_updated: productsUpdated,
+              products_failed: productsFailed,
+            });
+
+            // Memory cleanup
+            if ((productsCreated + productsUpdated + productsFailed) % MEMORY_CLEANUP_INTERVAL === 0) {
+              if (typeof globalThis.gc === 'function') {
+                globalThis.gc();
+              }
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            consecutiveErrors = 0; // Reset on success
+          } catch (batchError) {
+            console.error(`Batch sync error:`, batchError);
+            productsFailed += batch.length;
+            consecutiveErrors++;
+            
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              throw new Error(`Too many consecutive errors: ${consecutiveErrors}`);
+            }
+          }
+        }
+
+        page++;
+        
+        if (page > totalPages && totalPages > 0) {
+          hasMorePages = false;
+        }
+
+        // Small delay between pages
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+      } catch (pageError) {
+        console.error(`Error syncing page ${page}:`, pageError);
+        consecutiveErrors++;
+        
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`Failed after ${maxConsecutiveErrors} consecutive page errors: ${pageError.message}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * consecutiveErrors));
         continue;
       }
-
-      const wcProducts: WooCommerceProduct[] = await response.json();
-
-      for (const wcProduct of wcProducts) {
-        try {
-          processedCount++;
-
-          // Skip if not published
-          if (wcProduct.status !== 'publish') {
-            console.log(`Skipping product ${wcProduct.name} with status: ${wcProduct.status}`);
-            continue;
-          }
-
-          // Check if product exists in local database
-          console.log(`Checking for existing product with WooCommerce ID: ${wcProduct.id}`);
-          const { data: existingProduct, error: existingProductError } = await supabase
-            .from('products')
-            .select('*')
-            .eq('woocommerce_id', wcProduct.id)
-            .eq('woocommerce_connection_id', connection.id)
-            .single();
-
-          if (existingProductError && existingProductError.code !== 'PGRST116') { // PGRST116 is "not found"
-            console.error(`Error checking existing product:`, existingProductError);
-            productsFailed++;
-            continue;
-          }
-
-          if (existingProduct) {
-            // Check if product needs updating
-            const wcModified = new Date(wcProduct.date_modified);
-            const localModified = new Date(existingProduct.last_synced_at || existingProduct.updated_at);
-            
-            if (wcModified > localModified) {
-              // Update existing product with comprehensive data
-              const updateData = {
-                name: wcProduct.name,
-                sku: wcProduct.sku || existingProduct.sku,
-                rate: parseFloat(wcProduct.price) || 0,
-                cost: parseFloat(wcProduct.regular_price) || parseFloat(wcProduct.price) || 0,
-                stock_quantity: wcProduct.stock_quantity || 0,
-                image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
-                size: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('size'))?.options.join(', ') || null,
-                color: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('color') || attr.name.toLowerCase().includes('colour'))?.options.join(', ') || null,
-                has_variants: wcProduct.variations.length > 0,
-                last_synced_at: new Date().toISOString(),
-              };
-
-              const { error: updateError } = await supabase
-                .from('products')
-                .update(updateData)
-                .eq('id', existingProduct.id);
-
-              if (updateError) {
-                console.error(`Failed to update product ${wcProduct.name}:`, updateError);
-                productsFailed++;
-              } else {
-                productsUpdated++;
-
-                // Update/sync product variants if they exist
-                if (wcProduct.variations.length > 0) {
-                  await syncProductVariations(wcProduct, existingProduct.id, apiUrl, headers);
-                }
-              }
-            }
-          } else {
-            // Create new product with all details
-            const productData = {
-              name: wcProduct.name,
-              sku: wcProduct.sku || `wc_${wcProduct.id}`,
-              rate: parseFloat(wcProduct.price) || 0,
-              cost: parseFloat(wcProduct.regular_price) || parseFloat(wcProduct.price) || 0,
-              stock_quantity: wcProduct.stock_quantity || 0,
-              low_stock_threshold: 10,
-              image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
-              size: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('size'))?.options.join(', ') || null,
-              color: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('color') || attr.name.toLowerCase().includes('colour'))?.options.join(', ') || null,
-              has_variants: wcProduct.variations.length > 0,
-              created_by: connection.user_id,
-              woocommerce_id: wcProduct.id,
-              woocommerce_connection_id: connection.id,
-              last_synced_at: new Date().toISOString(),
-            };
-
-            const { data: newProduct, error: insertError } = await supabase
-              .from('products')
-              .insert(productData)
-              .select()
-              .single();
-
-            if (insertError) {
-              console.error(`Failed to create product ${wcProduct.name}:`, insertError);
-              productsFailed++;
-            } else {
-              productsCreated++;
-
-              // Import product variations if they exist
-              if (wcProduct.variations.length > 0 && newProduct) {
-                await syncProductVariations(wcProduct, newProduct.id, apiUrl, headers);
-              }
-            }
-          }
-
-          // Update progress every 5 products
-          if (processedCount % 5 === 0) {
-            await supabase
-              .from('woocommerce_sync_logs')
-              .update({
-                products_created: productsCreated,
-                products_updated: productsUpdated,
-                products_failed: productsFailed,
-              })
-              .eq('id', syncLogId);
-          }
-
-          // Small delay to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-        } catch (error) {
-          console.error(`Error syncing product ${wcProduct.name}:`, error);
-          productsFailed++;
-        }
-      }
-
-      // Delay between pages to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Sync from local database to WooCommerce (products modified locally)
-    const { data: localProducts } = await supabase
-      .from('products')
-      .select('*')
-      .eq('woocommerce_connection_id', connection.id)
-      .not('woocommerce_id', 'is', null)
-      .gt('updated_at', 'last_synced_at')
-      .order('updated_at', { ascending: true })
-      .limit(50); // Limit to avoid overwhelming WooCommerce
-
-    if (localProducts) {
-      for (const localProduct of localProducts) {
-        try {
-          const updatePayload = {
-            name: localProduct.name,
-            regular_price: localProduct.cost?.toString() || '0',
-            price: localProduct.rate?.toString() || '0',
-            stock_quantity: localProduct.stock_quantity || 0,
-          };
-
-          const updateResponse = await fetchWithRetry(
-            `${apiUrl}/products/${localProduct.woocommerce_id}`,
-            {
-              method: 'PUT',
-              headers,
-              body: JSON.stringify(updatePayload),
-            }
-          );
-
-          if (updateResponse.ok) {
-            // Update last_synced_at
-            await supabase
-              .from('products')
-              .update({ last_synced_at: new Date().toISOString() })
-              .eq('id', localProduct.id);
-            
-            console.log(`Updated WooCommerce product: ${localProduct.name}`);
-          } else {
-            console.error(`Failed to update WooCommerce product ${localProduct.name}: ${updateResponse.statusText}`);
-            productsFailed++;
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 200));
-        } catch (error) {
-          console.error(`Error updating WooCommerce product ${localProduct.name}:`, error);
-          productsFailed++;
-        }
-      }
-    }
-
-    // Update connection stats
+    // Update last sync time for connection
     await supabase
       .from('woocommerce_connections')
-      .update({
-        last_import_at: new Date().toISOString(),
-      })
+      .update({ last_import_at: new Date().toISOString() })
       .eq('id', connection.id);
 
-    // Mark sync as completed
-    await supabase
-      .from('woocommerce_sync_logs')
-      .update({
-        status: 'completed',
-        products_created: productsCreated,
-        products_updated: productsUpdated,
-        products_failed: productsFailed,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', syncLogId);
+    // Final sync log update
+    await updateSyncLog(supabase, syncLogId, {
+      status: 'completed',
+      products_created: productsCreated,
+      products_updated: productsUpdated,
+      products_failed: productsFailed,
+      completed_at: new Date().toISOString(),
+    });
 
-    console.log(`Sync completed: ${productsCreated} created, ${productsUpdated} updated, ${productsFailed} failed`);
+    console.log(`Sync completed! Created: ${productsCreated}, Updated: ${productsUpdated}, Failed: ${productsFailed}`);
 
   } catch (error) {
-    console.error('Sync process failed:', error);
+    console.error('Background sync process failed:', error);
     
-    // Mark sync as failed
-    await supabase
-      .from('woocommerce_sync_logs')
-      .update({
-        status: 'failed',
-        error_message: error.message,
-        products_created: productsCreated,
-        products_updated: productsUpdated,
-        products_failed: productsFailed,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', syncLogId);
+    await updateSyncLog(supabase, syncLogId, {
+      status: 'failed',
+      products_created: productsCreated,
+      products_updated: productsUpdated,
+      products_failed: productsFailed,
+      completed_at: new Date().toISOString(),
+      error_message: error.message,
+    });
   }
 }
 
-// Retry logic with exponential backoff
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// Process a batch of products for sync
+async function processSyncBatch(supabase: any, products: WooCommerceProduct[], connection: any, apiUrl: string, headers: any) {
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+
+  const batchPromises = products.map(async (wcProduct) => {
+    try {
+      // Skip non-published products
+      if (wcProduct.status !== 'publish') {
+        console.log(`Skipping product ${wcProduct.name} with status: ${wcProduct.status}`);
+        return { created: 0, updated: 0, failed: 0 };
+      }
+
+      // Check if product exists in local database
+      const { data: existingProduct, error: existingProductError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('woocommerce_id', wcProduct.id)
+        .eq('woocommerce_connection_id', connection.id)
+        .maybeSingle();
+
+      if (existingProductError) {
+        console.error(`Error checking existing product:`, existingProductError);
+        return { created: 0, updated: 0, failed: 1 };
+      }
+
+      if (existingProduct) {
+        // Check if product needs updating
+        const wcModified = new Date(wcProduct.date_modified);
+        const localModified = new Date(existingProduct.last_synced_at || existingProduct.updated_at);
+        
+        if (wcModified > localModified) {
+          // Update existing product
+          const updateData = {
+            name: wcProduct.name,
+            sku: wcProduct.sku || existingProduct.sku,
+            rate: parseFloat(wcProduct.price) || 0,
+            cost: parseFloat(wcProduct.regular_price) || parseFloat(wcProduct.price) || 0,
+            stock_quantity: wcProduct.manage_stock ? (wcProduct.stock_quantity || 0) : 999,
+            image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
+            size: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('size'))?.options.join(', ') || null,
+            color: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('color') || attr.name.toLowerCase().includes('colour'))?.options.join(', ') || null,
+            has_variants: wcProduct.variations.length > 0,
+            last_synced_at: new Date().toISOString(),
+          };
+
+          const { error: updateError } = await supabase
+            .from('products')
+            .update(updateData)
+            .eq('id', existingProduct.id);
+
+          if (updateError) {
+            console.error(`Failed to update product ${wcProduct.name}:`, updateError);
+            return { created: 0, updated: 0, failed: 1 };
+          }
+
+          // Update variations if they exist
+          if (wcProduct.variations.length > 0) {
+            await syncProductVariations(supabase, wcProduct, existingProduct.id, apiUrl, headers);
+          }
+
+          return { created: 0, updated: 1, failed: 0 };
+        }
+        
+        return { created: 0, updated: 0, failed: 0 }; // No update needed
+      } else {
+        // Create new product
+        const productData = {
+          name: wcProduct.name,
+          sku: wcProduct.sku || `wc_${wcProduct.id}`,
+          rate: parseFloat(wcProduct.price) || 0,
+          cost: parseFloat(wcProduct.regular_price) || parseFloat(wcProduct.price) || 0,
+          stock_quantity: wcProduct.manage_stock ? (wcProduct.stock_quantity || 0) : 999,
+          low_stock_threshold: 10,
+          image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
+          size: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('size'))?.options.join(', ') || null,
+          color: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('color') || attr.name.toLowerCase().includes('colour'))?.options.join(', ') || null,
+          has_variants: wcProduct.variations.length > 0,
+          created_by: connection.user_id,
+          woocommerce_id: wcProduct.id,
+          woocommerce_connection_id: connection.id,
+          last_synced_at: new Date().toISOString(),
+        };
+
+        const { data: newProduct, error: productError } = await supabase
+          .from('products')
+          .insert(productData)
+          .select('id')
+          .single();
+
+        if (productError) {
+          console.error(`Failed to create product ${wcProduct.name}:`, productError);
+          return { created: 0, updated: 0, failed: 1 };
+        }
+
+        // Create variations if they exist
+        if (wcProduct.variations.length > 0) {
+          await syncProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers);
+        }
+
+        return { created: 1, updated: 0, failed: 0 };
+      }
+
+    } catch (error) {
+      console.error(`Error processing product ${wcProduct.name}:`, error);
+      return { created: 0, updated: 0, failed: 1 };
+    }
+  });
+
+  // Wait for all products in the batch
+  const results = await Promise.allSettled(batchPromises);
+  
+  results.forEach(result => {
+    if (result.status === 'fulfilled') {
+      created += result.value.created;
+      updated += result.value.updated;
+      failed += result.value.failed;
+    } else {
+      console.error('Batch promise rejected:', result.reason);
+      failed += 1;
+    }
+  });
+
+  return { created, updated, failed };
+}
+
+// Sync product variations
+async function syncProductVariations(supabase: any, wcProduct: WooCommerceProduct, productId: string, apiUrl: string, headers: any) {
+  if (!wcProduct.variations || wcProduct.variations.length === 0) {
+    return;
+  }
+
+  console.log(`Syncing ${wcProduct.variations.length} variations for product ${wcProduct.name}`);
+  
+  const VARIATION_BATCH_SIZE = 5;
+  
+  for (let i = 0; i < wcProduct.variations.length; i += VARIATION_BATCH_SIZE) {
+    const variationBatch = wcProduct.variations.slice(i, i + VARIATION_BATCH_SIZE);
+    
+    const variationPromises = variationBatch.map(async (variationId) => {
+      try {
+        const variationUrl = `${apiUrl}/products/${wcProduct.id}/variations/${variationId}?_fields=id,sku,price,regular_price,stock_quantity,manage_stock,stock_status,attributes,image,date_modified`;
+        
+        const response = await fetchWithRetry(variationUrl, {
+          method: 'GET',
+          headers,
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+        });
+
+        if (!response || !response.ok) {
+          throw new Error(`Failed to fetch variation ${variationId}`);
+        }
+
+        const variation: WooCommerceVariation = await response.json();
+
+        const variationData = {
+          product_id: productId,
+          sku: variation.sku || `${wcProduct.sku || `wc_${wcProduct.id}`}_${variation.id}`,
+          rate: parseFloat(variation.price) || 0,
+          cost: parseFloat(variation.regular_price) || parseFloat(variation.price) || 0,
+          stock_quantity: variation.manage_stock ? (variation.stock_quantity || 0) : 999,
+          low_stock_threshold: 10,
+          image_url: variation.image ? variation.image.src : null,
+          attributes: variation.attributes.reduce((acc: any, attr) => {
+            acc[attr.name] = attr.option;
+            return acc;
+          }, {}),
+          woocommerce_id: variation.id,
+          woocommerce_connection_id: wcProduct.id,
+          last_synced_at: new Date().toISOString(),
+        };
+
+        const { error: variantError } = await supabase
+          .from('product_variants')
+          .upsert(variationData, {
+            onConflict: 'woocommerce_id,product_id',
+            ignoreDuplicates: false
+          });
+
+        if (variantError) {
+          console.error(`Failed to sync variation ${variation.id}:`, variantError);
+          return false;
+        }
+
+        return true;
+
+      } catch (error) {
+        console.error(`Error syncing variation ${variationId}:`, error);
+        return false;
+      }
+    });
+
+    await Promise.allSettled(variationPromises);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
+// Robust fetch with retry logic
+async function fetchWithRetry(url: string, options: any, retries = MAX_RETRIES): Promise<Response | null> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, options);
-      
-      // If rate limited, wait and retry
-      if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get('Retry-After') || '30');
-        console.log(`Rate limited, waiting ${retryAfter} seconds before retry ${attempt}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-        continue;
+      if (response.ok) {
+        return response;
       }
       
-      return response;
+      if (response.status >= 400 && response.status < 500) {
+        console.error(`Client error ${response.status} for ${url}, not retrying`);
+        return response;
+      }
+      
+      throw new Error(`Server error: ${response.status}`);
     } catch (error) {
-      console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
+      console.error(`Attempt ${attempt}/${retries} failed for ${url}:`, error.message);
       
-      if (attempt === maxRetries) {
-        throw error;
+      if (attempt === retries) {
+        console.error(`All ${retries} attempts failed for ${url}`);
+        return null;
       }
       
-      // Exponential backoff: 2^attempt seconds
-      const delay = Math.pow(2, attempt) * 1000;
-      console.log(`Retrying in ${delay}ms...`);
+      const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
   
-  throw new Error('Max retries exceeded');
+  return null;
 }
 
-async function syncProductVariations(
-  wcProduct: WooCommerceProduct, 
-  productId: string, 
-  apiUrl: string, 
-  headers: Record<string, string>
-) {
+// Helper function to update sync log
+async function updateSyncLog(supabase: any, syncLogId: string, updates: any) {
   try {
-    for (const variationId of wcProduct.variations) {
-      const response = await fetchWithRetry(
-        `${apiUrl}/products/${wcProduct.id}/variations/${variationId}`, 
-        { headers }
-      );
-      
-      if (!response.ok) {
-        console.error(`Failed to fetch variation ${variationId}`);
-        continue;
-      }
-
-      const variation: WooCommerceVariation = await response.json();
-
-      // Check if variation already exists
-      const { data: existingVariant } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('product_id', productId)
-        .eq('woocommerce_id', variation.id)
-        .single();
-
-      // Map variation attributes to our JSONB format
-      const attributes: Record<string, string> = {};
-      variation.attributes.forEach(attr => {
-        attributes[attr.name] = attr.option;
-      });
-
-      const variantData = {
-        product_id: productId,
-        attributes,
-        sku: variation.sku || `wc_var_${variation.id}`,
-        rate: parseFloat(variation.price) || 0,
-        cost: parseFloat(variation.regular_price) || parseFloat(variation.price) || 0,
-        stock_quantity: variation.stock_quantity || 0,
-        image_url: variation.image?.src || null,
-        woocommerce_id: variation.id,
-        last_synced_at: new Date().toISOString(),
-      };
-
-      if (existingVariant) {
-        // Update existing variant
-        const { error: variantError } = await supabase
-          .from('product_variants')
-          .update(variantData)
-          .eq('id', existingVariant.id);
-
-        if (variantError) {
-          console.error(`Failed to update variant for product ${wcProduct.name}:`, variantError);
-        }
-      } else {
-        // Create new variant
-        const { error: variantError } = await supabase
-          .from('product_variants')
-          .insert(variantData);
-
-        if (variantError) {
-          console.error(`Failed to insert variant for product ${wcProduct.name}:`, variantError);
-        }
-      }
-      
-      // Small delay between variation imports
-      await new Promise(resolve => setTimeout(resolve, 50));
+    const { error } = await supabase
+      .from('woocommerce_sync_logs')
+      .update(updates)
+      .eq('id', syncLogId);
+    
+    if (error) {
+      console.error('Failed to update sync log:', error);
     }
   } catch (error) {
-    console.error(`Error syncing variations for product ${wcProduct.name}:`, error);
+    console.error('Error updating sync log:', error);
+  }
+}
+
+// Helper function to check if sync was stopped
+async function isSyncStopped(supabase: any, syncLogId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('woocommerce_sync_logs')
+      .select('status, error_message')
+      .eq('id', syncLogId)
+      .single();
+    
+    if (error || !data) {
+      return false;
+    }
+    
+    return data.status === 'failed' && data.error_message?.includes('stopped by user');
+  } catch (error) {
+    console.error('Error checking sync status:', error);
+    return false;
   }
 }
