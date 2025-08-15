@@ -521,12 +521,35 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {formData.items.map(item => (
-                      <TableRow key={`${item.productId}-${item.variantId || 'base'}`}>
-                        <TableCell>
-                          {item.productName}
-                          {item.variantLabel ? ` — ${item.variantLabel}` : ""}
-                        </TableCell>
+                    {formData.items.map(item => {
+                      const product = products.find(p => p.id === item.productId);
+                      return (
+                        <TableRow key={`${item.productId}-${item.variantId || 'base'}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                                {product?.image_url ? (
+                                  <img 
+                                    src={product.image_url} 
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="truncate">{item.productName}</div>
+                                {item.variantLabel && (
+                                  <div className="text-sm text-muted-foreground truncate">
+                                    {item.variantLabel}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
                         <TableCell>{formatAmount(item.rate)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -572,9 +595,10 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                         </TableCell>
+                       </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
