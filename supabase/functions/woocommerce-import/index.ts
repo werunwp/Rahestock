@@ -652,10 +652,12 @@ async function importProductVariations(supabase: any, wcProduct: WooCommerceProd
           last_synced_at: new Date().toISOString(),
         };
 
+        console.log(`Upserting variation data for ${variation.id}:`, JSON.stringify(variationData, null, 2));
+
         const { error: variantError } = await supabase
           .from('product_variants')
           .upsert(variationData, {
-            onConflict: 'woocommerce_id,product_id',
+            onConflict: 'woocommerce_connection_id,woocommerce_id',
             ignoreDuplicates: false
           });
 
