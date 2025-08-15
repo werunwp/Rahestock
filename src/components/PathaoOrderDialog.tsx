@@ -124,21 +124,22 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
       }
 
       // Call edge function to submit to Pathao
-      const response = await supabase.functions.invoke('pathao-order', {
+      const { data, error } = await supabase.functions.invoke('pathao-order', {
         body: orderData,
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to submit order to Pathao');
+      if (error) {
+        console.error('Supabase function error:', error);
+        toast.error(`Failed to submit order to Pathao: ${error.message}`);
+        return;
       }
 
-      const result = response.data;
-      
-      if (result.success) {
-        toast.success(`Order submitted to Pathao successfully! Consignment ID: ${result.consignment_id}`);
+      if (data?.success) {
+        toast.success(`Order submitted to Pathao successfully! Consignment ID: ${data.consignment_id}`);
         onOpenChange(false);
       } else {
-        toast.error(result.message || 'Failed to submit order to Pathao');
+        console.error('Pathao API error:', data);
+        toast.error(data?.message || 'Failed to submit order to Pathao');
       }
     } catch (error) {
       console.error('Error submitting order to Pathao:', error);
