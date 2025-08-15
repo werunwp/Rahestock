@@ -407,186 +407,150 @@ const Inventory = () => {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Image</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Current Stock</TableHead>
-                    <TableHead>Stock Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                   {paginatedParentProducts.length === 0 ? (
-                     <TableRow>
-                       <TableCell colSpan={5} className="text-center text-muted-foreground">
-                         No inventory items found
-                       </TableCell>
-                     </TableRow>
-                   ) : (
-                     paginatedParentProducts.map((parent) => {
-                       // For products without variants
-                       if (parent.type === 'product') {
-                         const status = parent.stock_quantity <= 0 
-                           ? "Stock Out" 
-                           : parent.stock_quantity <= (parent.low_stock_threshold || 0)
-                             ? "Low Stock" 
-                             : "In Stock";
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {paginatedParentProducts.length === 0 ? (
+                  <div className="col-span-full text-center py-12">
+                    <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground text-lg">No inventory items found</p>
+                  </div>
+                ) : (
+                  paginatedParentProducts.map((parent) => {
+                    // For products without variants
+                    if (parent.type === 'product') {
+                      const status = parent.stock_quantity <= 0 
+                        ? "Stock Out" 
+                        : parent.stock_quantity <= (parent.low_stock_threshold || 0)
+                          ? "Low Stock" 
+                          : "In Stock";
 
-                         return (
-                           <TableRow key={`product-${parent.id}`}>
-                             <TableCell>
-                               {parent.image_url ? (
-                                 <div className="relative">
-                                   <img 
-                                     src={parent.image_url} 
-                                     alt={parent.name}
-                                     className="h-14 w-14 rounded-md object-cover cursor-pointer hover:shadow-lg transition-shadow"
-                                     onMouseEnter={() => handleImageHover(parent.image_url)}
-                                     onMouseLeave={handleImageLeave}
-                                     onClick={() => handleImageClick(parent.image_url)}
-                                     loading="lazy"
-                                   />
-                                   {previewImage === parent.image_url && (
-                                     <div className="fixed z-50 pointer-events-none">
-                                       <div 
-                                         className="absolute bg-background border rounded-lg shadow-xl p-2"
-                                         style={{
-                                           left: '50%',
-                                           top: '50%',
-                                           transform: 'translate(-50%, -50%)',
-                                           maxWidth: '300px',
-                                           maxHeight: '300px'
-                                         }}
-                                       >
-                                         <img 
-                                           src={parent.image_url}
-                                           alt={parent.name}
-                                           className="max-w-full max-h-full object-contain rounded"
-                                         />
+                      return (
+                        <Card key={`product-${parent.id}`} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                          <div className="aspect-square relative overflow-hidden">
+                            {parent.image_url ? (
+                              <img 
+                                src={parent.image_url} 
+                                alt={parent.name}
+                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                                onClick={() => handleImageClick(parent.image_url)}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <Archive className="h-16 w-16 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2">
+                              <Badge 
+                                variant={
+                                  status === "In Stock" ? "default" : 
+                                  status === "Low Stock" ? "secondary" : 
+                                  "destructive"
+                                }
+                                className="text-xs shadow-md"
+                              >
+                                {status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <CardContent className="p-4">
+                            <h3 className="font-semibold text-lg mb-2 line-clamp-2">{parent.name}</h3>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Stock:</span>
+                                <span className="font-medium">{parent.stock_quantity}</span>
+                              </div>
+                              {parent.sku && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">SKU:</span>
+                                  <span className="font-mono text-xs">{parent.sku}</span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    // For products with variants
+                    return parent.variants.map((variant: any) => {
+                      const status = variant.stock_quantity <= 0 
+                        ? "Stock Out" 
+                        : variant.stock_quantity <= (variant.low_stock_threshold || 0)
+                          ? "Low Stock" 
+                          : "In Stock";
+
+                      return (
+                        <Card key={`variant-${variant.id}`} className="overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                          <div className="aspect-square relative overflow-hidden">
+                            {parent.image_url ? (
+                              <img 
+                                src={parent.image_url} 
+                                alt={parent.name}
+                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                                onClick={() => handleImageClick(parent.image_url)}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <Archive className="h-16 w-16 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2">
+                              <Badge 
+                                variant={
+                                  status === "In Stock" ? "default" : 
+                                  status === "Low Stock" ? "secondary" : 
+                                  "destructive"
+                                }
+                                className="text-xs shadow-md"
+                              >
+                                {status}
+                              </Badge>
+                            </div>
+                            <div className="absolute top-2 left-2">
+                              <Badge variant="outline" className="text-xs bg-background/90 backdrop-blur">
+                                Variant
+                              </Badge>
+                            </div>
+                          </div>
+                          <CardContent className="p-4">
+                            <h3 className="font-semibold text-lg mb-1 line-clamp-1">{parent.name}</h3>
+                            <p className="text-sm text-muted-foreground mb-3">({variant.name})</p>
+                            
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Stock:</span>
+                                <span className="font-medium">{variant.stock_quantity}</span>
+                              </div>
+                              {variant.sku && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">SKU:</span>
+                                  <span className="font-mono text-xs">{variant.sku}</span>
+                                </div>
+                              )}
+                              
+                              {/* Product Attributes */}
+                              {variant.attributes && Object.keys(variant.attributes).length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-border/50">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">Attributes:</p>
+                                  <div className="space-y-1">
+                                     {Object.entries(variant.attributes).map(([key, value]) => (
+                                       <div key={key} className="flex justify-between items-center text-xs">
+                                         <span className="text-muted-foreground capitalize">{key}:</span>
+                                         <span className="font-medium text-foreground">{String(value)}</span>
                                        </div>
-                                     </div>
-                                   )}
-                                 </div>
-                               ) : (
-                                 <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
-                                   <Archive className="h-6 w-6 text-muted-foreground" />
-                                 </div>
-                               )}
-                             </TableCell>
-                             <TableCell className="font-semibold text-foreground">{parent.name}</TableCell>
-                             <TableCell className="text-muted-foreground">{parent.sku || "-"}</TableCell>
-                             <TableCell className="text-foreground font-medium">{parent.stock_quantity}</TableCell>
-                             <TableCell>
-                               <Badge 
-                                 variant={
-                                   status === "In Stock" ? "default" : 
-                                   status === "Low Stock" ? "secondary" : 
-                                   "destructive"
-                                 }
-                                 className="text-xs"
-                               >
-                                 {status}
-                               </Badge>
-                             </TableCell>
-                           </TableRow>
-                         );
-                       }
-
-                       // For products with variants - show parent name then all variants
-                       return [
-                         // Parent product header row
-                         <TableRow key={`parent-${parent.id}`} className="bg-muted/10 font-medium">
-                           <TableCell>
-                             {parent.image_url ? (
-                               <div className="relative">
-                                 <img 
-                                   src={parent.image_url} 
-                                   alt={parent.name}
-                                   className="h-14 w-14 rounded-md object-cover cursor-pointer hover:shadow-lg transition-shadow"
-                                   onMouseEnter={() => handleImageHover(parent.image_url)}
-                                   onMouseLeave={handleImageLeave}
-                                   onClick={() => handleImageClick(parent.image_url)}
-                                   loading="lazy"
-                                 />
-                                 {previewImage === parent.image_url && (
-                                   <div className="fixed z-50 pointer-events-none">
-                                     <div 
-                                       className="absolute bg-background border rounded-lg shadow-xl p-2"
-                                       style={{
-                                         left: '50%',
-                                         top: '50%',
-                                         transform: 'translate(-50%, -50%)',
-                                         maxWidth: '300px',
-                                         maxHeight: '300px'
-                                       }}
-                                     >
-                                       <img 
-                                         src={parent.image_url}
-                                         alt={parent.name}
-                                         className="max-w-full max-h-full object-contain rounded"
-                                       />
-                                     </div>
-                                   </div>
-                                 )}
-                               </div>
-                             ) : (
-                               <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
-                                 <Archive className="h-6 w-6 text-muted-foreground" />
-                               </div>
-                             )}
-                           </TableCell>
-                           <TableCell className="font-bold text-foreground">{parent.name}</TableCell>
-                           <TableCell>
-                             <Badge variant="outline" className="text-xs">
-                               Has Variants
-                             </Badge>
-                           </TableCell>
-                           <TableCell>-</TableCell>
-                           <TableCell>-</TableCell>
-                         </TableRow>,
-                         // Variant rows for this parent
-                         ...parent.variants.map((variant: any) => {
-                           const status = variant.stock_quantity <= 0 
-                             ? "Stock Out" 
-                             : variant.stock_quantity <= (variant.low_stock_threshold || 0)
-                               ? "Low Stock" 
-                               : "In Stock";
-                           
-                           return (
-                             <TableRow key={`variant-${variant.id}`} className="bg-muted/5 border-l-4 border-l-primary/20">
-                               <TableCell>
-                                 <div className="h-14 w-14 flex items-center justify-center">
-                                   <div className="w-3 h-3 rounded-full bg-primary/30"></div>
-                                 </div>
-                               </TableCell>
-                               <TableCell className="pl-6 text-foreground font-medium">
-                                 <div className="text-sm text-muted-foreground mb-1">Variant:</div>
-                                 {variant.name}
-                               </TableCell>
-                               <TableCell className="text-muted-foreground">{variant.sku || "-"}</TableCell>
-                               <TableCell className="text-foreground font-medium">{variant.stock_quantity}</TableCell>
-                               <TableCell>
-                                 <Badge 
-                                   variant={
-                                     status === "In Stock" ? "default" : 
-                                     status === "Low Stock" ? "secondary" : 
-                                     "destructive"
-                                   }
-                                   className="text-xs"
-                                 >
-                                   {status}
-                                 </Badge>
-                               </TableCell>
-                             </TableRow>
-                           );
-                         })
-                       ];
-                     }).flat()
-                   )}
-                 </TableBody>
-              </Table>
+                                     ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    });
+                  }).flat()
+                )}
+              </div>
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4">
                   <div className="flex items-center" role="status" aria-live="polite">
