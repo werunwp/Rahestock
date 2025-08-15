@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Plus, Archive, TrendingUp, TrendingDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ const Inventory = () => {
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const itemsPerPage = 12; // Reduced for card layout
+  const itemsPerPage = 12;
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
@@ -39,10 +38,11 @@ const Inventory = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Fetch all product variants
+  // Fetch all product variants with better error handling and debugging
   const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
     queryKey: ["all_product_variants"],
     queryFn: async () => {
+      console.log("Fetching product variants...");
       const { data, error } = await supabase
         .from("product_variants")
         .select(`
@@ -56,22 +56,33 @@ const Inventory = () => {
         `)
         .order("created_at", { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching variants:", error);
+        throw error;
+      }
+      
+      console.log("Fetched variants:", data);
       return data || [];
     },
     enabled: !!user,
   });
 
-  // Create parent products list
+  // Create parent products list with better debugging
   const parentProducts = useMemo(() => {
+    console.log("Creating parent products list...");
+    console.log("Products:", products);
+    console.log("All variants:", allVariants);
+    
     const parents: any[] = [];
     
     if (!products || !Array.isArray(products)) {
+      console.log("No products or products is not an array");
       return [];
     }
     
     // Add products without variants
     const productsWithoutVariants = products.filter(product => !product.has_variants);
+    console.log("Products without variants:", productsWithoutVariants);
     
     productsWithoutVariants.forEach(product => {
       parents.push({
@@ -88,6 +99,7 @@ const Inventory = () => {
     
     // Group variants by product and add products with variants
     const productsWithVariants = products.filter(product => product.has_variants);
+    console.log("Products with variants:", productsWithVariants);
     
     const variantsByProduct = new Map();
     if (allVariants && Array.isArray(allVariants)) {
@@ -100,8 +112,11 @@ const Inventory = () => {
       });
     }
     
+    console.log("Variants grouped by product:", variantsByProduct);
+    
     productsWithVariants.forEach(product => {
       const productVariants = variantsByProduct.get(product.id) || [];
+      console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants`);
       
       parents.push({
         id: product.id,
@@ -124,6 +139,7 @@ const Inventory = () => {
       });
     });
     
+    console.log("Final parent products:", parents);
     return parents;
   }, [products, allVariants]);
 
@@ -512,6 +528,21 @@ const Inventory = () => {
           </div>
         )}
       </div>
+
+      {/* Debug Information - Remove this after fixing */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-sm text-yellow-800">Debug Info</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-yellow-700">
+            <p>Total products: {products?.length || 0}</p>
+            <p>Products with variants: {products?.filter(p => p.has_variants).length || 0}</p>
+            <p>Total variants: {allVariants?.length || 0}</p>
+            <p>Parent products created: {parentProducts?.length || 0}</p>
+          </CardContent>
+        </Card>
+      )}
 
       <StockAdjustmentDialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog} />
       
