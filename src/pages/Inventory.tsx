@@ -97,7 +97,7 @@ const Inventory = () => {
         
         parents.push({
           id: product.id,
-          type: 'parent_product',
+          type: 'parent',
           name: product.name,
           sku: product.sku,
           stock_quantity: null,
@@ -105,7 +105,7 @@ const Inventory = () => {
           image_url: product.image_url,
           variants: productVariants.map(variant => ({
             id: variant.id,
-            name: Object.entries(variant.attributes)
+            name: Object.entries(variant.attributes || {})
               .map(([key, value]) => value)
               .join(', '),
             sku: variant.sku || product.sku,
@@ -136,25 +136,33 @@ const Inventory = () => {
     const searchData: any[] = [];
     
     parentProducts.forEach(parent => {
-      // Add parent product for search
+      // Add the main product to search data
       searchData.push({
         ...parent,
+        parentId: parent.id,
+        parentName: parent.name,
+        parentImageUrl: parent.image_url,
         searchType: 'parent',
-        normalizedTitle: normalizeText(parent.name),
         searchText: `${parent.name} ${parent.sku || ''}`.toLowerCase()
       });
-      
-      // Add variants for search
-      parent.variants.forEach((variant: any) => {
-        searchData.push({
-          ...variant,
-          parentId: parent.id,
-          parentName: parent.name,
-          parentImageUrl: parent.image_url,
-          searchType: 'variant',
-          searchText: `${parent.name} ${variant.name} ${variant.sku || ''}`.toLowerCase()
+
+      // Add each variant to search data if the product has variants
+      if (parent.type === 'parent' && parent.variants && parent.variants.length > 0) {
+        parent.variants.forEach((variant: any) => {
+          const variantName = Object.entries(variant.attributes || {})
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' ');
+          
+          searchData.push({
+            ...variant,
+            parentId: parent.id,
+            parentName: parent.name,
+            parentImageUrl: parent.image_url,
+            searchType: 'variant',
+            searchText: `${parent.name} ${variantName} ${variant.sku || ''}`.toLowerCase()
+          });
         });
-      });
+      }
     });
 
     return new Fuse(searchData, {
@@ -207,13 +215,14 @@ const Inventory = () => {
         if (parent.type === 'product') {
           const stockQty = parent.stock_quantity || 0;
           return stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
-        } else {
+        } else if (parent.type === 'parent') {
           // For parent products with variants, check if any variant matches the filter
           return parent.variants.some((variant: any) => {
             const stockQty = variant.stock_quantity || 0;
             return stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
           });
         }
+        return false;
       });
     }
     
