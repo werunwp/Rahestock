@@ -28,31 +28,25 @@ export const CustomCodeSettings = () => {
     is_enabled: false
   });
 
-  // Initialize form state from database
+  // Initialize and sync form state with database
   useEffect(() => {
     const cssData = getCustomCSS();
-    if (cssData) {
-      setCustomCSS({
-        content: cssData.content || '',
-        is_enabled: cssData.is_enabled
-      });
-    }
+    setCustomCSS({
+      content: cssData?.content || '',
+      is_enabled: cssData?.is_enabled || false
+    });
 
     const headData = getHeadSnippet();
-    if (headData) {
-      setHeadSnippet({
-        content: headData.content || '',
-        is_enabled: headData.is_enabled
-      });
-    }
+    setHeadSnippet({
+      content: headData?.content || '',
+      is_enabled: headData?.is_enabled || false
+    });
 
     const bodyData = getBodySnippet();
-    if (bodyData) {
-      setBodySnippet({
-        content: bodyData.content || '',
-        is_enabled: bodyData.is_enabled
-      });
-    }
+    setBodySnippet({
+      content: bodyData?.content || '',
+      is_enabled: bodyData?.is_enabled || false
+    });
   }, [getCustomCSS, getHeadSnippet, getBodySnippet]);
 
   const handleSaveCSS = () => {

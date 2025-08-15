@@ -2,12 +2,12 @@ import { useEffect } from "react";
 import { useCustomSettings } from "@/hooks/useCustomSettings";
 
 export const CustomCodeInjector = () => {
-  const { getCustomCSS, getHeadSnippet, getBodySnippet } = useCustomSettings();
+  const { customSettings } = useCustomSettings();
 
   useEffect(() => {
-    const customCSS = getCustomCSS();
-    const headSnippet = getHeadSnippet();
-    const bodySnippet = getBodySnippet();
+    const customCSS = customSettings.find(s => s.setting_type === 'custom_css');
+    const headSnippet = customSettings.find(s => s.setting_type === 'head_snippet');
+    const bodySnippet = customSettings.find(s => s.setting_type === 'body_snippet');
 
     // Inject custom CSS
     let styleElement: HTMLStyleElement | null = null;
@@ -52,7 +52,7 @@ export const CustomCodeInjector = () => {
         bodyElement.remove();
       }
     };
-  }, [getCustomCSS, getHeadSnippet, getBodySnippet]);
+  }, [customSettings]);
 
   return null;
 };
