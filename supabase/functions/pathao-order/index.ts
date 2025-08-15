@@ -120,13 +120,13 @@ serve(async (req) => {
     // Get auth header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('Missing authorization header');
       throw new Error('Missing authorization header')
     }
 
-    // Set auth context
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    // Set auth context with proper token extraction
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
 
     if (authError || !user) {
       throw new Error('Unauthorized')
