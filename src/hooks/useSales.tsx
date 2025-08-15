@@ -118,11 +118,46 @@ export const useSales = () => {
 
       const { items, ...saleInfo } = saleData;
       
+      // Check if customer exists or create new one if needed
+      let finalCustomerId = saleInfo.customer_id;
+      
+      if (!finalCustomerId && saleInfo.customer_name) {
+        // Check if customer already exists by name and phone
+        const { data: existingCustomer } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("name", saleInfo.customer_name)
+          .eq("phone", saleInfo.customer_phone || "")
+          .maybeSingle();
+        
+        if (existingCustomer) {
+          finalCustomerId = existingCustomer.id;
+        } else {
+          // Create new customer
+          const { data: newCustomer, error: customerError } = await supabase
+            .from("customers")
+            .insert([{
+              name: saleInfo.customer_name,
+              phone: saleInfo.customer_phone || null,
+              whatsapp: saleInfo.customer_whatsapp || null,
+              address: saleInfo.customer_address || null,
+              status: 'active',
+              created_by: user?.id
+            }])
+            .select()
+            .single();
+          
+          if (customerError) throw customerError;
+          finalCustomerId = newCustomer.id;
+        }
+      }
+      
       // Create sale
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert([{
           ...saleInfo,
+          customer_id: finalCustomerId,
           invoice_number: invoiceData,
           created_by: user?.id
         }])
@@ -216,6 +251,7 @@ export const useSales = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Sale created successfully");
     },
     onError: (error) => {
