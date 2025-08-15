@@ -289,48 +289,47 @@ const Inventory = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Image</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Current Stock</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Stock Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         No inventory items found
                       </TableCell>
                     </TableRow>
                   ) : (
                     paginatedItems.map((item) => {
                       if (item.type === "parent_product") {
-                        // Parent product row (shows image and product name)
+                        // Parent product row (shows image and product name, empty other cells)
                         return (
-                          <TableRow key={`parent-${item.id}`} className="border-b-2 border-muted/50">
-                            <TableCell className="font-semibold bg-muted/20">
-                              <div className="flex items-center gap-3">
-                                {item.image_url ? (
-                                  <img 
-                                    src={item.image_url} 
-                                    alt={item.name}
-                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                                    <Archive className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <span className="font-medium">{item.name}</span>
-                              </div>
+                          <TableRow key={`parent-${item.id}`}>
+                            <TableCell>
+                              {item.image_url ? (
+                                <img 
+                                  src={item.image_url} 
+                                  alt={item.name}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
                             </TableCell>
-                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
-                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
-                            <TableCell className="bg-muted/20 text-muted-foreground">-</TableCell>
+                            <TableCell className="font-semibold">{item.name}</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
                           </TableRow>
                         );
                       } else if (item.type === "variant") {
-                        // Variant row (indented with variation details)
+                        // Variant row (empty image cell, variant name, SKU, stock, status)
                         const status = item.stock_quantity === 0 
                           ? "Out of Stock" 
                           : item.stock_quantity <= (item.low_stock_threshold || 0)
@@ -338,15 +337,9 @@ const Inventory = () => {
                             : "In Stock";
                         
                         return (
-                          <TableRow key={`variant-${item.id}`} className="hover:bg-muted/20">
-                            <TableCell className="pl-8">
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 flex items-center justify-center">
-                                  <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-                                </div>
-                                <span className="text-muted-foreground">{item.name}</span>
-                              </div>
-                            </TableCell>
+                          <TableRow key={`variant-${item.id}`}>
+                            <TableCell></TableCell>
+                            <TableCell className="pl-6 text-muted-foreground">{item.name}</TableCell>
                             <TableCell>{item.sku || "-"}</TableCell>
                             <TableCell>{item.stock_quantity}</TableCell>
                             <TableCell>
@@ -373,22 +366,20 @@ const Inventory = () => {
                         
                         return (
                           <TableRow key={`product-${item.id}`}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                {item.image_url ? (
-                                  <img 
-                                    src={item.image_url} 
-                                    alt={item.name}
-                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                                    <Archive className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <span>{item.name}</span>
-                              </div>
+                            <TableCell>
+                              {item.image_url ? (
+                                <img 
+                                  src={item.image_url} 
+                                  alt={item.name}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
                             </TableCell>
+                            <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.sku || "-"}</TableCell>
                             <TableCell>{item.stock_quantity}</TableCell>
                             <TableCell>
@@ -422,17 +413,80 @@ const Inventory = () => {
                           className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                         />
                       </PaginationItem>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(page)}
-                            isActive={currentPage === page}
-                            className="cursor-pointer"
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
+                      
+                      {/* Dynamic page numbers */}
+                      {(() => {
+                        const maxVisiblePages = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                        
+                        // Adjust start page if we're near the end
+                        if (endPage - startPage + 1 < maxVisiblePages) {
+                          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                        }
+                        
+                        const pages = [];
+                        
+                        // Show first page if not in range
+                        if (startPage > 1) {
+                          pages.push(
+                            <PaginationItem key={1}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(1)}
+                                className="cursor-pointer"
+                              >
+                                1
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                          if (startPage > 2) {
+                            pages.push(
+                              <PaginationItem key="start-ellipsis">
+                                <span className="px-3 py-2">...</span>
+                              </PaginationItem>
+                            );
+                          }
+                        }
+                        
+                        // Show visible page range
+                        for (let page = startPage; page <= endPage; page++) {
+                          pages.push(
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(page)}
+                                isActive={currentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        
+                        // Show last page if not in range
+                        if (endPage < totalPages) {
+                          if (endPage < totalPages - 1) {
+                            pages.push(
+                              <PaginationItem key="end-ellipsis">
+                                <span className="px-3 py-2">...</span>
+                              </PaginationItem>
+                            );
+                          }
+                          pages.push(
+                            <PaginationItem key={totalPages}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="cursor-pointer"
+                              >
+                                {totalPages}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        
+                        return pages;
+                      })()}
+                      
                       <PaginationItem>
                         <PaginationNext 
                           onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
