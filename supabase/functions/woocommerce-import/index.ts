@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     }
 
     // Start the background import process
-    const importPromise = importProducts(connection, importLog.id);
+    EdgeRuntime.waitUntil(importProducts(connection, importLog.id));
     
     // Return immediately
     return new Response(
@@ -265,6 +265,18 @@ async function importProducts(connection: any, importLogId: string) {
 
     // Import products page by page
     for (let page = 1; page <= totalPages; page++) {
+      // Check if import should be stopped
+      const { data: importStatus } = await supabase
+        .from('woocommerce_import_logs')
+        .select('status')
+        .eq('id', importLogId)
+        .single();
+
+      if (importStatus?.status === 'stopping' || importStatus?.status === 'stopped') {
+        console.log('Import stopped by user');
+        break;
+      }
+
       console.log(`Processing page ${page} of ${totalPages}`);
       
       const response = await fetchWithRetry(`${apiUrl}/products?per_page=100&page=${page}&status=publish`, { headers });
@@ -298,7 +310,7 @@ async function importProducts(connection: any, importLogId: string) {
             continue;
           }
 
-          // Map WooCommerce product to our schema
+          // Map WooCommerce product to our schema with all attributes
           const productData = {
             name: wcProduct.name,
             sku: wcProduct.sku || `wc_${wcProduct.id}`,
@@ -307,10 +319,13 @@ async function importProducts(connection: any, importLogId: string) {
             stock_quantity: wcProduct.stock_quantity || 0,
             low_stock_threshold: 10,
             image_url: wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
+            size: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('size'))?.options.join(', ') || null,
+            color: wcProduct.attributes.find(attr => attr.name.toLowerCase().includes('color') || attr.name.toLowerCase().includes('colour'))?.options.join(', ') || null,
             has_variants: wcProduct.variations.length > 0,
             created_by: connection.user_id,
             woocommerce_id: wcProduct.id,
             woocommerce_connection_id: connection.id,
+            last_synced_at: new Date().toISOString(),
           };
 
           // Insert the product
@@ -462,6 +477,7 @@ async function importProductVariations(
         stock_quantity: variation.stock_quantity || 0,
         image_url: variation.image?.src || null,
         woocommerce_id: variation.id,
+        last_synced_at: new Date().toISOString(),
       };
 
       const { error: variantError } = await supabase
