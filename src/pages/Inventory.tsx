@@ -48,15 +48,27 @@ const Inventory = () => {
   const { data: allVariants = [], isLoading: variantsLoading } = useQuery({
     queryKey: ["all_product_variants"],
     queryFn: async () => {
+      console.log("Fetching variants...");
       const { data, error } = await supabase
         .from("product_variants")
         .select(`
           *,
-          products!inner(name, sku, image_url)
+          products (
+            id,
+            name,
+            sku,
+            image_url
+          )
         `)
         .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
+      
+      if (error) {
+        console.error("Error fetching variants:", error);
+        throw error;
+      }
+      
+      console.log("Variants fetched:", data?.length || 0);
+      return data || [];
     },
     enabled: !!user,
   });
