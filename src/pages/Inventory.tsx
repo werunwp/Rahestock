@@ -50,12 +50,22 @@ const Inventory = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_variants")
-        .select("*")
+        .select(`
+          id,
+          product_id,
+          sku,
+          stock_quantity,
+          low_stock_threshold,
+          image_url,
+          attributes,
+          created_at
+        `)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!user,
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   // Create parent products list for search and pagination
@@ -105,9 +115,9 @@ const Inventory = () => {
             let variantName = 'Variant';
             
             if (variant.attributes && typeof variant.attributes === 'object' && Object.keys(variant.attributes).length > 0) {
-              // Show attribute name: value pairs for better readability
-              variantName = Object.entries(variant.attributes)
-                .map(([key, value]) => `${key}: ${value}`)
+              // Show only attribute values, not the names
+              variantName = Object.values(variant.attributes)
+                .filter(value => value && value !== '')
                 .join(', ');
             } else if (variant.sku) {
               variantName = `SKU: ${variant.sku}`;

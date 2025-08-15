@@ -294,6 +294,11 @@ async function processImportInBackground(supabase: any, connection: any, importL
       progress_message: `Found ${totalProducts} products to import. Starting batch processing...`
     });
 
+    let globalTimeout = setTimeout(() => {
+      console.log('Global import timeout reached (15 minutes)');
+      hasMorePages = false;
+    }, 900000); // 15 minutes total timeout
+
     // Main import loop with optimizations
     while (hasMorePages && consecutiveErrors < maxConsecutiveErrors) {
       try {
