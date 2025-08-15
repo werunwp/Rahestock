@@ -69,6 +69,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [productComboOpen, setProductComboOpen] = useState(false);
 
   // Searchable products functionality
   const normalizeText = useMemo(() => (text: string) => {
@@ -163,6 +164,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
       });
       setSelectedProductId("");
       setProductSearchTerm("");
+      setProductComboOpen(false);
     }
   }, [open]);
 
@@ -283,6 +285,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
     setSelectedProductId("");
     setSelectedVariantId(null);
     setProductSearchTerm("");
+    setProductComboOpen(false);
   };
 
   const updateQuantity = (productId: string, newQuantity: number, variantId?: string | null) => {
@@ -424,40 +427,47 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
 
           <div className="space-y-4">
             <Label>Add Products</Label>
-            <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
                 <Input
-                  placeholder="Search products..."
+                  placeholder="Type to search products..."
                   value={productSearchTerm}
                   onChange={(e) => setProductSearchTerm(e.target.value)}
-                  className="pl-10"
+                  onFocus={() => setProductComboOpen(true)}
                 />
-              </div>
-              <div className="flex gap-2">
-                <Select value={selectedProductId} onValueChange={(val) => { setSelectedProductId(val); setSelectedVariantId(null); }}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select product" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px] overflow-y-auto">
+                {productComboOpen && productSearchTerm && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {filteredProducts.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
+                      <div className="p-3 text-sm text-muted-foreground text-center">
                         No products found
                       </div>
                     ) : (
                       filteredProducts.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} - {currencySymbol}{product.rate}
-                        </SelectItem>
+                        <div
+                          key={product.id}
+                          className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            setProductSearchTerm(product.name);
+                            setProductComboOpen(false);
+                            setSelectedVariantId(null);
+                          }}
+                        >
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {currencySymbol}{product.rate}
+                          </div>
+                        </div>
                       ))
                     )}
-                  </SelectContent>
-                </Select>
-                <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+                  </div>
+                )}
               </div>
+              <Button type="button" onClick={addProduct} disabled={!selectedProductId || (selectedProduct?.has_variants && !selectedVariantId)}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
 
             {selectedProduct?.has_variants && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -482,7 +492,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                 </div>
               </div>
             )}
-          </div>
+
             {formData.items.length > 0 && (
               <div className="border rounded-md">
                 <Table>
