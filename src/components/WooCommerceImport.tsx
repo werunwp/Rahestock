@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Trash2, Download, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { useWooCommerceConnections, useImportLogs } from "@/hooks/useWooCommerceConnections";
+import { WooCommerceLiveSync } from "@/components/WooCommerceLiveSync";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,
@@ -228,6 +229,10 @@ export const WooCommerceImport = () => {
                               </Badge>
                             </div>
                             
+                            {latestLog.status === 'in_progress' && latestLog.progress_message && (
+                              <p className="text-xs text-muted-foreground">{latestLog.progress_message}</p>
+                            )}
+                            
                             {latestLog.status === 'in_progress' && (
                               <div className="space-y-2">
                                 <Progress 
@@ -252,6 +257,11 @@ export const WooCommerceImport = () => {
                             )}
                           </div>
                         )}
+                        
+                        <WooCommerceLiveSync 
+                          connectionId={connection.id}
+                          siteName={connection.site_name}
+                        />
                       </CardContent>
                     </Card>
                   );

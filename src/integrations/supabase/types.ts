@@ -265,12 +265,14 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          last_synced_at: string | null
           low_stock_threshold: number | null
           product_id: string
           rate: number | null
           sku: string | null
           stock_quantity: number
           updated_at: string
+          woocommerce_id: number | null
         }
         Insert: {
           attributes: Json
@@ -278,12 +280,14 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          last_synced_at?: string | null
           low_stock_threshold?: number | null
           product_id: string
           rate?: number | null
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          woocommerce_id?: number | null
         }
         Update: {
           attributes?: Json
@@ -291,12 +295,14 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          last_synced_at?: string | null
           low_stock_threshold?: number | null
           product_id?: string
           rate?: number | null
           sku?: string | null
           stock_quantity?: number
           updated_at?: string
+          woocommerce_id?: number | null
         }
         Relationships: [
           {
@@ -317,6 +323,7 @@ export type Database = {
           has_variants: boolean
           id: string
           image_url: string | null
+          last_synced_at: string | null
           low_stock_threshold: number | null
           name: string
           rate: number
@@ -324,6 +331,8 @@ export type Database = {
           sku: string | null
           stock_quantity: number | null
           updated_at: string | null
+          woocommerce_connection_id: string | null
+          woocommerce_id: number | null
         }
         Insert: {
           color?: string | null
@@ -333,6 +342,7 @@ export type Database = {
           has_variants?: boolean
           id?: string
           image_url?: string | null
+          last_synced_at?: string | null
           low_stock_threshold?: number | null
           name: string
           rate: number
@@ -340,6 +350,8 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string | null
+          woocommerce_connection_id?: string | null
+          woocommerce_id?: number | null
         }
         Update: {
           color?: string | null
@@ -349,6 +361,7 @@ export type Database = {
           has_variants?: boolean
           id?: string
           image_url?: string | null
+          last_synced_at?: string | null
           low_stock_threshold?: number | null
           name?: string
           rate?: number
@@ -356,8 +369,18 @@ export type Database = {
           sku?: string | null
           stock_quantity?: number | null
           updated_at?: string | null
+          woocommerce_connection_id?: string | null
+          woocommerce_id?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_woocommerce_connection_id_fkey"
+            columns: ["woocommerce_connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -686,6 +709,7 @@ export type Database = {
           failed_products: number | null
           id: string
           imported_products: number | null
+          progress_message: string | null
           started_at: string
           status: string
           total_products: number | null
@@ -698,6 +722,7 @@ export type Database = {
           failed_products?: number | null
           id?: string
           imported_products?: number | null
+          progress_message?: string | null
           started_at?: string
           status: string
           total_products?: number | null
@@ -710,6 +735,7 @@ export type Database = {
           failed_products?: number | null
           id?: string
           imported_products?: number | null
+          progress_message?: string | null
           started_at?: string
           status?: string
           total_products?: number | null
@@ -717,6 +743,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "woocommerce_import_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      woocommerce_sync_logs: {
+        Row: {
+          completed_at: string | null
+          connection_id: string
+          error_message: string | null
+          id: string
+          products_created: number | null
+          products_failed: number | null
+          products_updated: number | null
+          started_at: string
+          status: string
+          sync_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          connection_id: string
+          error_message?: string | null
+          id?: string
+          products_created?: number | null
+          products_failed?: number | null
+          products_updated?: number | null
+          started_at?: string
+          status?: string
+          sync_type: string
+        }
+        Update: {
+          completed_at?: string | null
+          connection_id?: string
+          error_message?: string | null
+          id?: string
+          products_created?: number | null
+          products_failed?: number | null
+          products_updated?: number | null
+          started_at?: string
+          status?: string
+          sync_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "woocommerce_sync_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      woocommerce_sync_schedules: {
+        Row: {
+          connection_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_sync_at: string | null
+          next_sync_at: string | null
+          sync_interval_minutes: number
+          sync_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          next_sync_at?: string | null
+          sync_interval_minutes?: number
+          sync_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          next_sync_at?: string | null
+          sync_interval_minutes?: number
+          sync_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "woocommerce_sync_schedules_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "woocommerce_connections"
