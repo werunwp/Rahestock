@@ -118,15 +118,32 @@ const Inventory = () => {
       const productVariants = variantsByProduct.get(product.id) || [];
       console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants`);
       
+      // If no variants found in allVariants, try to fetch them directly from products that have stock in sizes
+      let processedVariants = productVariants;
+      
+      if (productVariants.length === 0 && product.size && product.size.includes(',')) {
+        // This might be a product imported with sizes in the size field
+        console.log(`No variants found for ${product.name}, but has size field:`, product.size);
+        const sizes = product.size.split(',').map(s => s.trim());
+        processedVariants = sizes.map((size, index) => ({
+          id: `${product.id}_${index}`,
+          name: `Size: ${size}`,
+          sku: product.sku,
+          stock_quantity: Math.floor(product.stock_quantity / sizes.length),
+          low_stock_threshold: product.low_stock_threshold,
+          attributes: { Size: size }
+        }));
+      }
+      
       parents.push({
         id: product.id,
-        type: 'parent',
+        type: processedVariants.length > 0 ? 'parent' : 'product',
         name: product.name,
         sku: product.sku,
-        stock_quantity: null,
-        low_stock_threshold: null,
+        stock_quantity: processedVariants.length > 0 ? null : product.stock_quantity,
+        low_stock_threshold: processedVariants.length > 0 ? null : product.low_stock_threshold,
         image_url: product.image_url,
-        variants: productVariants.map(variant => ({
+        variants: processedVariants.map(variant => ({
           id: variant.id,
           name: Object.entries(variant.attributes || {})
             .map(([key, value]) => `${key}: ${value}`)
