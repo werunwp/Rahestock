@@ -344,6 +344,58 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
+          {/* Bulk Quantity Option */}
+          {!hasVariants && (
+            <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Bulk Quantity Update</Label>
+                  <p className="text-xs text-muted-foreground">Add or subtract from current stock quantity</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const bulk = prompt("Enter quantity to add:");
+                    if (bulk && !isNaN(Number(bulk))) {
+                      const newQty = formData.stock_quantity + parseInt(bulk);
+                      handleChange("stock_quantity", Math.max(0, newQty));
+                    }
+                  }}
+                >
+                  Add Stock
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const bulk = prompt("Enter quantity to subtract:");
+                    if (bulk && !isNaN(Number(bulk))) {
+                      const newQty = formData.stock_quantity - parseInt(bulk);
+                      handleChange("stock_quantity", Math.max(0, newQty));
+                    }
+                  }}
+                >
+                  Remove Stock
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const bulk = prompt("Enter new total quantity:");
+                    if (bulk && !isNaN(Number(bulk))) {
+                      handleChange("stock_quantity", Math.max(0, parseInt(bulk)));
+                    }
+                  }}
+                >
+                  Set Total
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Variations Toggle */}
           <div className="rounded-lg border p-3 flex items-center justify-between">
             <div>
