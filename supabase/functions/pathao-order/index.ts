@@ -9,21 +9,96 @@ const corsHeaders = {
 interface PathaoOrderRequest {
   store_id: number;
   merchant_order_id: string;
-  sender_name: string;
-  sender_phone: string;
-  sender_address: string;
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
-  recipient_city: string;
-  recipient_zone: string;
+  recipient_city?: number;
+  recipient_zone?: number;
+  recipient_area?: number;
   item_type: number;
-  special_instruction: string;
+  special_instruction?: string;
   item_quantity: number;
   item_weight: number;
   item_description: string;
   amount_to_collect: number;
   delivery_type: number;
+}
+
+interface PathaoSettings {
+  api_base_url: string;
+  client_id: string;
+  client_secret: string;
+  username: string;
+  password: string;
+  access_token?: string;
+  refresh_token?: string;
+  token_expires_at?: string;
+}
+
+async function getAccessToken(settings: PathaoSettings, supabaseClient: any): Promise<string> {
+  // Check if current token is still valid
+  if (settings.access_token && settings.token_expires_at) {
+    const expiresAt = new Date(settings.token_expires_at);
+    const now = new Date();
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    
+    // If token expires in more than 10 minutes, use it
+    if (timeUntilExpiry > 10 * 60 * 1000) {
+      return settings.access_token;
+    }
+  }
+
+  console.log('Getting new access token from Pathao...');
+  
+  // Get new access token
+  const tokenResponse = await fetch(`${settings.api_base_url}/aladdin/api/v1/issue-token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: settings.client_id,
+      client_secret: settings.client_secret,
+      grant_type: 'password',
+      username: settings.username,
+      password: settings.password,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    console.error('Pathao token error:', errorText);
+    throw new Error(`Failed to get Pathao access token: ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  console.log('Pathao token response received');
+
+  if (!tokenData.access_token) {
+    throw new Error('No access token in Pathao response');
+  }
+
+  // Calculate expiry time
+  const expiresAt = new Date();
+  expiresAt.setSeconds(expiresAt.getSeconds() + (tokenData.expires_in || 432000));
+
+  // Update settings in database
+  const { error: updateError } = await supabaseClient
+    .from('pathao_settings')
+    .update({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      token_expires_at: expiresAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', (await supabaseClient.from('pathao_settings').select('id').limit(1).single()).data?.id);
+
+  if (updateError) {
+    console.error('Failed to update token in database:', updateError);
+  }
+
+  return tokenData.access_token;
 }
 
 serve(async (req) => {
@@ -58,6 +133,7 @@ serve(async (req) => {
     }
 
     const orderData: PathaoOrderRequest = await req.json()
+    console.log('Processing Pathao order request:', orderData.merchant_order_id);
 
     // Get Pathao settings from database
     const { data: pathaoSettings, error: settingsError } = await supabaseClient
@@ -67,42 +143,46 @@ serve(async (req) => {
       .single()
 
     if (settingsError || !pathaoSettings) {
-      throw new Error('Pathao settings not configured')
+      throw new Error('Pathao settings not configured. Please configure your Pathao credentials in System Settings.')
     }
+
+    // Get valid access token
+    const accessToken = await getAccessToken(pathaoSettings, supabaseClient);
 
     // Prepare the request to Pathao API
     const pathaoOrderPayload = {
       store_id: orderData.store_id,
       merchant_order_id: orderData.merchant_order_id,
-      sender_name: orderData.sender_name,
-      sender_phone: orderData.sender_phone,
-      sender_address: orderData.sender_address,
       recipient_name: orderData.recipient_name,
       recipient_phone: orderData.recipient_phone,
       recipient_address: orderData.recipient_address,
-      recipient_city: orderData.recipient_city || "Dhaka",
-      recipient_zone: orderData.recipient_zone || "Dhaka",
+      recipient_city: orderData.recipient_city || 1, // Default to Dhaka
+      recipient_zone: orderData.recipient_zone || 1,
+      recipient_area: orderData.recipient_area,
+      delivery_type: orderData.delivery_type,
       item_type: orderData.item_type,
       special_instruction: orderData.special_instruction || "",
       item_quantity: orderData.item_quantity,
       item_weight: orderData.item_weight,
       item_description: orderData.item_description,
       amount_to_collect: orderData.amount_to_collect,
-      delivery_type: orderData.delivery_type,
     }
+
+    console.log('Sending order to Pathao API...');
 
     // Make request to Pathao API
     const pathaoResponse = await fetch(`${pathaoSettings.api_base_url}/aladdin/api/v1/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${pathaoSettings.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json',
       },
       body: JSON.stringify(pathaoOrderPayload),
     })
 
     const pathaoResult = await pathaoResponse.json()
+    console.log('Pathao API response:', pathaoResult);
 
     if (!pathaoResponse.ok) {
       console.error('Pathao API Error:', pathaoResult)
@@ -129,6 +209,7 @@ serve(async (req) => {
         message: 'Order submitted to Pathao successfully',
         consignment_id: pathaoResult.data?.consignment_id || pathaoResult.consignment_id,
         order_id: pathaoResult.data?.order_id || pathaoResult.order_id,
+        delivery_fee: pathaoResult.data?.delivery_fee || pathaoResult.delivery_fee,
         pathao_response: pathaoResult
       }),
       {

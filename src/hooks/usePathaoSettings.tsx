@@ -6,17 +6,26 @@ import { toast } from "sonner";
 export interface PathaoSettings {
   id: string;
   api_base_url: string;
-  access_token: string;
+  client_id: string;
+  client_secret: string;
+  username: string;
+  password: string;
   store_id: number;
   default_delivery_type: number;
   default_item_type: number;
+  access_token?: string;
+  refresh_token?: string;
+  token_expires_at?: string;
   created_at: string;
   updated_at: string;
 }
 
-const DEFAULT_PATHAO_SETTINGS: Omit<PathaoSettings, 'id' | 'created_at' | 'updated_at'> = {
-  api_base_url: 'https://api-hermes.pathao.com',
-  access_token: '',
+const DEFAULT_PATHAO_SETTINGS: Omit<PathaoSettings, 'id' | 'created_at' | 'updated_at' | 'access_token' | 'refresh_token' | 'token_expires_at'> = {
+  api_base_url: 'https://courier-api-sandbox.pathao.com',
+  client_id: '',
+  client_secret: '',
+  username: '',
+  password: '',
   store_id: 0,
   default_delivery_type: 48,
   default_item_type: 2
@@ -43,7 +52,7 @@ export const usePathaoSettings = () => {
       }
       
       // Return first row if exists, otherwise default settings
-      return data?.[0] as PathaoSettings || { ...DEFAULT_PATHAO_SETTINGS, id: '', created_at: '', updated_at: '' };
+      return data?.[0] as PathaoSettings || { ...DEFAULT_PATHAO_SETTINGS, id: '', created_at: '', updated_at: '', access_token: undefined, refresh_token: undefined, token_expires_at: undefined };
     },
     enabled: !!user,
   });
@@ -99,7 +108,10 @@ export const usePathaoSettings = () => {
       ...DEFAULT_PATHAO_SETTINGS, 
       id: '', 
       created_at: new Date().toISOString(), 
-      updated_at: new Date().toISOString() 
+      updated_at: new Date().toISOString(),
+      access_token: undefined,
+      refresh_token: undefined,
+      token_expires_at: undefined
     },
     isLoading,
     error,

@@ -229,34 +229,52 @@ export type Database = {
       }
       pathao_settings: {
         Row: {
-          access_token: string
+          access_token: string | null
           api_base_url: string
+          client_id: string
+          client_secret: string
           created_at: string
           default_delivery_type: number
           default_item_type: number
           id: string
+          password: string
+          refresh_token: string | null
           store_id: number
+          token_expires_at: string | null
           updated_at: string
+          username: string
         }
         Insert: {
-          access_token: string
+          access_token?: string | null
           api_base_url?: string
+          client_id?: string
+          client_secret?: string
           created_at?: string
           default_delivery_type?: number
           default_item_type?: number
           id?: string
+          password?: string
+          refresh_token?: string | null
           store_id: number
+          token_expires_at?: string | null
           updated_at?: string
+          username?: string
         }
         Update: {
-          access_token?: string
+          access_token?: string | null
           api_base_url?: string
+          client_id?: string
+          client_secret?: string
           created_at?: string
           default_delivery_type?: number
           default_item_type?: number
           id?: string
+          password?: string
+          refresh_token?: string | null
           store_id?: number
+          token_expires_at?: string | null
           updated_at?: string
+          username?: string
         }
         Relationships: []
       }

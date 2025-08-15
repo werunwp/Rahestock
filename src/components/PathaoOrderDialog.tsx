@@ -22,14 +22,12 @@ interface PathaoOrderDialogProps {
 interface PathaoOrderData {
   store_id: number;
   merchant_order_id: string;
-  sender_name: string;
-  sender_phone: string;
-  sender_address: string;
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
-  recipient_city: string;
-  recipient_zone: string;
+  recipient_city?: number;
+  recipient_zone?: number;
+  recipient_area?: number;
   item_type: number;
   special_instruction: string;
   item_quantity: number;
@@ -48,14 +46,12 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
   const [orderData, setOrderData] = useState<PathaoOrderData>({
     store_id: pathaoSettings.store_id || 0,
     merchant_order_id: '',
-    sender_name: '',
-    sender_phone: '',
-    sender_address: '',
     recipient_name: '',
     recipient_phone: '',
     recipient_address: '',
-    recipient_city: '',
-    recipient_zone: '',
+    recipient_city: undefined,
+    recipient_zone: undefined,
+    recipient_area: undefined,
     item_type: pathaoSettings.default_item_type || 2,
     special_instruction: '',
     item_quantity: 1,
@@ -115,8 +111,8 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
         return;
       }
 
-      if (!orderData.sender_name || !orderData.sender_phone || !orderData.sender_address) {
-        toast.error("Please fill in all required sender details");
+      if (!orderData.store_id) {
+        toast.error("Please configure your store ID in Pathao settings");
         return;
       }
 
@@ -201,45 +197,6 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
 
           <Separator />
 
-          {/* Sender Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Sender Information
-            </h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="senderName">Sender Name *</Label>
-                <Input
-                  id="senderName"
-                  value={orderData.sender_name}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, sender_name: e.target.value }))}
-                  placeholder="Your business name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="senderPhone">Sender Phone *</Label>
-                <Input
-                  id="senderPhone"
-                  value={orderData.sender_phone}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, sender_phone: e.target.value }))}
-                  placeholder="Your phone number"
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="senderAddress">Sender Address *</Label>
-                <Input
-                  id="senderAddress"
-                  value={orderData.sender_address}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, sender_address: e.target.value }))}
-                  placeholder="Your business address"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
           {/* Recipient Information */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium flex items-center gap-2">
@@ -262,7 +219,7 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
                   id="recipientPhone"
                   value={orderData.recipient_phone}
                   onChange={(e) => setOrderData(prev => ({ ...prev, recipient_phone: e.target.value }))}
-                  placeholder="Customer phone number"
+                  placeholder="Customer phone number (11 digits)"
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
@@ -275,22 +232,30 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="recipientCity">City</Label>
+                <Label htmlFor="recipientCity">City ID</Label>
                 <Input
                   id="recipientCity"
-                  value={orderData.recipient_city}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_city: e.target.value }))}
-                  placeholder="City name"
+                  type="number"
+                  value={orderData.recipient_city || ''}
+                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_city: parseInt(e.target.value) || undefined }))}
+                  placeholder="City ID (e.g., 1 for Dhaka)"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Use Pathao city ID (defaults to 1 - Dhaka)
+                </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="recipientZone">Zone</Label>
+                <Label htmlFor="recipientZone">Zone ID</Label>
                 <Input
                   id="recipientZone"
-                  value={orderData.recipient_zone}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_zone: e.target.value }))}
-                  placeholder="Zone/Area"
+                  type="number"
+                  value={orderData.recipient_zone || ''}
+                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_zone: parseInt(e.target.value) || undefined }))}
+                  placeholder="Zone ID"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Use Pathao zone ID (defaults to 1)
+                </p>
               </div>
             </div>
           </div>
