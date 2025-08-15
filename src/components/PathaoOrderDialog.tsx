@@ -78,6 +78,8 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
             recipient_name: data.customer_name,
             recipient_phone: data.customer_phone || '',
             recipient_address: data.customer_address || '',
+            recipient_city: 1, // Default to Dhaka
+            recipient_zone: 1, // Default zone
             amount_to_collect: data.grand_total || 0,
             item_quantity: data.items?.length || 1,
             item_description: data.items?.map((item: any) => 

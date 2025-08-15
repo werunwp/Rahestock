@@ -164,22 +164,32 @@ serve(async (req) => {
       .single()
 
     if (settingsError || !pathaoSettings) {
-      throw new Error('Pathao settings not configured. Please configure your Pathao credentials in System Settings.')
+      console.error('Pathao settings error:', settingsError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Pathao settings not configured. Please configure your Pathao credentials in System Settings.',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     // Get valid access token
     const accessToken = await getAccessToken(pathaoSettings, supabaseClient);
 
-    // Prepare the request to Pathao API
+    // Prepare the request to Pathao API with proper data validation
     const pathaoOrderPayload = {
       store_id: orderData.store_id,
       merchant_order_id: orderData.merchant_order_id,
       recipient_name: orderData.recipient_name,
       recipient_phone: orderData.recipient_phone,
       recipient_address: orderData.recipient_address,
-      recipient_city: orderData.recipient_city || 1, // Default to Dhaka
-      recipient_zone: orderData.recipient_zone || 1,
-      recipient_area: orderData.recipient_area,
+      recipient_city: orderData.recipient_city || 1, // Default to Dhaka if not provided
+      recipient_zone: orderData.recipient_zone || 1, // Default zone
+      recipient_area: orderData.recipient_area, // Optional field
       delivery_type: orderData.delivery_type,
       item_type: orderData.item_type,
       special_instruction: orderData.special_instruction || "",
@@ -190,6 +200,7 @@ serve(async (req) => {
     }
 
     console.log('Sending order to Pathao API...');
+    console.log('Pathao payload:', JSON.stringify(pathaoOrderPayload, null, 2));
 
     // Make request to Pathao API
     const pathaoResponse = await fetch(`${pathaoSettings.api_base_url}/aladdin/api/v1/orders`, {
