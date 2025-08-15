@@ -445,7 +445,7 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                       filteredProducts.map(product => (
                         <div
                           key={product.id}
-                          className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                          className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 flex items-center gap-3"
                           onClick={() => {
                             setSelectedProductId(product.id);
                             setProductSearchTerm(product.name);
@@ -453,9 +453,24 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
                             setSelectedVariantId(null);
                           }}
                         >
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {currencySymbol}{product.rate}
+                          <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                            {product.image_url ? (
+                              <img 
+                                src={product.image_url} 
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">No image</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{product.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {currencySymbol}{product.rate}
+                            </div>
                           </div>
                         </div>
                       ))
