@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Archive, TrendingUp, TrendingDown, Search, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,17 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [imagePreview, setImagePreview] = useState<{ url: string; alt: string } | null>(null);
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const itemsPerPage = 20;
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
@@ -116,34 +126,81 @@ const Inventory = () => {
     return flattenedItems;
   }, [products, allVariants]);
 
-  const filteredItems = inventoryItems.filter(item => {
+  // Filter to get only parent products for pagination counting
+  const parentProducts = inventoryItems.filter(item => 
+    item.type === "parent_product" || item.type === "product"
+  );
+  
+  const filteredParentProducts = parentProducts.filter(item => {
     // Enhanced text search filter - search by name, SKU, or stock quantity
     const searchLower = searchTerm.toLowerCase();
     const nameMatch = item.name?.toLowerCase().includes(searchLower) || false;
     const skuMatch = item.sku?.toLowerCase().includes(searchLower) || false;
-    const stockMatch = item.stock_quantity?.toString().includes(searchTerm) || false;
     
-    const matchesSearch = nameMatch || skuMatch || stockMatch;
+    const matchesSearch = nameMatch || skuMatch;
     
-    // Stock filter - check individual items
+    // Stock filter - for parent products, check if any child variants match the filter
     let matchesStock = false;
     if (stockFilter === "all") {
       matchesStock = true;
-    } else if (item.type === "parent_product") {
-      // Parent products always show when not filtering by stock
-      matchesStock = true;
-    } else {
+    } else if (item.type === "product") {
+      // Single product without variants
       const stockQty = item.stock_quantity || 0;
       matchesStock = stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+    } else {
+      // Parent product - check if any variants match the stock filter
+      const variants = inventoryItems.filter(variant => 
+        variant.type === "variant" && variant.parentId === item.id
+      );
+      if (variants.length === 0) {
+        matchesStock = true; // No variants, show parent
+      } else {
+        matchesStock = variants.some(variant => {
+          const stockQty = variant.stock_quantity || 0;
+          return stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+        });
+      }
     }
     
     return matchesSearch && matchesStock;
   });
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+  // Get all items (parents + their variants) for the current page of parent products
+  const totalParentPages = Math.ceil(filteredParentProducts.length / itemsPerPage);
+  const startParentIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedParentProducts = filteredParentProducts.slice(startParentIndex, startParentIndex + itemsPerPage);
+  
+  // Get all items to display (parents + their matching variants)
+  const paginatedItems = [];
+  paginatedParentProducts.forEach(parent => {
+    paginatedItems.push(parent);
+    if (parent.type === "parent_product") {
+      // Add matching variants for this parent
+      const variants = inventoryItems.filter(item => 
+        item.type === "variant" && item.parentId === parent.id
+      ).filter(variant => {
+        // Apply search filter to variants
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatch = variant.name?.toLowerCase().includes(searchLower) || false;
+        const skuMatch = variant.sku?.toLowerCase().includes(searchLower) || false;
+        const stockMatch = variant.stock_quantity?.toString().includes(searchTerm) || false;
+        
+        const matchesSearch = !searchTerm || nameMatch || skuMatch || stockMatch;
+        
+        // Apply stock filter to variants
+        let matchesStock = false;
+        if (stockFilter === "all") {
+          matchesStock = true;
+        } else {
+          const stockQty = variant.stock_quantity || 0;
+          matchesStock = stockFilter === "in_stock" ? stockQty > 0 : stockQty === 0;
+        }
+        
+        return matchesSearch && matchesStock;
+      });
+      paginatedItems.push(...variants);
+    }
+  });
 
   // Check if there are any low stock items
   const hasLowStockItems = inventoryItems.some(item => {
@@ -306,23 +363,40 @@ const Inventory = () => {
                   ) : (
                     paginatedItems.map((item) => {
                       if (item.type === "parent_product") {
-                        // Parent product row (shows image and product name, empty other cells)
+                        // Parent product row (shows larger image and product name, empty other cells)
                         return (
-                          <TableRow key={`parent-${item.id}`}>
-                            <TableCell>
+                          <TableRow key={`parent-${item.id}`} className="border-b-2">
+                            <TableCell className="py-4">
                               {item.image_url ? (
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-md object-cover"
-                                />
+                                <div 
+                                  className="relative cursor-pointer"
+                                  onMouseEnter={(e) => {
+                                    if (hoverTimeout) clearTimeout(hoverTimeout);
+                                    const timeout = setTimeout(() => {
+                                      setImagePreview({ url: item.image_url, alt: item.name });
+                                    }, 200);
+                                    setHoverTimeout(timeout);
+                                  }}
+                                  onMouseLeave={() => {
+                                    if (hoverTimeout) clearTimeout(hoverTimeout);
+                                    setImagePreview(null);
+                                  }}
+                                  onClick={() => setImagePreview({ url: item.image_url, alt: item.name })}
+                                >
+                                  <img 
+                                    src={item.image_url} 
+                                    alt={item.name}
+                                    className="h-14 w-14 rounded-lg object-cover shadow-sm hover:shadow-md transition-shadow"
+                                    loading="lazy"
+                                  />
+                                </div>
                               ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                                <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center">
+                                  <Archive className="h-5 w-5 text-muted-foreground" />
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="font-semibold">{item.name}</TableCell>
+                            <TableCell className="font-semibold text-base py-4">{item.name}</TableCell>
                             <TableCell></TableCell>
                             <TableCell></TableCell>
                             <TableCell></TableCell>
@@ -337,12 +411,16 @@ const Inventory = () => {
                             : "In Stock";
                         
                         return (
-                          <TableRow key={`variant-${item.id}`}>
-                            <TableCell></TableCell>
-                            <TableCell className="pl-6 text-muted-foreground">{item.name}</TableCell>
-                            <TableCell>{item.sku || "-"}</TableCell>
-                            <TableCell>{item.stock_quantity}</TableCell>
-                            <TableCell>
+                          <TableRow key={`variant-${item.id}`} className="bg-muted/20">
+                            <TableCell className="py-2">
+                              <div className="h-14 w-14 flex items-center justify-center">
+                                <div className="h-2 w-2 rounded-full bg-muted-foreground/30"></div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="pl-8 text-muted-foreground py-2 font-medium">{item.name}</TableCell>
+                            <TableCell className="py-2 font-mono text-sm">{item.sku || "-"}</TableCell>
+                            <TableCell className="py-2 font-semibold">{item.stock_quantity}</TableCell>
+                            <TableCell className="py-2">
                               <Badge 
                                 variant={
                                   status === "In Stock" ? "default" : 
@@ -366,23 +444,40 @@ const Inventory = () => {
                         
                         return (
                           <TableRow key={`product-${item.id}`}>
-                            <TableCell>
+                            <TableCell className="py-4">
                               {item.image_url ? (
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-md object-cover"
-                                />
+                                <div 
+                                  className="relative cursor-pointer"
+                                  onMouseEnter={(e) => {
+                                    if (hoverTimeout) clearTimeout(hoverTimeout);
+                                    const timeout = setTimeout(() => {
+                                      setImagePreview({ url: item.image_url, alt: item.name });
+                                    }, 200);
+                                    setHoverTimeout(timeout);
+                                  }}
+                                  onMouseLeave={() => {
+                                    if (hoverTimeout) clearTimeout(hoverTimeout);
+                                    setImagePreview(null);
+                                  }}
+                                  onClick={() => setImagePreview({ url: item.image_url, alt: item.name })}
+                                >
+                                  <img 
+                                    src={item.image_url} 
+                                    alt={item.name}
+                                    className="h-14 w-14 rounded-lg object-cover shadow-sm hover:shadow-md transition-shadow"
+                                    loading="lazy"
+                                  />
+                                </div>
                               ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                                <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center">
+                                  <Archive className="h-5 w-5 text-muted-foreground" />
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell>{item.sku || "-"}</TableCell>
-                            <TableCell>{item.stock_quantity}</TableCell>
-                            <TableCell>
+                            <TableCell className="font-medium text-base py-4">{item.name}</TableCell>
+                            <TableCell className="py-4 font-mono text-sm">{item.sku || "-"}</TableCell>
+                            <TableCell className="py-4 font-semibold">{item.stock_quantity}</TableCell>
+                            <TableCell className="py-4">
                               <Badge 
                                 variant={
                                   status === "In Stock" ? "default" : 
@@ -400,101 +495,114 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4">
+              {totalParentPages > 1 && (
+                <div className="flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+                    Showing {startParentIndex + 1} to {Math.min(startParentIndex + itemsPerPage, filteredParentProducts.length)} of {filteredParentProducts.length} products
                   </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      
-                      {/* Dynamic page numbers */}
-                      {(() => {
-                        const maxVisiblePages = 5;
-                        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-                        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                  <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end">
+                    <Pagination>
+                      <PaginationContent className="flex-wrap gap-1">
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} text-xs sm:text-sm`}
+                            aria-label="Go to previous page"
+                          />
+                        </PaginationItem>
                         
-                        // Adjust start page if we're near the end
-                        if (endPage - startPage + 1 < maxVisiblePages) {
-                          startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                        }
-                        
-                        const pages = [];
-                        
-                        // Show first page if not in range
-                        if (startPage > 1) {
-                          pages.push(
-                            <PaginationItem key={1}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(1)}
-                                className="cursor-pointer"
-                              >
-                                1
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                          if (startPage > 2) {
+                        {/* Dynamic page numbers for responsive design */}
+                        {(() => {
+                          const maxVisiblePages = isMobile ? 3 : 5;
+                          let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                          let endPage = Math.min(totalParentPages, startPage + maxVisiblePages - 1);
+                          
+                          // Adjust start page if we're near the end
+                          if (endPage - startPage + 1 < maxVisiblePages) {
+                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                          }
+                          
+                          const pages = [];
+                          
+                          // Show first page if not in range (desktop only)
+                          if (startPage > 1 && !isMobile) {
                             pages.push(
-                              <PaginationItem key="start-ellipsis">
-                                <span className="px-3 py-2">...</span>
+                              <PaginationItem key={1}>
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(1)}
+                                  className="cursor-pointer text-xs sm:text-sm"
+                                  aria-label="Go to page 1"
+                                >
+                                  1
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                            if (startPage > 2) {
+                              pages.push(
+                                <PaginationItem key="start-ellipsis">
+                                  <span className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm">...</span>
+                                </PaginationItem>
+                              );
+                            }
+                          }
+                          
+                          // Show visible page range
+                          for (let page = startPage; page <= endPage; page++) {
+                            pages.push(
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(page)}
+                                  isActive={currentPage === page}
+                                  className="cursor-pointer text-xs sm:text-sm"
+                                  aria-label={`Go to page ${page}`}
+                                  aria-current={currentPage === page ? "page" : undefined}
+                                >
+                                  {page}
+                                </PaginationLink>
                               </PaginationItem>
                             );
                           }
-                        }
-                        
-                        // Show visible page range
-                        for (let page = startPage; page <= endPage; page++) {
-                          pages.push(
-                            <PaginationItem key={page}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(page)}
-                                isActive={currentPage === page}
-                                className="cursor-pointer"
-                              >
-                                {page}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
-                        
-                        // Show last page if not in range
-                        if (endPage < totalPages) {
-                          if (endPage < totalPages - 1) {
+                          
+                          // Show last page if not in range (desktop only)
+                          if (endPage < totalParentPages && !isMobile) {
+                            if (endPage < totalParentPages - 1) {
+                              pages.push(
+                                <PaginationItem key="end-ellipsis">
+                                  <span className="px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm">...</span>
+                                </PaginationItem>
+                              );
+                            }
                             pages.push(
-                              <PaginationItem key="end-ellipsis">
-                                <span className="px-3 py-2">...</span>
+                              <PaginationItem key={totalParentPages}>
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(totalParentPages)}
+                                  className="cursor-pointer text-xs sm:text-sm"
+                                  aria-label={`Go to page ${totalParentPages}`}
+                                >
+                                  {totalParentPages}
+                                </PaginationLink>
                               </PaginationItem>
                             );
                           }
-                          pages.push(
-                            <PaginationItem key={totalPages}>
-                              <PaginationLink
-                                onClick={() => setCurrentPage(totalPages)}
-                                className="cursor-pointer"
-                              >
-                                {totalPages}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        }
+                          
+                          return pages;
+                        })()}
                         
-                        return pages;
-                      })()}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalParentPages))}
+                            className={`${currentPage === totalParentPages ? "pointer-events-none opacity-50" : "cursor-pointer"} text-xs sm:text-sm`}
+                            aria-label="Go to next page"
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                  
+                  {/* Mobile page indicator */}
+                  <div className="sm:hidden text-center text-xs text-muted-foreground">
+                    Page {currentPage} of {totalParentPages}
+                  </div>
                 </div>
               )}
             </>
@@ -503,6 +611,36 @@ const Inventory = () => {
       </Card>
 
       <StockAdjustmentDialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog} />
+      
+      {/* Image Preview Modal */}
+      {imagePreview && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setImagePreview(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+        >
+          <div 
+            className="relative max-w-2xl max-h-[90vh] bg-background rounded-lg overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setImagePreview(null)}
+              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background text-foreground rounded-full p-2 transition-colors"
+              aria-label="Close preview"
+            >
+              ×
+            </button>
+            <img 
+              src={imagePreview.url} 
+              alt={imagePreview.alt}
+              className="w-full h-full object-contain"
+              style={{ aspectRatio: 'auto' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
