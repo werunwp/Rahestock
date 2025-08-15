@@ -411,6 +411,19 @@ async function processImportInBackground(supabase: any, connection: any, importL
 
     console.log(`Import completed! Imported: ${importedCount}, Failed: ${failedCount}`);
 
+    // Update connection with total imported count
+    const { error: updateConnectionError } = await supabase
+      .from('woocommerce_connections')
+      .update({
+        last_import_at: new Date().toISOString(),
+        total_products_imported: importedCount
+      })
+      .eq('id', connection.id);
+
+    if (updateConnectionError) {
+      console.error('Failed to update connection stats:', updateConnectionError);
+    }
+
   } catch (error) {
     console.error('Background import process failed:', error);
     
@@ -540,7 +553,7 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
             // Import variations if they exist
             if (wcProduct.variations && wcProduct.variations.length > 0) {
               try {
-                await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, baseHeaders);
+                await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers);
               } catch (varError) {
                 console.error(`Failed to import variations for ${wcProduct.name}:`, varError);
                 // Don't fail the entire product for variation errors
@@ -620,7 +633,7 @@ async function importProductVariations(supabase: any, wcProduct: WooCommerceProd
             return acc;
           }, {}),
           woocommerce_id: variation.id,
-          woocommerce_connection_id: wcProduct.id, // Link to parent WC product
+          woocommerce_connection_id: wcProduct.woocommerce_connection_id || null, // Link to WooCommerce connection
           last_synced_at: new Date().toISOString(),
         };
 
