@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useProducts } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { useState, useMemo, useRef } from "react";
@@ -18,12 +19,20 @@ const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const itemsPerPage = 20;
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Pagination calculations
+  const totalProducts = filteredProducts.length;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   const totalStockValue = useMemo(() => {
     return products.reduce((total, product) => {
@@ -351,7 +360,10 @@ const Products = () => {
             placeholder="Search products..." 
             className="pl-9" 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
           />
         </div>
         <Button variant="outline">
@@ -374,10 +386,146 @@ const Products = () => {
               </CardContent>
             </Card>
           ))
+        ) : paginatedProducts.length === 0 ? (
+          <div className="col-span-full">
+            <Card>
+              <CardContent className="text-center py-12">
+                <Plus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground text-lg">No products found</p>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
-          filteredProducts.map((product) => <ProductCard key={product.id} product={product} onEdit={handleEdit} onDelete={handleDelete} onDuplicate={duplicateProduct.mutate} isDuplicating={duplicateProduct.isPending} isDeleting={deleteProduct.isPending} />)
+          paginatedProducts.map((product) => <ProductCard key={product.id} product={product} onEdit={handleEdit} onDelete={handleDelete} onDuplicate={duplicateProduct.mutate} isDuplicating={duplicateProduct.isPending} isDeleting={deleteProduct.isPending} />)
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalProducts)} of {totalProducts} items
+            </p>
+          </div>
+          <div className="flex-1 flex justify-center sm:justify-end">
+            <Pagination className="mx-0">
+              <PaginationContent className="flex-wrap gap-1">
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    className={`${currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="sm:hidden"
+                  >
+                    Prev
+                  </Button>
+                </PaginationItem>
+                
+                <div className="sm:hidden flex items-center px-3 py-2 text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+                
+                <div className="hidden sm:flex items-center gap-1">
+                  {(() => {
+                    const maxVisiblePages = 5;
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                    
+                    // Adjust start page if we're near the end
+                    if (endPage - startPage + 1 < maxVisiblePages) {
+                      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                    }
+                    
+                    const pages = [];
+                    
+                    // Add first page and ellipsis if needed
+                    if (startPage > 1) {
+                      pages.push(
+                        <PaginationItem key={1}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(1)}
+                            className={currentPage === 1 ? "bg-muted text-primary font-medium" : "cursor-pointer"}
+                          >
+                            1
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                      
+                      if (startPage > 2) {
+                        pages.push(
+                          <span key="ellipsis-start" className="flex h-9 w-9 items-center justify-center text-sm">
+                            ...
+                          </span>
+                        );
+                      }
+                    }
+                    
+                    // Add visible page numbers
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <PaginationItem key={i}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(i)}
+                            className={currentPage === i ? "bg-muted text-primary font-medium" : "cursor-pointer"}
+                          >
+                            {i}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    
+                    // Add ellipsis and last page if needed
+                    if (endPage < totalPages) {
+                      if (endPage < totalPages - 1) {
+                        pages.push(
+                          <span key="ellipsis-end" className="flex h-9 w-9 items-center justify-center text-sm">
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      pages.push(
+                        <PaginationItem key={totalPages}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(totalPages)}
+                            className={currentPage === totalPages ? "bg-muted text-primary font-medium" : "cursor-pointer"}
+                          >
+                            {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    
+                    return pages;
+                  })()}
+                </div>
+                
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    className={`${currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} hidden sm:flex`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="sm:hidden"
+                  >
+                    Next
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        </div>
+      )}
 
       <input
         type="file"
