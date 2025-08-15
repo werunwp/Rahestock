@@ -547,20 +547,6 @@ const Inventory = () => {
         )}
       </div>
 
-      {/* Debug Information - Remove this after fixing */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="text-sm text-yellow-800">Debug Info</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-yellow-700">
-            <p>Total products: {products?.length || 0}</p>
-            <p>Products with variants: {products?.filter(p => p.has_variants).length || 0}</p>
-            <p>Total variants: {allVariants?.length || 0}</p>
-            <p>Parent products created: {parentProducts?.length || 0}</p>
-          </CardContent>
-        </Card>
-      )}
 
       <StockAdjustmentDialog open={showAdjustmentDialog} onOpenChange={setShowAdjustmentDialog} />
       
