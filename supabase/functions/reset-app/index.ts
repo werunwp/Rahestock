@@ -45,6 +45,55 @@ Deno.serve(async (req) => {
 
     console.log(`Starting app reset initiated by user: ${user.id}`)
 
+    // First, identify the primary admin user (the one to keep)
+    const { data: adminUsers, error: adminError } = await supabase
+      .from('user_roles')
+      .select('user_id, created_at')
+      .eq('role', 'admin')
+      .order('created_at', { ascending: true })
+
+    if (adminError) {
+      throw new Error(`Failed to identify admin users: ${adminError.message}`)
+    }
+
+    // Keep the first created admin user
+    const primaryAdminId = adminUsers?.[0]?.user_id
+    if (!primaryAdminId) {
+      throw new Error('No admin user found to preserve during reset')
+    }
+
+    console.log(`Primary admin to preserve: ${primaryAdminId}`)
+
+    // Delete all non-admin users from auth.users
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+
+    const { data: allUsers, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers()
+    if (listUsersError) {
+      throw new Error(`Failed to list users: ${listUsersError.message}`)
+    }
+
+    let deletedUsersCount = 0
+    const usersToDelete = allUsers.users.filter(u => u.id !== primaryAdminId)
+    
+    for (const userToDelete of usersToDelete) {
+      try {
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userToDelete.id)
+        if (deleteError) {
+          console.error(`Failed to delete user ${userToDelete.id}:`, deleteError)
+        } else {
+          deletedUsersCount++
+          console.log(`Deleted user: ${userToDelete.id}`)
+        }
+      } catch (error) {
+        console.error(`Error deleting user ${userToDelete.id}:`, error)
+      }
+    }
+
     // List of all tables to reset (in dependency order)
     const tablesToReset = [
       'sales_items',
@@ -60,13 +109,12 @@ Deno.serve(async (req) => {
       'dismissed_alerts',
       'user_preferences',
       'business_settings',
-      'system_settings',
-      'user_roles',
-      'profiles'
+      'system_settings'
+      // Note: user_roles and profiles will be cleaned up by CASCADE when users are deleted
     ]
 
-    let deletedCounts: Record<string, number> = {}
-    let totalDeleted = 0
+    let deletedCounts: Record<string, number> = { users: deletedUsersCount }
+    let totalDeleted = deletedUsersCount
 
     // Delete records from each table
     for (const table of tablesToReset) {
