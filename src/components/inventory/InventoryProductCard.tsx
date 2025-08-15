@@ -30,50 +30,48 @@ interface InventoryProductCardProps {
 }
 
 export const InventoryProductCard = ({ product, onImageClick }: InventoryProductCardProps) => {
-  const { formatAmount } = useCurrency();
-
-  const getStockStatus = (stock: number, threshold: number | null) => {
-    if (stock <= 0) return { status: "Out of Stock", variant: "destructive" as const };
-    if (threshold && stock <= threshold) return { status: "Low Stock", variant: "secondary" as const };
-    return { status: "In Stock", variant: "default" as const };
-  };
-
   // For simple products (no variants)
   if (product.type === 'product') {
-    const stockInfo = getStockStatus(product.stock_quantity || 0, product.low_stock_threshold);
-    
     return (
       <Card className="w-full">
-        <CardHeader>
-          <div className="flex items-start gap-4">
+        <CardContent className="p-4">
+          <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+          {product.sku && (
+            <p className="text-muted-foreground text-sm mb-4">{product.sku}</p>
+          )}
+          
+          <div className="flex gap-4 mb-4">
             {product.image_url ? (
               <img 
                 src={product.image_url} 
                 alt={product.name}
-                className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+                className="w-20 h-20 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
                 onClick={() => onImageClick(product.image_url!)}
                 loading="lazy"
               />
             ) : (
-              <div className="w-16 h-16 bg-muted flex items-center justify-center rounded">
+              <div className="w-20 h-20 bg-muted flex items-center justify-center rounded">
                 <Archive className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
+            
             <div className="flex-1">
-              <CardTitle className="text-lg">{product.name}</CardTitle>
-              {product.sku && (
-                <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-sm font-medium">Stock: {product.stock_quantity}</span>
-                <Badge variant={stockInfo.variant}>{stockInfo.status}</Badge>
-              </div>
+              <p className="text-lg font-semibold mb-1">Total Stock: {product.stock_quantity}</p>
+              <p className="text-muted-foreground text-sm">1 variant</p>
             </div>
-            <Button variant="ghost" size="sm">
-              <Eye className="h-4 w-4" />
-            </Button>
           </div>
-        </CardHeader>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Stock</span>
+              <span className="text-muted-foreground">Stock</span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-t">
+              <span className="text-sm">Simple Product</span>
+              <span className="font-medium">{product.stock_quantity}</span>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     );
   }
@@ -81,76 +79,51 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
   // For products with variants
   const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock_quantity, 0);
   
-  // Get unique attribute keys from all variants
-  const attributeKeys = Array.from(
-    new Set(
-      product.variants.flatMap(variant => Object.keys(variant.attributes))
-    )
-  );
+  // Get the first attribute key (like "Size", "Color", etc.)
+  const firstAttributeKey = product.variants.length > 0 ? Object.keys(product.variants[0].attributes)[0] : '';
   
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-start gap-4">
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+        {product.sku && (
+          <p className="text-muted-foreground text-sm mb-4">{product.sku}</p>
+        )}
+        
+        <div className="flex gap-4 mb-4">
           {product.image_url ? (
             <img 
               src={product.image_url} 
               alt={product.name}
-              className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+              className="w-20 h-20 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
               onClick={() => onImageClick(product.image_url!)}
               loading="lazy"
             />
           ) : (
-            <div className="w-16 h-16 bg-muted flex items-center justify-center rounded">
+            <div className="w-20 h-20 bg-muted flex items-center justify-center rounded">
               <Archive className="h-8 w-8 text-muted-foreground" />
             </div>
           )}
+          
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">{product.name}</CardTitle>
-              <Badge variant="outline" className="text-xs">Variable Product</Badge>
-            </div>
-            {product.sku && (
-              <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm font-medium">Total Stock: {totalStock}</span>
-              <span className="text-sm text-muted-foreground">{product.variants.length} variants</span>
-            </div>
+            <p className="text-lg font-semibold mb-1">Total Stock: {totalStock}</p>
+            <p className="text-muted-foreground text-sm">{product.variants.length} variants</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {attributeKeys.map(key => (
-                <TableHead key={key}>{key}</TableHead>
-              ))}
-              <TableHead>Stock</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {product.variants.map((variant) => {
-              const stockInfo = getStockStatus(variant.stock_quantity, variant.low_stock_threshold);
-              
-              return (
-                <TableRow key={variant.id}>
-                  {attributeKeys.map(key => (
-                    <TableCell key={key}>
-                      <Badge variant="outline" className="text-xs">
-                        {variant.attributes[key] || '-'}
-                      </Badge>
-                    </TableCell>
-                  ))}
-                  <TableCell>
-                    <span className="font-medium">{variant.stock_quantity}</span>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Select {firstAttributeKey}:</span>
+            <span className="text-muted-foreground">Stock</span>
+          </div>
+          
+          {product.variants.map((variant) => (
+            <div key={variant.id} className="flex justify-between items-center py-2 border-t">
+              <span className="text-sm">{Object.values(variant.attributes)[0]}</span>
+              <span className="font-medium">{variant.stock_quantity}</span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
