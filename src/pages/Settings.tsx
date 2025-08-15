@@ -17,6 +17,7 @@ import { NotificationsTab } from "@/components/NotificationsTab";
 import { SecurityTab } from "@/components/SecurityTab";
 import { AppearanceTab } from "@/components/AppearanceTab";
 import { DataBackupControls } from "@/components/DataBackupControls";
+import { WooCommerceImport } from "@/components/WooCommerceImport";
 
 const Settings = () => {
   const { businessSettings, updateBusinessSettings, isUpdating } = useBusinessSettings();
@@ -368,6 +369,8 @@ const Settings = () => {
           </Card>
           
           <DataBackupControls />
+          
+          <WooCommerceImport />
         </TabsContent>
       </Tabs>
     </div>

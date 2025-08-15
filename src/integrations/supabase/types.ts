@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -635,6 +635,95 @@ export type Database = {
         }
         Relationships: []
       }
+      woocommerce_connections: {
+        Row: {
+          consumer_key: string
+          consumer_secret: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_import_at: string | null
+          site_name: string
+          site_url: string
+          total_products_imported: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consumer_key: string
+          consumer_secret: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_import_at?: string | null
+          site_name: string
+          site_url: string
+          total_products_imported?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consumer_key?: string
+          consumer_secret?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_import_at?: string | null
+          site_name?: string
+          site_url?: string
+          total_products_imported?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      woocommerce_import_logs: {
+        Row: {
+          completed_at: string | null
+          connection_id: string
+          created_at: string
+          error_message: string | null
+          failed_products: number | null
+          id: string
+          imported_products: number | null
+          started_at: string
+          status: string
+          total_products: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          connection_id: string
+          created_at?: string
+          error_message?: string | null
+          failed_products?: number | null
+          id?: string
+          imported_products?: number | null
+          started_at?: string
+          status: string
+          total_products?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          connection_id?: string
+          created_at?: string
+          error_message?: string | null
+          failed_products?: number | null
+          id?: string
+          imported_products?: number | null
+          started_at?: string
+          status?: string
+          total_products?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "woocommerce_import_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -654,8 +743,8 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
         }
         Returns: boolean
       }
