@@ -119,17 +119,38 @@ serve(async (req) => {
 
     // Get auth header
     const authHeader = req.headers.get('Authorization')
+    console.log('Auth header present:', !!authHeader);
     if (!authHeader) {
       console.error('Missing authorization header');
-      throw new Error('Missing authorization header')
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Missing authorization header',
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     // Set auth context with proper token extraction
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    console.log('User auth result:', { user: !!user, error: authError?.message });
 
     if (authError || !user) {
-      throw new Error('Unauthorized')
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Unauthorized: ' + (authError?.message || 'Invalid user'),
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     const orderData: PathaoOrderRequest = await req.json()

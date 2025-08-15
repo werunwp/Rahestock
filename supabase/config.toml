@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.stop-sync]
 verify_jwt = true
+
+[functions.pathao-order]
+verify_jwt = true

@@ -124,8 +124,12 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
       }
 
       // Call edge function to submit to Pathao
+      console.log('Calling pathao-order function with data:', orderData);
       const { data, error } = await supabase.functions.invoke('pathao-order', {
         body: orderData,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
