@@ -118,10 +118,7 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
           <TableHeader>
             <TableRow>
               <TableHead>Attributes</TableHead>
-              <TableHead>SKU</TableHead>
               <TableHead>Stock</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,24 +131,13 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
                     <div className="flex flex-wrap gap-1">
                       {Object.entries(variant.attributes).map(([key, value]) => (
                         <Badge key={key} variant="outline" className="text-xs">
-                          {key}: {value}
+                          {value}
                         </Badge>
                       ))}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-sm">{variant.sku || '-'}</span>
-                  </TableCell>
-                  <TableCell>
                     <span className="font-medium">{variant.stock_quantity}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={stockInfo.variant}>{stockInfo.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               );
