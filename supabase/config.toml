@@ -29,3 +29,9 @@ verify_jwt = true
 
 [functions.woocommerce-sync]
 verify_jwt = true
+
+[functions.stop-import]
+verify_jwt = true
+
+[functions.stop-sync]
+verify_jwt = true

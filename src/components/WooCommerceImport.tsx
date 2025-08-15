@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Trash2, Download, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Trash2, Download, AlertCircle, CheckCircle, Clock, X } from "lucide-react";
 import { useWooCommerceConnections, useImportLogs } from "@/hooks/useWooCommerceConnections";
 import { WooCommerceLiveSync } from "@/components/WooCommerceLiveSync";
+import { useStopImport } from "@/hooks/useStopImport";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,
@@ -49,6 +50,7 @@ export const WooCommerceImport = () => {
   } = useWooCommerceConnections();
 
   const { data: importLogs } = useImportLogs();
+  const { stopImport, isStopping } = useStopImport();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +109,7 @@ export const WooCommerceImport = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="site_name">Site Name</Label>
                 <Input
@@ -129,7 +131,7 @@ export const WooCommerceImport = () => {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="consumer_key">Consumer Key</Label>
                 <Input
@@ -152,7 +154,7 @@ export const WooCommerceImport = () => {
                 />
               </div>
             </div>
-            <Button type="submit" disabled={isCreating}>
+            <Button type="submit" disabled={isCreating} className="w-full sm:w-auto">
               {isCreating ? "Adding..." : "Add WooCommerce Site"}
             </Button>
           </form>
@@ -168,16 +170,16 @@ export const WooCommerceImport = () => {
                   return (
                     <Card key={connection.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-medium">{connection.site_name}</h4>
                               <Badge variant={connection.is_active ? "default" : "secondary"}>
                                 {connection.is_active ? "Active" : "Inactive"}
                               </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground">{connection.site_url}</p>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <p className="text-sm text-muted-foreground break-words">{connection.site_url}</p>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span>{connection.total_products_imported} products imported</span>
                               {connection.last_import_at && (
                                 <span>
@@ -186,18 +188,19 @@ export const WooCommerceImport = () => {
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
                             <Button
                               onClick={() => startImport(connection.id)}
                               disabled={isImporting || latestLog?.status === 'in_progress'}
                               size="sm"
+                              className="w-full sm:w-auto"
                             >
                               <Download className="h-4 w-4 mr-1" />
                               {latestLog?.status === 'in_progress' ? 'Importing...' : 'Import'}
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" disabled={isDeleting}>
+                                <Button variant="outline" size="sm" disabled={isDeleting} className="w-full sm:w-auto">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -220,13 +223,28 @@ export const WooCommerceImport = () => {
                         </div>
                         
                         {latestLog && (
-                          <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              {getStatusIcon(latestLog.status)}
-                              <span className="text-sm font-medium">Latest Import</span>
-                              <Badge className={getStatusColor(latestLog.status)}>
-                                {latestLog.status.replace('_', ' ')}
-                              </Badge>
+                          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(latestLog.status)}
+                                <span className="text-sm font-medium">Latest Import</span>
+                                <Badge className={getStatusColor(latestLog.status)}>
+                                  {latestLog.status.replace('_', ' ')}
+                                </Badge>
+                              </div>
+                              
+                              {latestLog.status === 'in_progress' && (
+                                <Button
+                                  onClick={() => stopImport(latestLog.id)}
+                                  disabled={isStopping}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  {isStopping ? "Stopping..." : "Stop Import"}
+                                </Button>
+                              )}
                             </div>
                             
                             {latestLog.status === 'in_progress' && latestLog.progress_message && (

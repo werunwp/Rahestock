@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { RotateCw, Clock, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { RotateCw, Clock, RefreshCw, AlertCircle, CheckCircle, X } from "lucide-react";
 import { useLiveSyncSettings, useSyncLogs, useManualSync } from "@/hooks/useWooCommerceLiveSync";
+import { useStopSync } from "@/hooks/useStopSync";
 import { formatDistanceToNow } from "date-fns";
 
 interface WooCommerceLiveSyncProps {
@@ -33,6 +34,7 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
 
   const { data: syncLogs } = useSyncLogs(connectionId);
   const { startSync, isSyncing } = useManualSync();
+  const { stopSync, isStopping } = useStopSync();
 
   const handleSaveSettings = () => {
     const intervalInMinutes = syncIntervalUnit === 'hours' 
@@ -111,28 +113,26 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <RotateCw className="h-5 w-5" />
-          Live Sync Products - {siteName}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="mt-4 p-4 bg-muted/30 rounded-lg border">
+      <h4 className="text-base font-medium mb-4 flex items-center gap-2">
+        <RotateCw className="h-4 w-4" />
+        Live Sync Products
+      </h4>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="sync-interval">Sync Interval</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 id="sync-interval"
                 type="number"
                 min="1"
                 value={syncInterval}
                 onChange={(e) => setSyncInterval(parseInt(e.target.value) || 1)}
-                className="w-24"
+                className="flex-1 min-w-16"
               />
               <Select value={syncIntervalUnit} onValueChange={(value: 'minutes' | 'hours' | 'days') => setSyncIntervalUnit(value)}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="flex-1 min-w-24">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -156,7 +156,7 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <Label htmlFor="active-sync">Enable Live Sync</Label>
             <p className="text-sm text-muted-foreground">
@@ -170,11 +170,11 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button 
             onClick={handleSaveSettings} 
             disabled={isCreating || isUpdating}
-            className="flex-1"
+            className="flex-1 sm:flex-initial"
           >
             {isCreating || isUpdating ? "Saving..." : "Save Sync Settings"}
           </Button>
@@ -182,6 +182,7 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
             onClick={handleManualSync} 
             disabled={isSyncing}
             variant="outline"
+            className="sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? "Syncing..." : "Sync Now"}
@@ -191,15 +192,15 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
         <Separator />
 
         <div className="space-y-4">
-          <h4 className="font-medium">Recent Sync History</h4>
+          <h5 className="font-medium text-sm">Recent Sync History</h5>
           {syncLogs && syncLogs.length > 0 ? (
             <div className="space-y-3">
               {syncLogs.slice(0, 5).map((log) => (
-                <div key={log.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-3">
                   <div className="flex items-center gap-3">
                     {getStatusIcon(log.status)}
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge className={getStatusColor(log.status)}>
                           {log.status.replace('_', ' ')}
                         </Badge>
@@ -212,19 +213,33 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
                       </p>
                     </div>
                   </div>
-                  <div className="text-right text-sm">
-                    {log.status === 'completed' && (
-                      <div className="space-y-1">
-                        <p className="text-green-600">
-                          {log.products_created} created, {log.products_updated} updated
-                        </p>
-                        {log.products_failed > 0 && (
-                          <p className="text-red-600">{log.products_failed} failed</p>
-                        )}
-                      </div>
-                    )}
-                    {log.status === 'failed' && log.error_message && (
-                      <p className="text-red-600 max-w-xs truncate">{log.error_message}</p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="text-right text-sm min-w-fit">
+                      {log.status === 'completed' && (
+                        <div className="space-y-1">
+                          <p className="text-green-600">
+                            {log.products_created} created, {log.products_updated} updated
+                          </p>
+                          {log.products_failed > 0 && (
+                            <p className="text-red-600">{log.products_failed} failed</p>
+                          )}
+                        </div>
+                      )}
+                      {log.status === 'failed' && log.error_message && (
+                        <p className="text-red-600 text-xs break-words">{log.error_message}</p>
+                      )}
+                    </div>
+                    {log.status === 'in_progress' && (
+                      <Button
+                        onClick={() => stopSync(log.id)}
+                        disabled={isStopping}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 shrink-0"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        {isStopping ? "Stopping..." : "Stop Sync"}
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -234,7 +249,7 @@ export const WooCommerceLiveSync = ({ connectionId, siteName }: WooCommerceLiveS
             <p className="text-muted-foreground text-center py-4">No sync history available</p>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
