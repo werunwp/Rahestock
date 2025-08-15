@@ -102,6 +102,9 @@ const Inventory = () => {
     console.log("Products with variants:", productsWithVariants);
     
     const variantsByProduct = new Map();
+    console.log("AllVariants received:", allVariants);
+    console.log("AllVariants length:", allVariants?.length || 0);
+    
     if (allVariants && Array.isArray(allVariants)) {
       allVariants.forEach(variant => {
         const productId = variant.product_id;
@@ -113,9 +116,12 @@ const Inventory = () => {
     }
     
     console.log("Variants grouped by product:", variantsByProduct);
+    console.log("Number of products with variants:", variantsByProduct.size);
     
     productsWithVariants.forEach(product => {
       const productVariants = variantsByProduct.get(product.id) || [];
+      console.log(`Product ${product.name} (${product.id}) has ${productVariants.length} variants in Map`);
+      console.log(`All variants in Map:`, Array.from(variantsByProduct.keys()));
       
       // Use actual variants from database, no fallback logic needed
       let processedVariants = productVariants;
