@@ -43,60 +43,93 @@ const Inventory = () => {
     enabled: !!user,
   });
 
-  // Create combined inventory items (products + variants)
+  // Create grouped inventory items (products with their variants)
   const inventoryItems = useMemo(() => {
-    const items: any[] = [];
+    const groupedItems: any[] = [];
     
-    // Add products
+    // Add products without variants
     products.forEach(product => {
       if (!product.has_variants) {
-        items.push({
+        groupedItems.push({
           id: product.id,
           type: 'product',
           name: product.name,
           sku: product.sku,
           stock_quantity: product.stock_quantity,
           low_stock_threshold: product.low_stock_threshold,
-          updated_at: product.updated_at,
-          variant_info: null,
-          image_url: product.image_url
+          image_url: product.image_url,
+          variants: []
         });
       }
     });
     
-    // Add variants
+    // Group variants by product
+    const variantsByProduct = new Map();
     allVariants.forEach(variant => {
-      const variantDisplay = Object.entries(variant.attributes)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
-      
-      items.push({
-        id: variant.id,
-        type: 'variant',
-        name: variant.products.name,
-        sku: variant.sku || variant.products.sku,
-        stock_quantity: variant.stock_quantity,
-        low_stock_threshold: variant.low_stock_threshold,
-        updated_at: variant.updated_at,
-        variant_info: variantDisplay,
-        image_url: variant.image_url || variant.products.image_url
-      });
+      const productId = variant.product_id;
+      if (!variantsByProduct.has(productId)) {
+        variantsByProduct.set(productId, []);
+      }
+      variantsByProduct.get(productId).push(variant);
     });
     
-    return items;
+    // Add products with variants
+    products.forEach(product => {
+      if (product.has_variants) {
+        const productVariants = variantsByProduct.get(product.id) || [];
+        groupedItems.push({
+          id: product.id,
+          type: 'product_with_variants',
+          name: product.name,
+          sku: product.sku,
+          image_url: product.image_url,
+          variants: productVariants.map(variant => {
+            const variantDisplay = Object.entries(variant.attributes)
+              .map(([key, value]) => value) // Remove key prefix, just show values
+              .join(', ');
+            
+            return {
+              id: variant.id,
+              label: variantDisplay,
+              sku: variant.sku || product.sku,
+              stock_quantity: variant.stock_quantity,
+              low_stock_threshold: variant.low_stock_threshold,
+              image_url: variant.image_url
+            };
+          })
+        });
+      }
+    });
+    
+    return groupedItems;
   }, [products, allVariants]);
 
   const filteredItems = inventoryItems.filter(item => {
-    // Enhanced text search filter - search by name, stock quantity, or SKU
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (item.variant_info && item.variant_info.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      item.stock_quantity.toString().includes(searchTerm);
+    // Enhanced text search filter - search by name, SKU, or variants
+    const searchLower = searchTerm.toLowerCase();
+    const nameMatch = item.name.toLowerCase().includes(searchLower);
+    const skuMatch = item.sku && item.sku.toLowerCase().includes(searchLower);
+    const variantMatch = item.variants?.some((variant: any) => 
+      variant.label.toLowerCase().includes(searchLower) ||
+      variant.sku.toLowerCase().includes(searchLower) ||
+      variant.stock_quantity.toString().includes(searchTerm)
+    );
+    const stockMatch = item.stock_quantity && item.stock_quantity.toString().includes(searchTerm);
     
-    // Stock filter
-    const matchesStock = stockFilter === "all" || 
-      (stockFilter === "in_stock" && item.stock_quantity > 0) ||
-      (stockFilter === "out_of_stock" && item.stock_quantity === 0);
+    const matchesSearch = nameMatch || skuMatch || variantMatch || stockMatch;
+    
+    // Stock filter - check product and variants
+    let matchesStock = false;
+    if (stockFilter === "all") {
+      matchesStock = true;
+    } else if (item.type === "product") {
+      matchesStock = stockFilter === "in_stock" ? item.stock_quantity > 0 : item.stock_quantity === 0;
+    } else {
+      // For products with variants, check if any variant matches the filter
+      matchesStock = item.variants?.some((variant: any) => 
+        stockFilter === "in_stock" ? variant.stock_quantity > 0 : variant.stock_quantity === 0
+      );
+    }
     
     return matchesSearch && matchesStock;
   });
@@ -107,9 +140,15 @@ const Inventory = () => {
   const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
   // Check if there are any low stock items
-  const hasLowStockItems = inventoryItems.some(item => 
-    item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0
-  );
+  const hasLowStockItems = inventoryItems.some(item => {
+    if (item.type === "product") {
+      return item.stock_quantity <= (item.low_stock_threshold || 0) && item.stock_quantity > 0;
+    } else {
+      return item.variants?.some((variant: any) => 
+        variant.stock_quantity <= (variant.low_stock_threshold || 0) && variant.stock_quantity > 0
+      );
+    }
+  });
 
   const totalProducts = products.length;
   const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold);
@@ -254,7 +293,6 @@ const Inventory = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead>Variant</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Current Stock</TableHead>
                     <TableHead>Status</TableHead>
@@ -263,60 +301,116 @@ const Inventory = () => {
                 <TableBody>
                   {paginatedItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
                         No inventory items found
                       </TableCell>
                     </TableRow>
                   ) : (
                     paginatedItems.map((item) => {
-                      const status = item.stock_quantity === 0 
-                        ? "Out of Stock" 
-                        : item.stock_quantity <= (item.low_stock_threshold || 0)
-                          ? "Low Stock" 
-                          : "In Stock";
-                      
-                      return (
-                        <TableRow key={`${item.type}-${item.id}`}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-3">
-                              {item.image_url ? (
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.name}
-                                  className="h-10 w-10 rounded-md object-cover"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                                  <Archive className="h-4 w-4 text-muted-foreground" />
+                      if (item.type === "product") {
+                        // Single product without variants
+                        const status = item.stock_quantity === 0 
+                          ? "Out of Stock" 
+                          : item.stock_quantity <= (item.low_stock_threshold || 0)
+                            ? "Low Stock" 
+                            : "In Stock";
+                        
+                        return (
+                          <TableRow key={`product-${item.id}`}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-start gap-3">
+                                {item.image_url ? (
+                                  <img 
+                                    src={item.image_url} 
+                                    alt={item.name}
+                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                    <Archive className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-medium">{item.name}</div>
                                 </div>
-                              )}
-                              <span>{item.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {item.variant_info ? (
-                              <Badge variant="outline" className="text-xs">
-                                {item.variant_info}
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.sku || "-"}</TableCell>
+                            <TableCell>{item.stock_quantity}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={
+                                  status === "In Stock" ? "default" : 
+                                  status === "Low Stock" ? "secondary" : 
+                                  "destructive"
+                                }
+                              >
+                                {status}
                               </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{item.sku || "-"}</TableCell>
-                          <TableCell>{item.stock_quantity}</TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={
-                                status === "In Stock" ? "default" : 
-                                status === "Low Stock" ? "secondary" : 
-                                "destructive"
-                              }
-                            >
-                              {status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
+                            </TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        // Product with variants
+                        return (
+                          <TableRow key={`product-variants-${item.id}`}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-start gap-3">
+                                {item.image_url ? (
+                                  <img 
+                                    src={item.image_url} 
+                                    alt={item.name}
+                                    className="h-10 w-10 rounded-md object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                    <Archive className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="space-y-1">
+                                  <div className="font-medium">{item.name}</div>
+                                  {item.variants?.map((variant: any) => {
+                                    const variantStatus = variant.stock_quantity === 0 
+                                      ? "Out of Stock" 
+                                      : variant.stock_quantity <= (variant.low_stock_threshold || 0)
+                                        ? "Low Stock" 
+                                        : "In Stock";
+                                    
+                                    return (
+                                      <div key={variant.id} className="pl-4 border-l-2 border-muted flex items-center gap-4 text-sm">
+                                        <div className="flex-1">
+                                          <span className="text-muted-foreground">{variant.label}</span>
+                                        </div>
+                                        <div className="text-muted-foreground min-w-[80px]">
+                                          {variant.sku || "-"}
+                                        </div>
+                                        <div className="min-w-[60px]">
+                                          {variant.stock_quantity}
+                                        </div>
+                                        <div className="min-w-[100px]">
+                                          <Badge 
+                                            variant={
+                                              variantStatus === "In Stock" ? "default" : 
+                                              variantStatus === "Low Stock" ? "secondary" : 
+                                              "destructive"
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {variantStatus}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>-</TableCell>
+                            <TableCell>-</TableCell>
+                            <TableCell>-</TableCell>
+                          </TableRow>
+                        );
+                      }
                     })
                   )}
                 </TableBody>
