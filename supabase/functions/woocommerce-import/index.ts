@@ -363,15 +363,49 @@ async function importProducts(connection: any, importLogId: string) {
               continue;
             }
 
-            // Check if product already exists
+            // Check if product already exists and compare for changes
             const { data: existingProduct } = await supabase
               .from('products')
-              .select('id')
+              .select('id, name, rate, stock_quantity, last_synced_at, woocommerce_id, sku')
               .or(`sku.eq.${wcProduct.sku || `wc_${wcProduct.id}`},woocommerce_id.eq.${wcProduct.id}`)
               .maybeSingle();
 
             if (existingProduct) {
-              console.log(`Product ${wcProduct.name} already exists, skipping`);
+              // Check if product needs updating
+              const currentPrice = parseFloat(wcProduct.price) || 0;
+              const currentStock = wcProduct.manage_stock ? (wcProduct.stock_quantity || 0) : 999;
+              
+              const hasChanges = 
+                existingProduct.name !== wcProduct.name ||
+                Math.abs(existingProduct.rate - currentPrice) > 0.01 ||
+                existingProduct.stock_quantity !== currentStock;
+
+              if (!hasChanges) {
+                console.log(`Product ${wcProduct.name} unchanged, skipping`);
+                importedCount++; // Count as processed
+                continue;
+              }
+
+              // Update existing product with changes
+              console.log(`Updating product ${wcProduct.name} with changes`);
+              const { error: updateError } = await supabase
+                .from('products')
+                .update({
+                  name: wcProduct.name || `Product ${wcProduct.id}`,
+                  rate: currentPrice,
+                  stock_quantity: currentStock,
+                  image_url: wcProduct.images && wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
+                  last_synced_at: new Date().toISOString(),
+                })
+                .eq('id', existingProduct.id);
+
+              if (updateError) {
+                console.error(`Failed to update product ${wcProduct.name}:`, updateError.message);
+                failedCount++;
+              } else {
+                importedCount++;
+                console.log(`Successfully updated product: ${wcProduct.name}`);
+              }
               continue;
             }
 
@@ -488,7 +522,18 @@ async function importProducts(connection: any, importLogId: string) {
       })
       .eq('id', connection.id);
 
-    // Mark import as completed
+    // Final progress update to ensure 100% completion
+    await supabase
+      .from('woocommerce_import_logs')
+      .update({
+        imported_products: importedCount,
+        failed_products: failedCount,
+        current_page: totalPages,
+        progress_message: `Finalizing import... Processed: ${importedCount + failedCount}/${totalProducts}`
+      })
+      .eq('id', importLogId);
+
+    // Mark import as completed with final status
     await supabase
       .from('woocommerce_import_logs')
       .update({
@@ -496,7 +541,7 @@ async function importProducts(connection: any, importLogId: string) {
         imported_products: importedCount,
         failed_products: failedCount,
         completed_at: new Date().toISOString(),
-        progress_message: `Import completed! Imported: ${importedCount}, Failed: ${failedCount}`,
+        progress_message: `Import Complete! Successfully processed ${importedCount} products${failedCount > 0 ? ` (${failedCount} failed)` : ''}`,
         current_page: totalPages
       })
       .eq('id', importLogId);

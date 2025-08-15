@@ -32,6 +32,8 @@ export interface ImportLog {
   total_products: number;
   imported_products: number;
   failed_products: number;
+  current_page?: number;
+  total_pages?: number;
   error_message?: string;
   progress_message?: string;
   started_at: string;

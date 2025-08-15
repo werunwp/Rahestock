@@ -254,11 +254,15 @@ export const WooCommerceImport = () => {
                             {latestLog.status === 'in_progress' && (
                               <div className="space-y-2">
                                 <Progress 
-                                  value={latestLog.total_products > 0 ? (latestLog.imported_products / latestLog.total_products) * 100 : 0} 
+                                  value={latestLog.total_products > 0 ? 
+                                    ((latestLog.imported_products + latestLog.failed_products) / latestLog.total_products) * 100 : 0} 
                                   className="h-2"
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                  {latestLog.imported_products} of {latestLog.total_products} products imported
+                                  {latestLog.imported_products + latestLog.failed_products} of {latestLog.total_products} products processed
+                                  {latestLog.current_page && latestLog.total_pages && 
+                                    ` (Page ${latestLog.current_page}/${latestLog.total_pages})`
+                                  }
                                 </p>
                               </div>
                             )}
