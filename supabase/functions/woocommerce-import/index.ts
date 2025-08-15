@@ -518,12 +518,17 @@ async function procesProductBatch(supabase: any, products: WooCommerceProduct[],
         return { success: 0, failed: 1 };
       }
 
-      console.log(`Successfully imported product: ${wcProduct.name} (${newProduct.id})`);
+            console.log(`Successfully imported product: ${wcProduct.name} (${newProduct.id})`);
 
-      // Import variations if they exist
-      if (wcProduct.variations && wcProduct.variations.length > 0) {
-        await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, headers);
-      }
+            // Import variations if they exist
+            if (wcProduct.variations && wcProduct.variations.length > 0) {
+              try {
+                await importProductVariations(supabase, wcProduct, newProduct.id, apiUrl, baseHeaders);
+              } catch (varError) {
+                console.error(`Failed to import variations for ${wcProduct.name}:`, varError);
+                // Don't fail the entire product for variation errors
+              }
+            }
 
       return { success: 1, failed: 0 };
 
