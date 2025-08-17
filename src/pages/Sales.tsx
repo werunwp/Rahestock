@@ -45,6 +45,7 @@ export default function Sales() {
   const [courierSaleId, setCourierSaleId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
+  const [refreshingIndividual, setRefreshingIndividual] = useState<string | null>(null);
   
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
@@ -76,6 +77,7 @@ export default function Sales() {
   }, [refetch]);
 
   const handleStatusRefresh = async (saleId: string, consignmentId: string, showToast = true) => {
+    setRefreshingIndividual(saleId);
     try {
       // Use Supabase edge function for status check with auth headers
       const { data, error } = await supabase.functions.invoke('courier-status-check', {
@@ -137,6 +139,8 @@ export default function Sales() {
       if (showToast) toast.error("Failed to refresh order status");
       console.error("Error refreshing status:", error);
       return false;
+    } finally {
+      setRefreshingIndividual(null);
     }
   };
 
@@ -402,15 +406,15 @@ export default function Sales() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {sale.consignment_id ? (
-                           <Button
+                           {sale.consignment_id ? (
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleStatusRefresh(sale.id, sale.consignment_id!, true)}
-                              disabled={isRefreshingStatuses}
+                              disabled={isRefreshingStatuses || refreshingIndividual === sale.id}
                               title="Refresh order status"
                             >
-                              <RefreshCw className={cn("h-4 w-4", isRefreshingStatuses && "animate-spin")} />
+                              <RefreshCw className={cn("h-4 w-4", (isRefreshingStatuses || refreshingIndividual === sale.id) && "animate-spin")} />
                             </Button>
                           ) : (
                             <Button
