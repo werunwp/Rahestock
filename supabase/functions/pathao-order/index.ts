@@ -84,18 +84,25 @@ async function getAccessToken(settings: PathaoSettings, supabaseClient: any): Pr
   expiresAt.setSeconds(expiresAt.getSeconds() + (tokenData.expires_in || 432000));
 
   // Update settings in database
-  const { error: updateError } = await supabaseClient
+  const { data: existingSettings } = await supabaseClient
     .from('pathao_settings')
-    .update({
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      token_expires_at: expiresAt.toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', (await supabaseClient.from('pathao_settings').select('id').limit(1).single()).data?.id);
+    .select('id')
+    .maybeSingle();
 
-  if (updateError) {
-    console.error('Failed to update token in database:', updateError);
+  if (existingSettings?.id) {
+    const { error: updateError } = await supabaseClient
+      .from('pathao_settings')
+      .update({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_expires_at: expiresAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingSettings.id);
+
+    if (updateError) {
+      console.error('Failed to update token in database:', updateError);
+    }
   }
 
   return tokenData.access_token;
@@ -160,15 +167,28 @@ serve(async (req) => {
     const { data: pathaoSettings, error: settingsError } = await supabaseClient
       .from('pathao_settings')
       .select('*')
-      .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (settingsError || !pathaoSettings) {
-      console.error('Pathao settings error:', settingsError);
+    if (settingsError) {
+      console.error('Database error while fetching Pathao settings:', settingsError);
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Pathao settings not configured. Please configure your Pathao credentials in System Settings.',
+          message: 'Error accessing Pathao settings. Please try again.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    if (!pathaoSettings) {
+      console.error('No Pathao settings found in database');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Pathao settings not configured. Please configure your Pathao credentials in Settings → System Settings → Pathao Settings first.',
         }),
         {
           status: 400,
