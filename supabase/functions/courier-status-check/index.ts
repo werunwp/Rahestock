@@ -95,7 +95,7 @@ serve(async (req) => {
     if (webhookSettings.auth_username && webhookSettings.auth_password) {
       const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
       webhookHeaders['Authorization'] = `Basic ${credentials}`;
-      console.log('Added basic auth header');
+      console.log('Added basic auth credentials for status check');
     }
 
     // Send status check request to the configured webhook
