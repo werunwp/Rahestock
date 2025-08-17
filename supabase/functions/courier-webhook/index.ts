@@ -156,12 +156,36 @@ serve(async (req) => {
     // Log the successful order submission
     console.log('Order sent to courier webhook successfully:', webhookResult)
 
+    // Extract consignment_id from webhook response if available
+    const consignmentId = webhookResult?.pathao_order_id || webhookResult?.consignment_id || webhookResult?.tracking_id;
+    
+    // Update the sale with consignment_id if provided
+    if (consignmentId && orderData.sale_id) {
+      console.log('Updating sale with consignment_id:', consignmentId);
+      const { error: updateError } = await supabaseClient
+        .from('sales')
+        .update({ 
+          consignment_id: consignmentId,
+          order_status: 'pending',
+          last_status_check: new Date().toISOString()
+        })
+        .eq('id', orderData.sale_id);
+      
+      if (updateError) {
+        console.error('Failed to update sale with consignment_id:', updateError);
+        // Don't fail the entire request, just log the error
+      } else {
+        console.log('Successfully updated sale with consignment_id');
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Order submitted to courier webhook successfully',
         webhook_response: webhookResult,
-        webhook_name: webhookSettings.webhook_name
+        webhook_name: webhookSettings.webhook_name,
+        consignment_id: consignmentId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

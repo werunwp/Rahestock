@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Receipt, Search, Filter, Eye, Edit, Truck } from "lucide-react";
+import { Plus, Receipt, Search, Filter, Eye, Edit, Truck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CourierOrderDialog } from "@/components/CourierOrderDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
@@ -28,10 +31,12 @@ const Sales = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid" | "cancelled">("all");
+  const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
   
   const { sales, isLoading } = useSales();
   const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
   const { formatAmount } = useCurrency();
+  const queryClient = useQueryClient();
 
   const filteredSales = sales
     .filter(sale =>
@@ -73,6 +78,92 @@ const Sales = () => {
     setShowPathaoDialog(open);
     if (!open) {
       setPathaoSaleId(null);
+    }
+  };
+
+  const handleRefreshOrderStatuses = async () => {
+    setIsRefreshingStatuses(true);
+    
+    // Get all sales with consignment_ids that are visible in the current filter
+    const salesWithConsignmentIds = filteredSales.filter(sale => sale.consignment_id);
+    
+    if (salesWithConsignmentIds.length === 0) {
+      toast.warning("No orders found with tracking IDs to refresh");
+      setIsRefreshingStatuses(false);
+      return;
+    }
+
+    try {
+      // Check if webhook settings exist
+      const { data: webhookSettings } = await supabase
+        .from('courier_webhook_settings')
+        .select('webhook_url')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!webhookSettings?.webhook_url) {
+        toast.error("No status check webhook URL configured");
+        setIsRefreshingStatuses(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each order sequentially to avoid overwhelming the webhook
+      for (const sale of salesWithConsignmentIds) {
+        try {
+          const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${sale.consignment_id}`;
+          const response = await fetch(statusCheckUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            const newStatus = result.status || result.order_status || 'pending';
+            
+            // Update the sale in database
+            const { error: updateError } = await supabase
+              .from('sales')
+              .update({ 
+                order_status: newStatus,
+                last_status_check: new Date().toISOString()
+              })
+              .eq('id', sale.id);
+            
+            if (!updateError) {
+              successCount++;
+            } else {
+              errorCount++;
+              console.error('Failed to update sale status:', updateError);
+            }
+          } else {
+            errorCount++;
+            console.error('Failed to check status for:', sale.consignment_id);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error('Error checking status for:', sale.consignment_id, error);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Updated ${successCount} order status(es)`);
+        // Refresh the sales data
+        queryClient.invalidateQueries({ queryKey: ["sales"] });
+      }
+      
+      if (errorCount > 0) {
+        toast.warning(`Failed to update ${errorCount} order status(es)`);
+      }
+    } catch (error) {
+      toast.error("Failed to refresh order statuses");
+      console.error("Error refreshing statuses:", error);
+    } finally {
+      setIsRefreshingStatuses(false);
     }
   };
   return (
@@ -193,7 +284,19 @@ const Sales = () => {
                   <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="flex items-center gap-2">
+                    Order Status
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshOrderStatuses}
+                      disabled={isRefreshingStatuses}
+                      className="h-6 w-6 p-0"
+                      title="Refresh order statuses"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isRefreshingStatuses ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -212,16 +315,23 @@ const Sales = () => {
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                       <TableCell>{formatAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant={
-                            sale.payment_status === "paid" ? "default" : 
-                            sale.payment_status === "partial" ? "secondary" : 
-                            sale.payment_status === "cancelled" ? "destructive" :
-                            "outline"
-                          }
-                        >
-                          {sale.payment_status}
-                        </Badge>
+                        <div className="space-y-1">
+                          <Badge 
+                            variant={
+                              sale.order_status === "delivered" ? "default" : 
+                              sale.order_status === "in_transit" ? "secondary" : 
+                              sale.order_status === "cancelled" ? "destructive" :
+                              "outline"
+                            }
+                          >
+                            {sale.order_status || 'pending'}
+                          </Badge>
+                          {sale.consignment_id && (
+                            <div className="text-xs text-muted-foreground">
+                              ID: {sale.consignment_id}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                        <TableCell>
                          <div className="flex gap-1">

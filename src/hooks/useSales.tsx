@@ -19,6 +19,9 @@ export interface Sale {
   amount_due: number;
   payment_method: string;
   payment_status: string;
+  order_status?: string;
+  consignment_id?: string;
+  last_status_check?: string;
   created_at: string;
   updated_at: string;
   created_by: string | null;

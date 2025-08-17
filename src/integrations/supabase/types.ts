@@ -513,6 +513,7 @@ export type Database = {
         Row: {
           amount_due: number | null
           amount_paid: number | null
+          consignment_id: string | null
           created_at: string | null
           created_by: string | null
           customer_address: string | null
@@ -525,6 +526,8 @@ export type Database = {
           grand_total: number
           id: string
           invoice_number: string
+          last_status_check: string | null
+          order_status: string | null
           payment_method: string
           payment_status: string | null
           subtotal: number
@@ -533,6 +536,7 @@ export type Database = {
         Insert: {
           amount_due?: number | null
           amount_paid?: number | null
+          consignment_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_address?: string | null
@@ -545,6 +549,8 @@ export type Database = {
           grand_total: number
           id?: string
           invoice_number: string
+          last_status_check?: string | null
+          order_status?: string | null
           payment_method: string
           payment_status?: string | null
           subtotal: number
@@ -553,6 +559,7 @@ export type Database = {
         Update: {
           amount_due?: number | null
           amount_paid?: number | null
+          consignment_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_address?: string | null
@@ -565,6 +572,8 @@ export type Database = {
           grand_total?: number
           id?: string
           invoice_number?: string
+          last_status_check?: string | null
+          order_status?: string | null
           payment_method?: string
           payment_status?: string | null
           subtotal?: number
