@@ -1,100 +1,71 @@
-import { useState } from "react";
-import { Plus, Receipt, Search, Filter, Eye, Edit, Truck, RefreshCw } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSales } from "@/hooks/useSales";
-import { useDashboard } from "@/hooks/useDashboard";
+import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Truck } from "lucide-react";
+import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SaleDialog } from "@/components/SaleDialog";
 import { EditSaleDialog } from "@/components/EditSaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
-import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
-import { useCurrency } from "@/hooks/useCurrency";
-import { format } from "date-fns";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CourierOrderDialog } from "@/components/CourierOrderDialog";
+import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { supabase } from "@/integrations/supabase/client";
+import { useCurrency } from "@/hooks/useCurrency";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
-const Sales = () => {
+interface Sale {
+  id: string;
+  invoice_number: string;
+  customer_name: string;
+  customer_phone?: string;
+  customer_address?: string;
+  grand_total: number;
+  payment_status: string;
+  order_status?: string;
+  courier_status?: string;
+  consignment_id?: string;
+  last_status_check?: string;
+  created_at: string;
+  amount_paid: number;
+  amount_due: number;
+}
+
+export default function Sales() {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showPathaoDialog, setShowPathaoDialog] = useState(false);
+  const [showCourierDialog, setShowCourierDialog] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
-  const [viewingSaleId, setViewingSaleId] = useState<string | null>(null);
-  const [pathaoSaleId, setPathaoSaleId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [detailsSaleId, setDetailsSaleId] = useState<string | null>(null);
+  const [courierSaleId, setCourierSaleId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "partial" | "paid" | "cancelled">("all");
   const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
   
-  const { sales, isLoading } = useSales();
-  const { dashboardStats } = useDashboard(dateRange.from, dateRange.to);
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
 
-  const filteredSales = sales
-    .filter(sale =>
-      sale.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sale.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter(sale => (statusFilter === "all" ? true : sale.payment_status === statusFilter));
+  const { data: sales = [], isLoading, error } = useQuery({
+    queryKey: ["sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data as Sale[];
+    },
+  });
 
-  const handleEditSale = (saleId: string) => {
-    setEditingSaleId(saleId);
-    setShowEditDialog(true);
-  };
-
-  const handleViewSale = (saleId: string) => {
-    setViewingSaleId(saleId);
-    setShowDetailsDialog(true);
-  };
-
-  const handlePathaoOrder = (saleId: string) => {
-    setPathaoSaleId(saleId);
-    setShowPathaoDialog(true);
-  };
-
-  const handleCloseEditDialog = (open: boolean) => {
-    setShowEditDialog(open);
-    if (!open) {
-      setEditingSaleId(null);
-    }
-  };
-
-  const handleCloseDetailsDialog = (open: boolean) => {
-    setShowDetailsDialog(open);
-    if (!open) {
-      setViewingSaleId(null);
-    }
-  };
-
-  const handleClosePathaoDialog = (open: boolean) => {
-    setShowPathaoDialog(open);
-    if (!open) {
-      setPathaoSaleId(null);
-    }
-  };
-
-  const handleRefreshOrderStatuses = async () => {
+  const handleStatusRefresh = async (saleId: string, consignmentId: string) => {
     setIsRefreshingStatuses(true);
     
-    // Get all sales with consignment_ids that are visible in the current filter
-    const salesWithConsignmentIds = filteredSales.filter(sale => sale.consignment_id);
-    
-    if (salesWithConsignmentIds.length === 0) {
-      toast.warning("No orders found with tracking IDs to refresh");
-      setIsRefreshingStatuses(false);
-      return;
-    }
-
     try {
-      // Check if webhook settings exist
+      // Get webhook settings for status check
       const { data: webhookSettings } = await supabase
         .from('courier_webhook_settings')
         .select('webhook_url')
@@ -107,65 +78,132 @@ const Sales = () => {
         return;
       }
 
-      let successCount = 0;
-      let errorCount = 0;
+      const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${consignmentId}`;
+      const response = await fetch(statusCheckUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      // Process each order sequentially to avoid overwhelming the webhook
-      for (const sale of salesWithConsignmentIds) {
-        try {
-          const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${sale.consignment_id}`;
-          const response = await fetch(statusCheckUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            const newStatus = result.status || result.order_status || 'pending';
-            
-            // Update the sale in database
-            const { error: updateError } = await supabase
-              .from('sales')
-              .update({ 
-                order_status: newStatus,
-                last_status_check: new Date().toISOString()
-              })
-              .eq('id', sale.id);
-            
-            if (!updateError) {
-              successCount++;
-            } else {
-              errorCount++;
-              console.error('Failed to update sale status:', updateError);
-            }
-          } else {
-            errorCount++;
-            console.error('Failed to check status for:', sale.consignment_id);
-          }
-        } catch (error) {
-          errorCount++;
-          console.error('Error checking status for:', sale.consignment_id, error);
+      if (response.ok) {
+        const result = await response.json();
+        const newCourierStatus = result.status || result.order_status || 'pending';
+        
+        // Map courier status to payment status for business logic
+        let paymentStatusUpdate = {};
+        if (newCourierStatus === 'delivered') {
+          paymentStatusUpdate = { payment_status: 'paid' };
+        } else if (newCourierStatus === 'returned' || newCourierStatus === 'lost') {
+          paymentStatusUpdate = { payment_status: 'cancelled' };
         }
-      }
-
-      if (successCount > 0) {
-        toast.success(`Updated ${successCount} order status(es)`);
-        // Refresh the sales data
-        queryClient.invalidateQueries({ queryKey: ["sales"] });
-      }
-      
-      if (errorCount > 0) {
-        toast.warning(`Failed to update ${errorCount} order status(es)`);
+        
+        // Update the sale in database
+        const { error: updateError } = await supabase
+          .from('sales')
+          .update({ 
+            courier_status: newCourierStatus,
+            order_status: newCourierStatus, // Keep for backward compatibility
+            last_status_check: new Date().toISOString(),
+            ...paymentStatusUpdate
+          })
+          .eq('id', saleId);
+        
+        if (!updateError) {
+          toast.success(`Status updated to: ${newCourierStatus.replace('_', ' ').toUpperCase()}`);
+          // Refresh the sales data
+          queryClient.invalidateQueries({ queryKey: ["sales"] });
+        } else {
+          console.error('Failed to update sale status:', updateError);
+          toast.error('Failed to update status in database');
+        }
+      } else {
+        console.error('Failed to check status for:', consignmentId);
+        toast.error('Failed to get status from courier service');
       }
     } catch (error) {
-      toast.error("Failed to refresh order statuses");
-      console.error("Error refreshing statuses:", error);
+      toast.error("Failed to refresh order status");
+      console.error("Error refreshing status:", error);
     } finally {
       setIsRefreshingStatuses(false);
     }
   };
+
+  const filteredSales = useMemo(() => {
+    if (!dateRange.from && !dateRange.to) return sales;
+
+    return sales.filter((sale) => {
+      const saleDate = new Date(sale.created_at);
+      
+      if (dateRange.from && dateRange.to) {
+        return isWithinInterval(saleDate, { start: dateRange.from, end: dateRange.to });
+      } else if (dateRange.from) {
+        return saleDate >= dateRange.from;
+      } else if (dateRange.to) {
+        return saleDate <= dateRange.to;
+      }
+      
+      return true;
+    });
+  }, [sales, dateRange]);
+
+  const currentMonthSales = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    
+    return sales.filter(sale => {
+      const saleDate = new Date(sale.created_at);
+      return isWithinInterval(saleDate, { start: monthStart, end: monthEnd });
+    });
+  }, [sales]);
+
+  const stats = useMemo(() => {
+    const validSales = filteredSales.filter(sale => sale.payment_status !== 'cancelled');
+    const totalRevenue = validSales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
+    const totalPaid = validSales.reduce((sum, sale) => sum + (sale.amount_paid || 0), 0);
+    const totalDue = validSales.reduce((sum, sale) => sum + (sale.amount_due || 0), 0);
+    
+    return {
+      totalRevenue,
+      totalPaid,
+      totalDue,
+      totalSales: validSales.length
+    };
+  }, [filteredSales]);
+
+  const handleEditSale = (saleId: string) => {
+    setEditingSaleId(saleId);
+    setShowEditDialog(true);
+  };
+
+  const handleViewDetails = (saleId: string) => {
+    setDetailsSaleId(saleId);
+    setShowDetailsDialog(true);
+  };
+
+  const handleCourierOrder = (saleId: string) => {
+    setCourierSaleId(saleId);
+    setShowCourierDialog(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setShowEditDialog(false);
+    setEditingSaleId(null);
+  };
+
+  const formatCurrencyAmount = (amount: number) => {
+    return formatAmount(amount);
+  };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-destructive">Error loading sales data</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -202,43 +240,37 @@ const Sales = () => {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Total Revenue</p>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatAmount(dashboardStats?.totalRevenue || 0)}
-                </div>
+                <div className="text-2xl font-bold">{formatCurrencyAmount(stats.totalRevenue)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Revenue in selected period
+                  From {stats.totalSales} sales
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Amount Paid</p>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatAmount(dashboardStats?.pendingPayments?.reduce((sum, p) => sum + p.amount_due, 0) || 0)}
-                </div>
+                <div className="text-2xl font-bold">{formatCurrencyAmount(stats.totalPaid)}</div>
                 <p className="text-xs text-muted-foreground">
-                  {dashboardStats?.pendingPayments?.length || 0} invoices pending
+                  Received payments
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Units Sold</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">Amount Due</p>
+                <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {dashboardStats?.unitsSold || 0}
-                </div>
+                <div className="text-2xl font-bold">{formatCurrencyAmount(stats.totalDue)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Products sold
+                  Outstanding payments
                 </p>
               </CardContent>
             </Card>
@@ -246,32 +278,13 @@ const Sales = () => {
         )}
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Search sales..." 
-            className="pl-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <ToggleGroup type="single" value={statusFilter} onValueChange={(val) => setStatusFilter((val as any) || "all")}>
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="pending">Pending</ToggleGroupItem>
-          <ToggleGroupItem value="partial">Partial</ToggleGroupItem>
-          <ToggleGroupItem value="paid">Paid</ToggleGroupItem>
-          <ToggleGroupItem value="cancelled">Cancelled</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Recent Sales</CardTitle>
+          <CardTitle>Sales History</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
@@ -284,19 +297,7 @@ const Sales = () => {
                   <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead className="flex items-center gap-2">
-                    Order Status
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRefreshOrderStatuses}
-                      disabled={isRefreshingStatuses}
-                      className="h-6 w-6 p-0"
-                      title="Refresh order statuses"
-                    >
-                      <RefreshCw className={`h-3 w-3 ${isRefreshingStatuses ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TableHead>
+                  <TableHead>Courier Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -313,54 +314,58 @@ const Sales = () => {
                       <TableCell className="font-medium">{sale.invoice_number}</TableCell>
                       <TableCell>{sale.customer_name}</TableCell>
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>{formatAmount(sale.grand_total || 0)}</TableCell>
+                      <TableCell>{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
-                        <div className="space-y-1">
-                          <Badge 
-                            variant={
-                              sale.order_status === "delivered" ? "default" : 
-                              sale.order_status === "in_transit" ? "secondary" : 
-                              sale.order_status === "cancelled" ? "destructive" :
-                              "outline"
-                            }
+                        <Badge variant={
+                          sale.courier_status === 'delivered' ? 'default' : 
+                          sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
+                          sale.courier_status === 'not_sent' ? 'outline' :
+                          'secondary'
+                        }>
+                          {sale.courier_status === 'not_sent' ? 'Not Sent' : 
+                           sale.courier_status === 'in_transit' ? 'In Transit' :
+                           sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
+                           sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditSale(sale.id)}
                           >
-                            {sale.order_status || 'pending'}
-                          </Badge>
-                          {sale.consignment_id && (
-                            <div className="text-xs text-muted-foreground">
-                              ID: {sale.consignment_id}
-                            </div>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(sale.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {sale.consignment_id ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleStatusRefresh(sale.id, sale.consignment_id)}
+                              disabled={isRefreshingStatuses}
+                              title="Refresh order status"
+                            >
+                              <RefreshCw className={cn("h-4 w-4", isRefreshingStatuses && "animate-spin")} />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCourierOrder(sale.id)}
+                              title="Send to courier"
+                            >
+                              <Truck className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
-                       <TableCell>
-                         <div className="flex gap-1">
-                           <Button 
-                             variant="ghost" 
-                             size="sm"
-                             onClick={() => handleViewSale(sale.id)}
-                           >
-                             <Eye className="h-4 w-4" />
-                           </Button>
-                           <Button 
-                             variant="ghost" 
-                             size="sm"
-                             onClick={() => handleEditSale(sale.id)}
-                           >
-                             <Edit className="h-4 w-4" />
-                           </Button>
-                           {sale.payment_status === "paid" && (
-                             <Button 
-                               variant="ghost" 
-                               size="sm"
-                               onClick={() => handlePathaoOrder(sale.id)}
-                               title="Send to Pathao Courier"
-                             >
-                               <Truck className="h-4 w-4" />
-                             </Button>
-                           )}
-                         </div>
-                       </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -378,16 +383,14 @@ const Sales = () => {
       />
       <SaleDetailsDialog 
         open={showDetailsDialog} 
-        onOpenChange={handleCloseDetailsDialog}
-        saleId={viewingSaleId}
+        onOpenChange={setShowDetailsDialog}
+        saleId={detailsSaleId}
       />
       <CourierOrderDialog 
-        open={showPathaoDialog} 
-        onOpenChange={handleClosePathaoDialog}
-        saleId={pathaoSaleId}
+        open={showCourierDialog} 
+        onOpenChange={setShowCourierDialog}
+        saleId={courierSaleId}
       />
     </div>
   );
-};
-
-export default Sales;
+}

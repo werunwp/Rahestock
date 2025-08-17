@@ -514,6 +514,7 @@ export type Database = {
           amount_due: number | null
           amount_paid: number | null
           consignment_id: string | null
+          courier_status: string | null
           created_at: string | null
           created_by: string | null
           customer_address: string | null
@@ -537,6 +538,7 @@ export type Database = {
           amount_due?: number | null
           amount_paid?: number | null
           consignment_id?: string | null
+          courier_status?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_address?: string | null
@@ -560,6 +562,7 @@ export type Database = {
           amount_due?: number | null
           amount_paid?: number | null
           consignment_id?: string | null
+          courier_status?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_address?: string | null

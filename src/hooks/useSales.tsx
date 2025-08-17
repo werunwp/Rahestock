@@ -20,6 +20,7 @@ export interface Sale {
   payment_method: string;
   payment_status: string;
   order_status?: string;
+  courier_status?: string;
   consignment_id?: string;
   last_status_check?: string;
   created_at: string;

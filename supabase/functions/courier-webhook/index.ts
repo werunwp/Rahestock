@@ -166,6 +166,7 @@ serve(async (req) => {
         .from('sales')
         .update({ 
           consignment_id: consignmentId,
+          courier_status: 'pending',
           order_status: 'pending',
           last_status_check: new Date().toISOString()
         })

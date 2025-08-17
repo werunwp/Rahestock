@@ -128,23 +128,33 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
     setIsSubmitting(true);
 
     try {
-      console.log("Sending order to webhook:", webhookSettings.webhook_url);
+      console.log("Sending order to courier webhook via backend");
       console.log("Order data:", orderData);
 
-      const response = await fetch(webhookSettings.webhook_url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        mode: "no-cors",
-        body: JSON.stringify(orderData),
+      // Call our backend edge function instead of directly calling n8n
+      const { data, error } = await supabase.functions.invoke('courier-webhook', {
+        body: orderData
       });
 
-      toast.success("Order sent to courier workflow successfully!");
-      onOpenChange(false);
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        const consignmentId = data.consignment_id;
+        const webhookName = data.webhook_name;
+        
+        toast.success(`Order successfully sent to ${webhookName}! Tracking ID: ${consignmentId || 'Generated'}`);
+        onOpenChange(false);
+        
+        // Trigger a refresh of the sales data to show updated status
+        window.location.reload();
+      } else {
+        throw new Error(data?.message || 'Failed to send order to courier');
+      }
     } catch (error) {
       console.error("Error sending order to webhook:", error);
-      toast.error("Failed to send order to courier workflow. Please try again.");
+      toast.error(error.message || "Failed to send order to courier workflow. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
