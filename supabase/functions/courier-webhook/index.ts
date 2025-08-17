@@ -164,6 +164,26 @@ serve(async (req) => {
 
     if (!webhookResponse.ok) {
       console.error('Webhook Error Response:', webhookResult)
+      
+      // Check for specific n8n webhook configuration issues
+      if (webhookResponse.status === 404 && webhookResult?.message?.includes('not registered for POST requests')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'n8n Webhook Configuration Error: Your webhook is not configured to accept POST requests. Please update your n8n webhook node to accept POST method.',
+            error: { 
+              status: webhookResponse.status, 
+              body: webhookResult,
+              fix: 'In your n8n webhook node, set HTTP Method to "POST" or "All" under Options > Allowed Methods'
+            }
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
