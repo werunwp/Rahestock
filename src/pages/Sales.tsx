@@ -79,23 +79,33 @@ export default function Sales() {
         return false;
       }
 
-      const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${consignmentId}`;
-      const response = await fetch(statusCheckUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // Use Supabase edge function for status check instead of direct webhook call
+      const { data, error } = await supabase.functions.invoke('courier-webhook', {
+        body: { 
+          action: 'check_status',
+          consignment_id: consignmentId 
+        }
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        const newCourierStatus = result.status || result.order_status || 'pending';
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        // Extract status from webhook response
+        let newStatus = 'pending';
+        if (data.webhook_response && Array.isArray(data.webhook_response) && data.webhook_response.length > 0) {
+          const statusResponse = data.webhook_response[0];
+          if (statusResponse.data && statusResponse.data.order_status) {
+            newStatus = statusResponse.data.order_status.toLowerCase();
+          }
+        }
         
         // Map courier status to payment status for business logic
         let paymentStatusUpdate = {};
-        if (newCourierStatus === 'delivered') {
+        if (newStatus === 'delivered') {
           paymentStatusUpdate = { payment_status: 'paid' };
-        } else if (newCourierStatus === 'returned' || newCourierStatus === 'lost') {
+        } else if (newStatus === 'returned' || newStatus === 'lost') {
           paymentStatusUpdate = { payment_status: 'cancelled' };
         }
         
@@ -103,15 +113,15 @@ export default function Sales() {
         const { error: updateError } = await supabase
           .from('sales')
           .update({ 
-            courier_status: newCourierStatus,
-            order_status: newCourierStatus, // Keep for backward compatibility
+            courier_status: newStatus,
+            order_status: newStatus, // Keep for backward compatibility
             last_status_check: new Date().toISOString(),
             ...paymentStatusUpdate
           })
           .eq('id', saleId);
         
         if (!updateError) {
-          if (showToast) toast.success(`Status updated to: ${newCourierStatus.replace('_', ' ').toUpperCase()}`);
+          if (showToast) toast.success(`Status updated to: ${newStatus.replace('_', ' ').toUpperCase()}`);
           // Refresh the sales data
           queryClient.invalidateQueries({ queryKey: ["sales"] });
           return true;

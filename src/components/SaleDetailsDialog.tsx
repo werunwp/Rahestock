@@ -230,65 +230,69 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
             </CardContent>
           </Card>
 
-          {/* Courier Status Card */}
+          {/* Courier Status Card - Full Width */}
           {sale.consignment_id && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  Courier Information
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleStatusRefresh(sale.consignment_id!)}
-                    disabled={isRefreshingStatus}
-                    className="h-6 w-6 p-0"
-                  >
-                    <RefreshCw className={cn("h-3 w-3", isRefreshingStatus && "animate-spin")} />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Tracking ID</p>
-                  <a
-                    href={`https://tracking.pathao.com/?tracking_id=${sale.consignment_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline font-mono text-sm flex items-center gap-1"
-                  >
-                    {sale.consignment_id}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                
-                <div>
-                  <p className="text-sm font-medium">Delivery Status</p>
-                  <Badge variant={
-                    sale.courier_status === 'delivered' ? 'default' : 
-                    sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
-                    sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
-                    'outline'
-                  }>
-                    {sale.courier_status === 'in_transit' ? 'In Transit' :
-                     sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                     sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                  </Badge>
-                </div>
+            <div className="col-span-full">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    Courier Information
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleStatusRefresh(sale.consignment_id!)}
+                      disabled={isRefreshingStatus}
+                      className="h-6 w-6 p-0"
+                    >
+                      <RefreshCw className={cn("h-3 w-3", isRefreshingStatus && "animate-spin")} />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm font-medium mb-1">Tracking ID</p>
+                      <a
+                        href={`https://merchant.pathao.com/courier/orders/${sale.consignment_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline font-mono text-sm flex items-center gap-1"
+                      >
+                        {sale.consignment_id}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium mb-1">Delivery Status</p>
+                      <Badge variant={
+                        sale.courier_status === 'delivered' ? 'default' : 
+                        sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
+                        sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
+                        'outline'
+                      }>
+                        {sale.courier_status === 'in_transit' ? 'In Transit' :
+                         sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
+                         sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                      </Badge>
+                    </div>
 
-                {sale.last_status_check && (
-                  <div>
-                    <p className="text-sm font-medium">Last Status Check</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(sale.last_status_check), 'PPp')}
-                    </p>
+                    {sale.last_status_check && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">Last Status Check</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(sale.last_status_check), 'PPp')}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-
-                <p className="text-xs text-muted-foreground">
-                  Click the tracking ID to view real-time status on Pathao's website
-                </p>
-              </CardContent>
-            </Card>
+                  
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Click the tracking ID to view real-time status on Pathao's website
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
 
