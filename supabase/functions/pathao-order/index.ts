@@ -8,13 +8,9 @@ const corsHeaders = {
 
 interface PathaoOrderRequest {
   store_id: number;
-  merchant_order_id: string;
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
-  recipient_city?: number;
-  recipient_zone?: number;
-  recipient_area?: number;
   item_type: number;
   special_instruction?: string;
   item_quantity: number;
@@ -161,7 +157,7 @@ serve(async (req) => {
     }
 
     const orderData: PathaoOrderRequest = await req.json()
-    console.log('Processing Pathao order request:', orderData.merchant_order_id);
+    console.log('Processing Pathao order request for store:', orderData.store_id);
 
     // Get Pathao settings from database
     const { data: pathaoSettings, error: settingsError } = await supabaseClient
@@ -203,13 +199,9 @@ serve(async (req) => {
     // Prepare the request to Pathao API with proper data validation
     const pathaoOrderPayload = {
       store_id: orderData.store_id,
-      merchant_order_id: orderData.merchant_order_id,
       recipient_name: orderData.recipient_name,
       recipient_phone: orderData.recipient_phone,
       recipient_address: orderData.recipient_address,
-      recipient_city: orderData.recipient_city || 1, // Default to Dhaka if not provided
-      recipient_zone: orderData.recipient_zone || 1, // Default zone
-      recipient_area: orderData.recipient_area, // Optional field
       delivery_type: orderData.delivery_type,
       item_type: orderData.item_type,
       special_instruction: orderData.special_instruction || "",

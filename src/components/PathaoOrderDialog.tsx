@@ -21,13 +21,9 @@ interface PathaoOrderDialogProps {
 
 interface PathaoOrderData {
   store_id: number;
-  merchant_order_id: string;
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
-  recipient_city?: number;
-  recipient_zone?: number;
-  recipient_area?: number;
   item_type: number;
   special_instruction: string;
   item_quantity: number;
@@ -45,13 +41,9 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
   
   const [orderData, setOrderData] = useState<PathaoOrderData>({
     store_id: pathaoSettings.store_id || 0,
-    merchant_order_id: '',
     recipient_name: '',
     recipient_phone: '',
     recipient_address: '',
-    recipient_city: undefined,
-    recipient_zone: undefined,
-    recipient_area: undefined,
     item_type: pathaoSettings.default_item_type || 2,
     special_instruction: '',
     item_quantity: 1,
@@ -74,12 +66,9 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
           // Pre-fill order data from sale
           setOrderData(prev => ({
             ...prev,
-            merchant_order_id: data.invoice_number,
             recipient_name: data.customer_name,
             recipient_phone: data.customer_phone || '',
             recipient_address: data.customer_address || '',
-            recipient_city: 1, // Default to Dhaka
-            recipient_zone: 1, // Default zone
             amount_to_collect: data.grand_total || 0,
             item_quantity: data.items?.length || 1,
             item_description: data.items?.map((item: any) => 
