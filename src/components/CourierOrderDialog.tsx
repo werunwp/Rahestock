@@ -177,8 +177,8 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
         toast.success(`Order successfully sent to ${webhookName}! Tracking ID: ${consignmentId || 'Generated'}`);
         onOpenChange(false);
         
-        // Trigger a refresh of the sales data to show updated status
-        window.location.reload();
+        // Refresh sales data without page reload
+        window.dispatchEvent(new CustomEvent('salesDataUpdated'));
       } else {
         throw new Error(data?.message || 'Failed to send order to courier');
       }
