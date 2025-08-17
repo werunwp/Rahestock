@@ -202,6 +202,8 @@ serve(async (req) => {
       recipient_name: orderData.recipient_name,
       recipient_phone: orderData.recipient_phone,
       recipient_address: orderData.recipient_address,
+      recipient_city: 1, // Required by Pathao API - Default to Dhaka
+      recipient_zone: 1, // Required by Pathao API - Default zone
       delivery_type: orderData.delivery_type,
       item_type: orderData.item_type,
       special_instruction: orderData.special_instruction || "",
@@ -225,17 +227,26 @@ serve(async (req) => {
       body: JSON.stringify(pathaoOrderPayload),
     })
 
-    const pathaoResult = await pathaoResponse.json()
+    let pathaoResult;
+    try {
+      pathaoResult = await pathaoResponse.json()
+    } catch (e) {
+      pathaoResult = await pathaoResponse.text()
+    }
+    console.log('Pathao API response status:', pathaoResponse.status);
     console.log('Pathao API response:', pathaoResult);
 
     if (!pathaoResponse.ok) {
-      console.error('Pathao API Error:', pathaoResult)
+      const errorText = await pathaoResponse.text();
+      console.error('Pathao API Error Response:', errorText)
+      console.error('Pathao API Status:', pathaoResponse.status)
+      console.error('Pathao API Headers:', Object.fromEntries(pathaoResponse.headers.entries()))
       
       return new Response(
         JSON.stringify({
           success: false,
-          message: pathaoResult.message || 'Failed to create order with Pathao',
-          error: pathaoResult
+          message: `Pathao API Error (${pathaoResponse.status}): ${errorText}`,
+          error: { status: pathaoResponse.status, body: errorText }
         }),
         {
           status: 400,
