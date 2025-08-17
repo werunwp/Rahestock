@@ -61,11 +61,12 @@ serve(async (req) => {
 
     const requestData: StatusCheckRequest = await req.json()
     console.log('Processing status check request for consignment:', requestData.consignment_id);
+    console.log('Raw request data:', JSON.stringify(requestData, null, 2));
 
-    // Get courier webhook settings from database
+    // Get courier webhook settings from database with explicit column selection
     const { data: webhookSettings, error: settingsError } = await supabaseClient
       .from('courier_webhook_settings')
-      .select('*')
+      .select('id, webhook_url, webhook_name, webhook_description, is_active, auth_username, auth_password')
       .eq('is_active', true)
       .maybeSingle()
 
