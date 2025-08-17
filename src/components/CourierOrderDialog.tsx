@@ -141,8 +141,19 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
       }
 
       if (data?.success) {
-        const consignmentId = data.consignment_id;
+        // Extract consignment_id from nested webhook_response structure
+        let consignmentId = null;
         const webhookName = data.webhook_name;
+        
+        // Handle array response structure from webhook
+        if (data.webhook_response && Array.isArray(data.webhook_response) && data.webhook_response.length > 0) {
+          const firstResponse = data.webhook_response[0];
+          if (firstResponse.data && firstResponse.data.consignment_id) {
+            consignmentId = firstResponse.data.consignment_id;
+          }
+        }
+        
+        console.log('Extracted consignment_id:', consignmentId);
         
         // Update the sale with consignment_id and courier status
         if (consignmentId && orderData.sale_id) {
@@ -158,6 +169,8 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
           
           if (updateError) {
             console.error('Failed to update sale with consignment_id:', updateError);
+          } else {
+            console.log('Successfully updated sale with consignment_id:', consignmentId);
           }
         }
         
