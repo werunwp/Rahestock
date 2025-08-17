@@ -145,7 +145,12 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
         onOpenChange(false);
       } else {
         console.error('Pathao API error:', data);
-        toast.error(data?.message || 'Failed to submit order to Pathao');
+        const errorMessage = data?.message || 'Failed to submit order to Pathao';
+        if (errorMessage.includes('Pathao settings not configured')) {
+          toast.error('Please configure your Pathao credentials in Settings → System Settings → Pathao Settings first.');
+        } else {
+          toast.error(errorMessage);
+        }
       }
     } catch (error) {
       console.error('Error submitting order to Pathao:', error);
