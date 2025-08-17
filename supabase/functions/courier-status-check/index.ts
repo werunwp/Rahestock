@@ -69,7 +69,32 @@ serve(async (req) => {
       .eq('is_active', true)
       .maybeSingle()
 
-    if (settingsError || !webhookSettings) {
+    console.log('Webhook settings query result:', { 
+      hasData: !!webhookSettings, 
+      error: settingsError?.message,
+      settingsFound: webhookSettings ? {
+        id: webhookSettings.id,
+        url: webhookSettings.webhook_url,
+        hasUsername: !!webhookSettings.auth_username,
+        hasPassword: !!webhookSettings.auth_password
+      } : null
+    });
+
+    if (settingsError) {
+      console.error('Database error fetching webhook settings:', settingsError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Database error: ' + settingsError.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    if (!webhookSettings) {
       console.error('No active webhook settings found');
       return new Response(
         JSON.stringify({
@@ -106,7 +131,7 @@ serve(async (req) => {
     };
 
     console.log('Sending request to:', webhookSettings.webhook_url);
-    console.log('Request headers:', webhookHeaders);
+    console.log('Request headers:', Object.keys(webhookHeaders));
     console.log('Request payload:', statusCheckPayload);
 
     const webhookResponse = await fetch(webhookSettings.webhook_url, {

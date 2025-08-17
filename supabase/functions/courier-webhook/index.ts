@@ -30,6 +30,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Auth header present:', !!req.headers.get('Authorization'));
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -42,9 +44,7 @@ serve(async (req) => {
 
     // Get auth header
     const authHeader = req.headers.get('Authorization')
-    console.log('Auth header present:', !!authHeader);
     if (!authHeader) {
-      console.error('Missing authorization header');
       return new Response(
         JSON.stringify({
           success: false,
@@ -60,10 +60,10 @@ serve(async (req) => {
     // Set auth context
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
     console.log('User auth result:', { user: !!user, error: authError?.message });
 
     if (authError || !user) {
-      console.error('Authentication failed:', authError?.message);
       return new Response(
         JSON.stringify({
           success: false,
@@ -86,12 +86,23 @@ serve(async (req) => {
       .eq('is_active', true)
       .maybeSingle()
 
+    console.log('Webhook settings query result:', { 
+      hasData: !!webhookSettings, 
+      error: settingsError?.message,
+      settingsFound: webhookSettings ? {
+        id: webhookSettings.id,
+        url: webhookSettings.webhook_url,
+        hasUsername: !!webhookSettings.auth_username,
+        hasPassword: !!webhookSettings.auth_password
+      } : null
+    });
+
     if (settingsError) {
       console.error('Database error while fetching webhook settings:', settingsError);
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Error accessing webhook settings. Please try again.',
+          message: 'Database error: ' + settingsError.message,
         }),
         {
           status: 500,
@@ -101,11 +112,11 @@ serve(async (req) => {
     }
 
     if (!webhookSettings) {
-      console.error('No active webhook settings found in database');
+      console.error('No active webhook settings found');
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Courier webhook settings not configured or disabled. Please configure your webhook settings first.',
+          message: 'Courier webhook settings not configured or disabled',
         }),
         {
           status: 400,
@@ -115,7 +126,7 @@ serve(async (req) => {
     }
 
     console.log('Sending order to webhook URL:', webhookSettings.webhook_url);
-    console.log('Order payload:', JSON.stringify(orderData, null, 2));
+    console.log('Order payload:', orderData);
 
     // Prepare headers for webhook request
     const webhookHeaders: Record<string, string> = {
@@ -130,6 +141,8 @@ serve(async (req) => {
       console.log('Added basic auth credentials for webhook');
     }
 
+    console.log('Request headers:', Object.keys(webhookHeaders));
+
     // Send order data to the configured webhook
     const webhookResponse = await fetch(webhookSettings.webhook_url, {
       method: 'POST',
@@ -143,17 +156,16 @@ serve(async (req) => {
     } catch (e) {
       webhookResult = await webhookResponse.text()
     }
+
     console.log('Webhook response status:', webhookResponse.status);
     console.log('Webhook response:', webhookResult);
 
     if (!webhookResponse.ok) {
       console.error('Webhook Error Response:', webhookResult)
-      console.error('Webhook Status:', webhookResponse.status)
-      
       return new Response(
         JSON.stringify({
           success: false,
-          message: `Webhook Error (${webhookResponse.status}): Failed to send order to courier webhook`,
+          message: `Webhook Error (${webhookResponse.status}): Failed to send order to courier service`,
           error: { status: webhookResponse.status, body: webhookResult }
         }),
         {
@@ -163,40 +175,51 @@ serve(async (req) => {
       )
     }
 
-    // Log the successful order submission
-    console.log('Order sent to courier webhook successfully:', webhookResult)
+    // Try to extract consignment ID from webhook response
+    let consignmentId = null;
+    if (typeof webhookResult === 'object' && webhookResult !== null) {
+      consignmentId = webhookResult.consignment_id || 
+                     webhookResult.consignmentId || 
+                     webhookResult.tracking_id || 
+                     webhookResult.trackingId || 
+                     webhookResult.order_id || 
+                     webhookResult.orderId;
+    }
 
-    // Extract consignment_id from webhook response if available
-    const consignmentId = webhookResult?.pathao_order_id || webhookResult?.consignment_id || webhookResult?.tracking_id;
-    
-    // Update the sale with consignment_id if provided
-    if (consignmentId && orderData.sale_id) {
-      console.log('Updating sale with consignment_id:', consignmentId);
+    // Update sale with consignment ID if we got one
+    if (consignmentId) {
       const { error: updateError } = await supabaseClient
         .from('sales')
         .update({ 
           consignment_id: consignmentId,
-          courier_status: 'pending',
-          order_status: 'pending',
-          last_status_check: new Date().toISOString()
+          courier_status: 'sent' 
         })
         .eq('id', orderData.sale_id);
       
       if (updateError) {
-        console.error('Failed to update sale with consignment_id:', updateError);
-        // Don't fail the entire request, just log the error
+        console.error('Failed to update sale with consignment ID:', updateError);
       } else {
-        console.log('Successfully updated sale with consignment_id');
+        console.log('Updated sale with consignment ID:', consignmentId);
+      }
+    } else {
+      // Just update the courier status
+      const { error: updateError } = await supabaseClient
+        .from('sales')
+        .update({ courier_status: 'sent' })
+        .eq('id', orderData.sale_id);
+      
+      if (updateError) {
+        console.error('Failed to update courier status:', updateError);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Order submitted to courier webhook successfully',
+        message: 'Order sent to courier service successfully',
+        consignment_id: consignmentId,
         webhook_response: webhookResult,
-        webhook_name: webhookSettings.webhook_name,
-        consignment_id: consignmentId
+        webhook_name: webhookSettings.webhook_name
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
