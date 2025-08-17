@@ -243,32 +243,6 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
                   placeholder="Customer full address"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipientCity">City ID</Label>
-                <Input
-                  id="recipientCity"
-                  type="number"
-                  value={orderData.recipient_city || ''}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_city: parseInt(e.target.value) || undefined }))}
-                  placeholder="City ID (e.g., 1 for Dhaka)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Optional: Use Pathao city ID (defaults to 1 - Dhaka)
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipientZone">Zone ID</Label>
-                <Input
-                  id="recipientZone"
-                  type="number"
-                  value={orderData.recipient_zone || ''}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, recipient_zone: parseInt(e.target.value) || undefined }))}
-                  placeholder="Zone ID"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Optional: Use Pathao zone ID (defaults to 1)
-                </p>
-              </div>
             </div>
           </div>
 
@@ -316,17 +290,6 @@ export const PathaoOrderDialog = ({ open, onOpenChange, saleId }: PathaoOrderDia
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="itemWeight">Weight (kg)</Label>
-                <Input
-                  id="itemWeight"
-                  type="number"
-                  step="0.1"
-                  value={orderData.item_weight}
-                  onChange={(e) => setOrderData(prev => ({ ...prev, item_weight: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0.5"
-                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amountToCollect">Amount to Collect</Label>
