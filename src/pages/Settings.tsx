@@ -373,6 +373,7 @@ const Settings = () => {
           </Card>
           
           <CourierWebhookSettings />
+          {/* Courier webhook integration for order delivery */}
           
           <CustomCodeSettings />
           
