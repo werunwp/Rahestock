@@ -9,8 +9,6 @@ export interface CourierWebhookSettings {
   webhook_name: string;
   webhook_description?: string;
   is_active: boolean;
-  auth_username?: string;
-  auth_password?: string;
   created_at: string;
   updated_at: string;
 }
@@ -19,9 +17,7 @@ const DEFAULT_WEBHOOK_SETTINGS: Omit<CourierWebhookSettings, 'id' | 'created_at'
   webhook_url: 'https://n8n.pronirob.com/webhook/send-order-to-pathao',
   webhook_name: 'Courier Webhook',
   webhook_description: 'Default courier delivery webhook',
-  is_active: true,
-  auth_username: '',
-  auth_password: ''
+  is_active: true
 };
 
 export const useWebhookSettings = () => {
