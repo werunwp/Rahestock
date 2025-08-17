@@ -100,8 +100,13 @@ serve(async (req) => {
     // Send status check request to the configured webhook
     const statusCheckPayload = {
       action: 'check_status',
-      consignment_id: requestData.consignment_id
+      consignment_id: requestData.consignment_id,
+      type: 'status_check'
     };
+
+    console.log('Sending request to:', webhookSettings.webhook_url);
+    console.log('Request headers:', webhookHeaders);
+    console.log('Request payload:', statusCheckPayload);
 
     const webhookResponse = await fetch(webhookSettings.webhook_url, {
       method: 'POST',
