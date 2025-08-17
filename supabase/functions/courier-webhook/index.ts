@@ -123,10 +123,11 @@ serve(async (req) => {
       'User-Agent': 'Courier-Webhook-Sender/1.0',
     };
 
-    // Add auth header if configured
-    if (webhookSettings.auth_header_name && webhookSettings.auth_header_value) {
-      webhookHeaders[webhookSettings.auth_header_name] = webhookSettings.auth_header_value;
-      console.log('Added auth header:', webhookSettings.auth_header_name);
+    // Add basic auth if configured
+    if (webhookSettings.auth_username && webhookSettings.auth_password) {
+      const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
+      webhookHeaders['Authorization'] = `Basic ${credentials}`;
+      console.log('Added basic auth header');
     }
 
     // Send order data to the configured webhook

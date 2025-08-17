@@ -9,8 +9,8 @@ export interface CourierWebhookSettings {
   webhook_name: string;
   webhook_description?: string;
   is_active: boolean;
-  auth_header_name?: string;
-  auth_header_value?: string;
+  auth_username?: string;
+  auth_password?: string;
   created_at: string;
   updated_at: string;
 }
@@ -20,8 +20,8 @@ const DEFAULT_WEBHOOK_SETTINGS: Omit<CourierWebhookSettings, 'id' | 'created_at'
   webhook_name: 'Courier Webhook',
   webhook_description: 'Default courier delivery webhook',
   is_active: true,
-  auth_header_name: '',
-  auth_header_value: ''
+  auth_username: '',
+  auth_password: ''
 };
 
 export const useWebhookSettings = () => {
