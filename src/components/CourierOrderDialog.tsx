@@ -144,6 +144,23 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
         const consignmentId = data.consignment_id;
         const webhookName = data.webhook_name;
         
+        // Update the sale with consignment_id and courier status
+        if (consignmentId && orderData.sale_id) {
+          const { error: updateError } = await supabase
+            .from('sales')
+            .update({ 
+              consignment_id: consignmentId,
+              courier_status: 'pending',
+              order_status: 'pending',
+              last_status_check: new Date().toISOString()
+            })
+            .eq('id', orderData.sale_id);
+          
+          if (updateError) {
+            console.error('Failed to update sale with consignment_id:', updateError);
+          }
+        }
+        
         toast.success(`Order successfully sent to ${webhookName}! Tracking ID: ${consignmentId || 'Generated'}`);
         onOpenChange(false);
         

@@ -227,24 +227,42 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                   {format(new Date(sale.updated_at), "MMM dd, yyyy 'at' hh:mm a")}
                 </p>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Courier Status */}
-              {sale.courier_status && sale.courier_status !== 'not_sent' && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Courier Status</p>
-                    {sale.consignment_id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStatusRefresh(sale.consignment_id!)}
-                        disabled={isRefreshingStatus}
-                        className="h-6 w-6 p-0"
-                      >
-                        <RefreshCw className={cn("h-3 w-3", isRefreshingStatus && "animate-spin")} />
-                      </Button>
-                    )}
-                  </div>
+          {/* Courier Status Card */}
+          {sale.consignment_id && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  Courier Information
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleStatusRefresh(sale.consignment_id!)}
+                    disabled={isRefreshingStatus}
+                    className="h-6 w-6 p-0"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isRefreshingStatus && "animate-spin")} />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Tracking ID</p>
+                  <a
+                    href={`https://tracking.pathao.com/?tracking_id=${sale.consignment_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-mono text-sm flex items-center gap-1"
+                  >
+                    {sale.consignment_id}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium">Delivery Status</p>
                   <Badge variant={
                     sale.courier_status === 'delivered' ? 'default' : 
                     sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
@@ -253,39 +271,25 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                   }>
                     {sale.courier_status === 'in_transit' ? 'In Transit' :
                      sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                     sale.courier_status.replace('_', ' ').toUpperCase()}
+                     sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
                   </Badge>
-                  {sale.last_status_check && (
-                    <p className="text-xs text-muted-foreground">
-                      Last updated: {format(new Date(sale.last_status_check), 'PPp')}
-                    </p>
-                  )}
                 </div>
-              )}
 
-              {/* Consignment ID with Tracking Link */}
-              {sale.consignment_id && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Tracking Information</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Tracking ID:</span>
-                    <a
-                      href={`https://tracking.pathao.com/?tracking_id=${sale.consignment_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline font-mono text-sm flex items-center gap-1"
-                    >
-                      {sale.consignment_id}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                {sale.last_status_check && (
+                  <div>
+                    <p className="text-sm font-medium">Last Status Check</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(sale.last_status_check), 'PPp')}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Click the tracking ID to view details on Pathao's website
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Click the tracking ID to view real-time status on Pathao's website
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Items Table */}

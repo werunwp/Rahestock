@@ -14,6 +14,7 @@ import { CourierOrderDialog } from "@/components/CourierOrderDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useStatusAutoRefresh } from "@/hooks/useStatusAutoRefresh";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,9 @@ export default function Sales() {
   
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
+  
+  // Enable auto-refresh for courier statuses
+  useStatusAutoRefresh();
 
   const { data: sales = [], isLoading, error } = useQuery({
     queryKey: ["sales"],
@@ -61,9 +65,7 @@ export default function Sales() {
     },
   });
 
-  const handleStatusRefresh = async (saleId: string, consignmentId: string) => {
-    setIsRefreshingStatuses(true);
-    
+  const handleStatusRefresh = async (saleId: string, consignmentId: string, showToast = true) => {
     try {
       // Get webhook settings for status check
       const { data: webhookSettings } = await supabase
@@ -73,9 +75,8 @@ export default function Sales() {
         .maybeSingle();
 
       if (!webhookSettings?.webhook_url) {
-        toast.error("No status check webhook URL configured");
-        setIsRefreshingStatuses(false);
-        return;
+        if (showToast) toast.error("No status check webhook URL configured");
+        return false;
       }
 
       const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${consignmentId}`;
@@ -110,22 +111,59 @@ export default function Sales() {
           .eq('id', saleId);
         
         if (!updateError) {
-          toast.success(`Status updated to: ${newCourierStatus.replace('_', ' ').toUpperCase()}`);
+          if (showToast) toast.success(`Status updated to: ${newCourierStatus.replace('_', ' ').toUpperCase()}`);
           // Refresh the sales data
           queryClient.invalidateQueries({ queryKey: ["sales"] });
+          return true;
         } else {
           console.error('Failed to update sale status:', updateError);
-          toast.error('Failed to update status in database');
+          if (showToast) toast.error('Failed to update status in database');
+          return false;
         }
       } else {
         console.error('Failed to check status for:', consignmentId);
-        toast.error('Failed to get status from courier service');
+        if (showToast) toast.error('Failed to get status from courier service');
+        return false;
       }
     } catch (error) {
-      toast.error("Failed to refresh order status");
+      if (showToast) toast.error("Failed to refresh order status");
       console.error("Error refreshing status:", error);
-    } finally {
+      return false;
+    }
+  };
+
+  const handleBulkStatusRefresh = async () => {
+    setIsRefreshingStatuses(true);
+    
+    const salesWithConsignmentId = filteredSales.filter(sale => sale.consignment_id);
+    
+    if (salesWithConsignmentId.length === 0) {
+      toast.info("No orders with tracking IDs found");
       setIsRefreshingStatuses(false);
+      return;
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const sale of salesWithConsignmentId) {
+      const success = await handleStatusRefresh(sale.id, sale.consignment_id!, false);
+      if (success) {
+        successCount++;
+      } else {
+        failureCount++;
+      }
+      
+      // Add a small delay between requests to avoid overwhelming the webhook
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    setIsRefreshingStatuses(false);
+    
+    if (successCount > 0) {
+      toast.success(`Updated ${successCount} order statuses successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`);
+    } else if (failureCount > 0) {
+      toast.error(`Failed to update ${failureCount} order statuses`);
     }
   };
 
@@ -297,7 +335,19 @@ export default function Sales() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
-                  <TableHead>Courier Status</TableHead>
+                  <TableHead className="flex items-center gap-2">
+                    Courier Status
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBulkStatusRefresh}
+                      disabled={isRefreshingStatuses}
+                      className="h-6 w-6 p-0"
+                      title="Refresh all order statuses"
+                    >
+                      <RefreshCw className={cn("h-3 w-3", isRefreshingStatuses && "animate-spin")} />
+                    </Button>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -345,10 +395,10 @@ export default function Sales() {
                             <Eye className="h-4 w-4" />
                           </Button>
                           {sale.consignment_id ? (
-                            <Button
+                           <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleStatusRefresh(sale.id, sale.consignment_id)}
+                              onClick={() => handleStatusRefresh(sale.id, sale.consignment_id!, true)}
                               disabled={isRefreshingStatuses}
                               title="Refresh order status"
                             >
