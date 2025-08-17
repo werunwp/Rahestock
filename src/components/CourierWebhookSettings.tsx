@@ -16,6 +16,8 @@ export const CourierWebhookSettings = () => {
   const [webhookName, setWebhookName] = useState("");
   const [webhookDescription, setWebhookDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [authHeaderName, setAuthHeaderName] = useState("");
+  const [authHeaderValue, setAuthHeaderValue] = useState("");
 
   useEffect(() => {
     if (webhookSettings) {
@@ -23,6 +25,8 @@ export const CourierWebhookSettings = () => {
       setWebhookName(webhookSettings.webhook_name || "");
       setWebhookDescription(webhookSettings.webhook_description || "");
       setIsActive(webhookSettings.is_active);
+      setAuthHeaderName(webhookSettings.auth_header_name || "");
+      setAuthHeaderValue(webhookSettings.auth_header_value || "");
     }
   }, [webhookSettings]);
 
@@ -45,7 +49,9 @@ export const CourierWebhookSettings = () => {
       webhook_url: webhookUrl,
       webhook_name: webhookName || "Courier Webhook",
       webhook_description: webhookDescription,
-      is_active: isActive
+      is_active: isActive,
+      auth_header_name: authHeaderName,
+      auth_header_value: authHeaderValue
     });
   };
 
@@ -76,11 +82,18 @@ export const CourierWebhookSettings = () => {
         }
       };
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Add auth header if provided
+      if (authHeaderName && authHeaderValue) {
+        headers[authHeaderName] = authHeaderValue;
+      }
+
       const response = await fetch(webhookUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         mode: "no-cors",
         body: JSON.stringify(testData),
       });
@@ -139,6 +152,35 @@ export const CourierWebhookSettings = () => {
               onChange={(e) => setWebhookDescription(e.target.value)}
               rows={3}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="auth_header_name">Auth Header Name</Label>
+              <Input
+                id="auth_header_name"
+                placeholder="e.g., Authorization, X-API-Key"
+                value={authHeaderName}
+                onChange={(e) => setAuthHeaderName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Name of the header for authentication (optional)
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="auth_header_value">Auth Header Value</Label>
+              <Input
+                id="auth_header_value"
+                type="password"
+                placeholder="e.g., Bearer token123, api-key-value"
+                value={authHeaderValue}
+                onChange={(e) => setAuthHeaderValue(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Value for the authentication header (optional)
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

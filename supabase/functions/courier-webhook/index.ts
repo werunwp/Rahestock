@@ -117,13 +117,22 @@ serve(async (req) => {
     console.log('Sending order to webhook URL:', webhookSettings.webhook_url);
     console.log('Order payload:', JSON.stringify(orderData, null, 2));
 
+    // Prepare headers for webhook request
+    const webhookHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Courier-Webhook-Sender/1.0',
+    };
+
+    // Add auth header if configured
+    if (webhookSettings.auth_header_name && webhookSettings.auth_header_value) {
+      webhookHeaders[webhookSettings.auth_header_name] = webhookSettings.auth_header_value;
+      console.log('Added auth header:', webhookSettings.auth_header_name);
+    }
+
     // Send order data to the configured webhook
     const webhookResponse = await fetch(webhookSettings.webhook_url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Courier-Webhook-Sender/1.0',
-      },
+      headers: webhookHeaders,
       body: JSON.stringify(orderData),
     })
 
