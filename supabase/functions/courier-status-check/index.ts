@@ -114,6 +114,7 @@ serve(async (req) => {
     const webhookHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'Courier-Status-Checker/1.0',
+      'Accept': 'application/json'
     };
 
     // Add basic auth if configured
