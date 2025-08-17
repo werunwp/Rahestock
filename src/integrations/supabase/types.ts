@@ -82,6 +82,8 @@ export type Database = {
       }
       courier_webhook_settings: {
         Row: {
+          auth_password: string | null
+          auth_username: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -91,6 +93,8 @@ export type Database = {
           webhook_url: string
         }
         Insert: {
+          auth_password?: string | null
+          auth_username?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -100,6 +104,8 @@ export type Database = {
           webhook_url: string
         }
         Update: {
+          auth_password?: string | null
+          auth_username?: string | null
           created_at?: string
           id?: string
           is_active?: boolean

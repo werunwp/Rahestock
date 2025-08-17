@@ -16,6 +16,8 @@ export const CourierWebhookSettings = () => {
   const [webhookName, setWebhookName] = useState("");
   const [webhookDescription, setWebhookDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
 
   useEffect(() => {
     if (webhookSettings) {
@@ -23,6 +25,8 @@ export const CourierWebhookSettings = () => {
       setWebhookName(webhookSettings.webhook_name || "");
       setWebhookDescription(webhookSettings.webhook_description || "");
       setIsActive(webhookSettings.is_active);
+      setAuthUsername(webhookSettings.auth_username || "");
+      setAuthPassword(webhookSettings.auth_password || "");
     }
   }, [webhookSettings]);
 
@@ -45,7 +49,9 @@ export const CourierWebhookSettings = () => {
       webhook_url: webhookUrl,
       webhook_name: webhookName || "Courier Webhook",
       webhook_description: webhookDescription,
-      is_active: isActive
+      is_active: isActive,
+      auth_username: authUsername,
+      auth_password: authPassword
     });
   };
 
@@ -76,11 +82,19 @@ export const CourierWebhookSettings = () => {
         }
       };
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Add basic auth header if credentials provided
+      if (authUsername && authPassword) {
+        const credentials = btoa(`${authUsername}:${authPassword}`);
+        headers['Authorization'] = `Basic ${credentials}`;
+      }
+
       const response = await fetch(webhookUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         mode: "no-cors",
         body: JSON.stringify(testData),
       });
@@ -139,6 +153,35 @@ export const CourierWebhookSettings = () => {
               onChange={(e) => setWebhookDescription(e.target.value)}
               rows={3}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="auth_username">Basic Auth Username</Label>
+              <Input
+                id="auth_username"
+                placeholder="e.g., username"
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Username for basic authentication (optional)
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="auth_password">Basic Auth Password</Label>
+              <Input
+                id="auth_password"
+                type="password"
+                placeholder="e.g., password123"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Password for basic authentication (optional)
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

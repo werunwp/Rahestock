@@ -52,7 +52,7 @@ export default function Sales() {
   // Enable auto-refresh for courier statuses
   useStatusAutoRefresh();
 
-  const { data: sales = [], isLoading, error } = useQuery({
+  const { data: sales = [], isLoading, error, refetch } = useQuery({
     queryKey: ["sales"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -65,22 +65,20 @@ export default function Sales() {
     },
   });
 
+  // Listen for sales data updates to refresh without page reload
+  useEffect(() => {
+    const handleSalesUpdate = () => {
+      refetch();
+    };
+    
+    window.addEventListener('salesDataUpdated', handleSalesUpdate);
+    return () => window.removeEventListener('salesDataUpdated', handleSalesUpdate);
+  }, [refetch]);
+
   const handleStatusRefresh = async (saleId: string, consignmentId: string, showToast = true) => {
     try {
-      // Get webhook settings for status check
-      const { data: webhookSettings } = await supabase
-        .from('courier_webhook_settings')
-        .select('webhook_url')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (!webhookSettings?.webhook_url) {
-        if (showToast) toast.error("No status check webhook URL configured");
-        return false;
-      }
-
-      // Use Supabase edge function for status check instead of direct webhook call
-      const { data, error } = await supabase.functions.invoke('courier-webhook', {
+      // Use Supabase edge function for status check with auth headers
+      const { data, error } = await supabase.functions.invoke('courier-status-check', {
         body: { 
           action: 'check_status',
           consignment_id: consignmentId 
