@@ -21,7 +21,7 @@ import { DataBackupControls } from "@/components/DataBackupControls";
 import { WooCommerceImport } from "@/components/WooCommerceImport";
 import { AppResetControls } from "@/components/AppResetControls";
 import { CustomCodeSettings } from "@/components/CustomCodeSettings";
-import { PathaoSettings } from "@/components/PathaoSettings";
+import { CourierWebhookSettings } from "@/components/CourierWebhookSettings";
 
 const Settings = () => {
   const { businessSettings, updateBusinessSettings, isUpdating } = useBusinessSettings();
@@ -372,7 +372,7 @@ const Settings = () => {
             </CardContent>
           </Card>
           
-          <PathaoSettings />
+          <CourierWebhookSettings />
           
           <CustomCodeSettings />
           

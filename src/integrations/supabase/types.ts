@@ -80,6 +80,36 @@ export type Database = {
         }
         Relationships: []
       }
+      courier_webhook_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          webhook_description: string | null
+          webhook_name: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_description?: string | null
+          webhook_name?: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_description?: string | null
+          webhook_name?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       custom_settings: {
         Row: {
           content: string | null
@@ -226,57 +256,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      pathao_settings: {
-        Row: {
-          access_token: string | null
-          api_base_url: string
-          client_id: string
-          client_secret: string
-          created_at: string
-          default_delivery_type: number
-          default_item_type: number
-          id: string
-          password: string
-          refresh_token: string | null
-          store_id: number
-          token_expires_at: string | null
-          updated_at: string
-          username: string
-        }
-        Insert: {
-          access_token?: string | null
-          api_base_url?: string
-          client_id?: string
-          client_secret?: string
-          created_at?: string
-          default_delivery_type?: number
-          default_item_type?: number
-          id?: string
-          password?: string
-          refresh_token?: string | null
-          store_id: number
-          token_expires_at?: string | null
-          updated_at?: string
-          username?: string
-        }
-        Update: {
-          access_token?: string | null
-          api_base_url?: string
-          client_id?: string
-          client_secret?: string
-          created_at?: string
-          default_delivery_type?: number
-          default_item_type?: number
-          id?: string
-          password?: string
-          refresh_token?: string | null
-          store_id?: number
-          token_expires_at?: string | null
-          updated_at?: string
-          username?: string
-        }
-        Relationships: []
       }
       product_attribute_values: {
         Row: {

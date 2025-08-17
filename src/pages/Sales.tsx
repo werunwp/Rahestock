@@ -15,7 +15,7 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { PathaoOrderDialog } from "@/components/PathaoOrderDialog";
+import { CourierOrderDialog } from "@/components/CourierOrderDialog";
 
 const Sales = () => {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
@@ -271,7 +271,7 @@ const Sales = () => {
         onOpenChange={handleCloseDetailsDialog}
         saleId={viewingSaleId}
       />
-      <PathaoOrderDialog 
+      <CourierOrderDialog 
         open={showPathaoDialog} 
         onOpenChange={handleClosePathaoDialog}
         saleId={pathaoSaleId}
