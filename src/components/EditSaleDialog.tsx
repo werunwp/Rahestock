@@ -19,6 +19,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
   useEffect(() => {
     if (!open || !saleId) {
       setInitialData(undefined);
+      setIsLoading(false);
       return;
     }
 
@@ -79,6 +80,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
           items: enrichedItems,
         });
       } catch (error) {
+        console.error("Error loading sale data:", error);
         toast.error("Failed to load sale data");
       } finally {
         setIsLoading(false);
