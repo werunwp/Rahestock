@@ -106,6 +106,8 @@ export const BaseSaleDialog = ({
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("fixed");
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [productComboOpen, setProductComboOpen] = useState(false);
+  const [customerNameDropdownOpen, setCustomerNameDropdownOpen] = useState(false);
+  const [customerPhoneDropdownOpen, setCustomerPhoneDropdownOpen] = useState(false);
 
   // Initialize form data when dialog opens or initial data changes
   useEffect(() => {
@@ -128,6 +130,8 @@ export const BaseSaleDialog = ({
       setProductSearchTerm("");
       setProductComboOpen(false);
       setSelectedVariantId(null);
+      setCustomerNameDropdownOpen(false);
+      setCustomerPhoneDropdownOpen(false);
     } else if (initialData) {
       // Map data to consistent format
       const mappedData: SaleFormData = {
@@ -216,6 +220,24 @@ export const BaseSaleDialog = ({
   const selectedProduct = filteredProducts.find(p => p.id === selectedProductId);
   const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
 
+  // Filter customers by name
+  const filteredCustomersByName = useMemo(() => {
+    if (!customers || !formData.customerName.trim()) return [];
+    const searchTerm = formData.customerName.toLowerCase();
+    return customers.filter(customer => 
+      customer.name.toLowerCase().includes(searchTerm)
+    ).slice(0, 5); // Limit to 5 results
+  }, [customers, formData.customerName]);
+
+  // Filter customers by phone
+  const filteredCustomersByPhone = useMemo(() => {
+    if (!customers || !formData.customerPhone?.trim()) return [];
+    const searchTerm = formData.customerPhone.toLowerCase();
+    return customers.filter(customer => 
+      customer.phone?.toLowerCase().includes(searchTerm)
+    ).slice(0, 5); // Limit to 5 results
+  }, [customers, formData.customerPhone]);
+
   // Calculate totals
   const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
   const discountAmount = discountType === "percentage" 
@@ -235,6 +257,30 @@ export const BaseSaleDialog = ({
       setFormData(prev => ({ ...prev, paymentStatus: "partial" }));
     }
   }, [formData.amountPaid, grandTotal, formData.paymentStatus]);
+
+  const handleCustomerSelectFromName = (customer: any) => {
+    setFormData(prev => ({
+      ...prev,
+      customerId: customer.id,
+      customerName: customer.name,
+      customerPhone: customer.phone || "",
+      customerWhatsapp: customer.whatsapp || "",
+      customerAddress: customer.address || "",
+    }));
+    setCustomerNameDropdownOpen(false);
+  };
+
+  const handleCustomerSelectFromPhone = (customer: any) => {
+    setFormData(prev => ({
+      ...prev,
+      customerId: customer.id,
+      customerName: customer.name,
+      customerPhone: customer.phone || "",
+      customerWhatsapp: customer.whatsapp || "",
+      customerAddress: customer.address || "",
+    }));
+    setCustomerPhoneDropdownOpen(false);
+  };
 
   const handleCustomerSelect = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
@@ -414,21 +460,65 @@ export const BaseSaleDialog = ({
                 
                 <div className="space-y-2">
                   <Label>Customer Name</Label>
-                  <Input
-                    value={formData.customerName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                    placeholder="Enter customer name"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      value={formData.customerName}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, customerName: e.target.value }));
+                        setCustomerNameDropdownOpen(true);
+                      }}
+                      onFocus={() => setCustomerNameDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setCustomerNameDropdownOpen(false), 200)}
+                      placeholder="Enter customer name"
+                      required
+                    />
+                    {customerNameDropdownOpen && filteredCustomersByName.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {filteredCustomersByName.map(customer => (
+                          <div
+                            key={customer.id}
+                            className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            onClick={() => handleCustomerSelectFromName(customer)}
+                          >
+                            <div className="font-medium">{customer.name}</div>
+                            {customer.phone && (
+                              <div className="text-sm text-muted-foreground">{customer.phone}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label>Phone</Label>
-                  <Input
-                    value={formData.customerPhone || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
-                    placeholder="Customer phone"
-                  />
+                  <div className="relative">
+                    <Input
+                      value={formData.customerPhone || ""}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, customerPhone: e.target.value }));
+                        setCustomerPhoneDropdownOpen(true);
+                      }}
+                      onFocus={() => setCustomerPhoneDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setCustomerPhoneDropdownOpen(false), 200)}
+                      placeholder="Customer phone"
+                    />
+                    {customerPhoneDropdownOpen && filteredCustomersByPhone.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {filteredCustomersByPhone.map(customer => (
+                          <div
+                            key={customer.id}
+                            className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            onClick={() => handleCustomerSelectFromPhone(customer)}
+                          >
+                            <div className="font-medium">{customer.name}</div>
+                            <div className="text-sm text-muted-foreground">{customer.phone}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
