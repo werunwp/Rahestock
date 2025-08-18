@@ -560,11 +560,31 @@ export const BaseSaleDialog = ({
                     {formData.items.map((item, index) => (
                       <TableRow key={`${item.productId || item.product_id}-${index}`}>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{item.productName || item.product_name}</div>
-                            {item.variantLabel && (
-                              <div className="text-sm text-muted-foreground">{item.variantLabel}</div>
-                            )}
+                          <div className="flex items-center gap-3">
+                            {(() => {
+                              const product = products.find(p => p.id === (item.productId || item.product_id));
+                              return (
+                                <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                                  {product?.image_url ? (
+                                    <img 
+                                      src={product.image_url} 
+                                      alt={product.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                                      <span className="text-xs text-muted-foreground">No image</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            <div>
+                              <div className="font-medium">{item.productName || item.product_name}</div>
+                              {item.variantLabel && (
+                                <div className="text-sm text-muted-foreground">{item.variantLabel}</div>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
