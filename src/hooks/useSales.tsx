@@ -49,6 +49,7 @@ export interface CreateSaleData {
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
+  fee?: number;
   grand_total: number;
   amount_paid?: number;
   amount_due?: number;
@@ -74,6 +75,7 @@ export interface UpdateSaleData {
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
+  fee?: number;
   grand_total: number;
   amount_paid?: number;
   amount_due?: number;
