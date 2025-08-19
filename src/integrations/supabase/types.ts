@@ -385,6 +385,13 @@ export type Database = {
             referencedRelation: "woocommerce_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_variants_woocommerce_connection_id_fkey"
+            columns: ["woocommerce_connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       products: {
@@ -457,6 +464,13 @@ export type Database = {
             columns: ["woocommerce_connection_id"]
             isOneToOne: false
             referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_woocommerce_connection_id_fkey"
+            columns: ["woocommerce_connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections_secure"
             referencedColumns: ["id"]
           },
         ]
@@ -878,6 +892,13 @@ export type Database = {
             referencedRelation: "woocommerce_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "woocommerce_import_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       woocommerce_sync_logs: {
@@ -925,6 +946,13 @@ export type Database = {
             referencedRelation: "woocommerce_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "woocommerce_sync_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
       woocommerce_sync_schedules: {
@@ -969,11 +997,59 @@ export type Database = {
             referencedRelation: "woocommerce_connections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "woocommerce_sync_schedules_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "woocommerce_connections_secure"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      woocommerce_connections_secure: {
+        Row: {
+          consumer_key: string | null
+          consumer_secret: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          last_import_at: string | null
+          site_name: string | null
+          site_url: string | null
+          total_products_imported: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          consumer_key?: never
+          consumer_secret?: never
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_import_at?: string | null
+          site_name?: string | null
+          site_url?: string | null
+          total_products_imported?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          consumer_key?: never
+          consumer_secret?: never
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_import_at?: string | null
+          site_name?: string | null
+          site_url?: string | null
+          total_products_imported?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       begin_transaction: {
@@ -983,6 +1059,14 @@ export type Database = {
       commit_transaction: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      decrypt_sensitive_data: {
+        Args: { encrypted_data: string }
+        Returns: string
+      }
+      encrypt_sensitive_data: {
+        Args: { data: string }
+        Returns: string
       }
       generate_invoice_number: {
         Args: Record<PropertyKey, never>
@@ -1002,6 +1086,18 @@ export type Database = {
       rollback_transaction: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      upsert_woocommerce_connection: {
+        Args: {
+          p_consumer_key?: string
+          p_consumer_secret?: string
+          p_id?: string
+          p_is_active?: boolean
+          p_site_name?: string
+          p_site_url?: string
+          p_user_id?: string
+        }
+        Returns: string
       }
     }
     Enums: {
