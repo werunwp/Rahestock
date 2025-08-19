@@ -79,20 +79,19 @@ Deno.serve(async (req) => {
 
     console.log(`Starting optimized sync for connection: ${connectionId}`);
 
-    // Get the WooCommerce connection
-    const { data: connection, error: connectionError } = await supabase
-      .from('woocommerce_connections')
-      .select('*')
-      .eq('id', connectionId)
-      .single();
+    // Get the WooCommerce connection details with decrypted credentials
+    const { data: connections, error: connectionError } = await supabase
+      .rpc('get_woocommerce_connection_secure', { connection_id: connectionId });
 
-    if (connectionError || !connection) {
+    if (connectionError || !connections || connections.length === 0) {
       console.error('Connection error:', connectionError);
       return new Response(
-        JSON.stringify({ error: 'WooCommerce connection not found' }),
+        JSON.stringify({ error: 'WooCommerce connection not found or access denied' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const connection = connections[0];
 
     // Create sync log entry
     const { data: syncLog, error: logError } = await supabase

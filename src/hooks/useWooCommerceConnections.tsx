@@ -72,17 +72,26 @@ export const useWooCommerceConnections = () => {
 
   const createConnection = useMutation({
     mutationFn: async (connectionData: CreateWooCommerceConnectionData) => {
-      const { data, error } = await supabase
-        .from("woocommerce_connections")
-        .insert({
-          ...connectionData,
-          user_id: user?.id,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('upsert_woocommerce_connection', {
+        p_user_id: user?.id,
+        p_site_name: connectionData.site_name,
+        p_site_url: connectionData.site_url,
+        p_consumer_key: connectionData.consumer_key,
+        p_consumer_secret: connectionData.consumer_secret,
+        p_is_active: true
+      });
 
       if (error) throw error;
-      return data;
+      
+      // Fetch the created connection
+      const { data: connection, error: fetchError } = await supabase
+        .from("woocommerce_connections")
+        .select("*")
+        .eq("id", data)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      return connection;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
@@ -95,16 +104,42 @@ export const useWooCommerceConnections = () => {
   });
 
   const updateConnection = useMutation({
-    mutationFn: async ({ id, ...updateData }: Partial<WooCommerceConnection> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("woocommerce_connections")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
+    mutationFn: async ({ id, consumer_key, consumer_secret, ...updateData }: Partial<WooCommerceConnection> & { id: string }) => {
+      // Use the secure upsert function for updates that include sensitive data
+      if (consumer_key || consumer_secret) {
+        const { data, error } = await supabase.rpc('upsert_woocommerce_connection', {
+          p_id: id,
+          p_user_id: user?.id,
+          p_site_name: updateData.site_name,
+          p_site_url: updateData.site_url,
+          p_consumer_key: consumer_key,
+          p_consumer_secret: consumer_secret,
+          p_is_active: updateData.is_active
+        });
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        
+        // Fetch the updated connection
+        const { data: connection, error: fetchError } = await supabase
+          .from("woocommerce_connections")
+          .select("*")
+          .eq("id", data)
+          .single();
+          
+        if (fetchError) throw fetchError;
+        return connection;
+      } else {
+        // For non-sensitive updates, use direct table update
+        const { data, error } = await supabase
+          .from("woocommerce_connections")
+          .update(updateData)
+          .eq("id", id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["woocommerce-connections", user?.id] });
