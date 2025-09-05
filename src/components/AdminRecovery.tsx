@@ -18,25 +18,99 @@ export function AdminRecovery() {
 
     setIsRestoring(true);
     try {
-      const { data, error } = await supabase.functions.invoke('restore-admin', {
-        body: { userId: user.id }
-      });
+      // First, let's check if the tables exist and have the right structure
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(1);
 
-      if (error) {
-        throw error;
+      if (tableError && tableError.code === '42P01') {
+        // Table doesn't exist, show helpful message
+        toast.error("Database tables not found. Please run the setup script first.");
+        return;
       }
 
-      if (data?.success) {
-        toast.success("Admin access restored successfully! Refreshing page...");
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+      // Check if user already has a profile
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (existingProfile) {
+        // Update existing profile to admin - only update fields that exist
+        const updateData: any = { 
+          updated_at: new Date().toISOString()
+        };
+        
+        // Only update role if the column exists
+        if ('role' in existingProfile) {
+          updateData.role = 'admin';
+        }
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
       } else {
-        throw new Error(data?.error || 'Failed to restore admin access');
+        // Create new profile with only the fields that exist
+        const insertData: any = {
+          id: user.id
+        };
+        
+        // Only include fields that exist in the table
+        if (tableCheck && tableCheck.length > 0) {
+          const sampleRow = tableCheck[0];
+          if ('email' in sampleRow) insertData.email = user.email;
+          if ('full_name' in sampleRow) insertData.full_name = user.user_metadata?.full_name || 'Admin User';
+          if ('role' in sampleRow) insertData.role = 'admin';
+          if ('user_id' in sampleRow) insertData.user_id = user.id;
+        }
+
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert(insertData);
+
+        if (insertError) throw insertError;
       }
-    } catch (error) {
+
+      // Check if user already has admin role
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .single();
+
+      if (!existingRole) {
+        // Insert admin role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            role: 'admin'
+          });
+
+        if (roleError) throw roleError;
+      }
+
+      toast.success("Admin access restored successfully! Refreshing page...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (error: any) {
       console.error('Restore admin error:', error);
-      toast.error(error.message || 'Failed to restore admin access');
+      
+      if (error.code === '42P01') {
+        toast.error("Database tables not found. Please run the setup script first.");
+      } else if (error.message?.includes('infinite recursion')) {
+        toast.error("Database policy issue detected. Please run the setup script to fix policies.");
+      } else {
+        toast.error(error.message || 'Failed to restore admin access');
+      }
     } finally {
       setIsRestoring(false);
     }

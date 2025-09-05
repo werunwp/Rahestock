@@ -10,6 +10,9 @@ import { Trash2, Download, AlertCircle, CheckCircle, Clock, X } from "lucide-rea
 import { useWooCommerceConnections, useImportLogs } from "@/hooks/useWooCommerceConnections";
 import { WooCommerceLiveSync } from "@/components/WooCommerceLiveSync";
 import { useStopImport } from "@/hooks/useStopImport";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,
@@ -51,6 +54,33 @@ export const WooCommerceImport = () => {
 
   const { data: importLogs } = useImportLogs();
   const { stopImport, isStopping } = useStopImport();
+  const queryClient = useQueryClient();
+
+  // Reset stuck import status
+  const resetImportStatus = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('woocommerce_import_logs')
+        .update({
+          status: 'failed',
+          error_message: 'Import was stuck and manually reset',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('status', 'in_progress');
+
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["woocommerce-connections"] });
+      queryClient.invalidateQueries({ queryKey: ["import-logs"] });
+      toast.success("Import status reset successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to reset import status");
+      console.error("Error resetting import status:", error);
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,18 +263,30 @@ export const WooCommerceImport = () => {
                                 </Badge>
                               </div>
                               
-                              {latestLog.status === 'in_progress' && (
-                                <Button
-                                  onClick={() => stopImport(latestLog.id)}
-                                  disabled={isStopping}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                                >
-                                  <X className="h-3 w-3 mr-1" />
-                                  {isStopping ? "Stopping..." : "Stop Import"}
-                                </Button>
-                              )}
+                                                              {latestLog.status === 'in_progress' && (
+                                 <div className="flex gap-2">
+                                   <Button
+                                     onClick={() => stopImport(latestLog.id)}
+                                     disabled={isStopping}
+                                     variant="outline"
+                                     size="sm"
+                                     className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                   >
+                                     <X className="h-3 w-3 mr-1" />
+                                     {isStopping ? "Stopping..." : "Stop Import"}
+                                   </Button>
+                                   <Button
+                                     onClick={() => resetImportStatus.mutate()}
+                                     disabled={resetImportStatus.isPending}
+                                     variant="outline"
+                                     size="sm"
+                                     className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300"
+                                   >
+                                     <AlertCircle className="h-3 w-3 mr-1" />
+                                     {resetImportStatus.isPending ? "Resetting..." : "Reset Status"}
+                                   </Button>
+                                 </div>
+                                )}
                             </div>
                             
                             {latestLog.status === 'in_progress' && latestLog.progress_message && (

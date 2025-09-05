@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+App url: http://localhost:8080/
+
+self-hosted Supabase at https://supabase.akhiyanbd.com/  for this project
+
+Supabase SQL editor at https://supabase.akhiyanbd.com/project/default/sql/new?skip=true 
+
+Courier entry and status check workflow defined at https://n8n.pronirob.com/workflow/8tSkjSCaVqem433L
+
+
+ignore truncated and run scripts anyway
+
+You have always access to the browser mcp so use the avobe links to naviagte or see anything on the app or supabase or workflow and make the changes yourself using browser mcp.

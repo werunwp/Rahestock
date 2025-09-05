@@ -15,6 +15,8 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useStatusAutoRefresh } from "@/hooks/useStatusAutoRefresh";
+import { useWebhookSettings } from "@/hooks/useWebhookSettings";
+import { useCourierStatusRealtime } from "@/hooks/useCourierStatusRealtime";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +54,9 @@ export default function Sales() {
   
   // Enable auto-refresh for courier statuses
   useStatusAutoRefresh();
+  
+  // Enable real-time updates for courier statuses
+  useCourierStatusRealtime();
 
   const { data: sales = [], isLoading, error, refetch } = useQuery({
     queryKey: ["sales"],
@@ -76,52 +81,151 @@ export default function Sales() {
     return () => window.removeEventListener('salesDataUpdated', handleSalesUpdate);
   }, [refetch]);
 
+  const { webhookSettings } = useWebhookSettings();
+
   const handleStatusRefresh = async (saleId: string, consignmentId: string, showToast = true) => {
     setRefreshingIndividual(saleId);
     try {
-      // Use Supabase edge function for status check with auth headers
-      const { data, error } = await supabase.functions.invoke('courier-status-check', {
-        body: { 
-          action: 'check_status',
-          consignment_id: consignmentId 
-        }
-      });
-
-      if (error) {
-        throw error;
+      if (!webhookSettings) {
+        throw new Error('Webhook settings not loaded');
       }
 
-      if (data?.success) {
-        // Extract status from webhook response
-        let newStatus = 'pending';
-        if (data.webhook_response && Array.isArray(data.webhook_response) && data.webhook_response.length > 0) {
-          const statusResponse = data.webhook_response[0];
-          if (statusResponse.data && statusResponse.data.order_status) {
-            newStatus = statusResponse.data.order_status.toLowerCase();
-          }
+      console.log('Webhook settings from hook:', webhookSettings);
+
+      if (!webhookSettings.status_check_webhook_url) {
+        console.error('Webhook settings found but missing status_check_webhook_url:', webhookSettings);
+        throw new Error('No status check webhook URL configured');
+      }
+
+      console.log('Webhook settings details:', {
+        status_check_webhook_url: webhookSettings.status_check_webhook_url,
+        auth_username: webhookSettings.auth_username,
+        auth_password: webhookSettings.auth_password ? '***' : 'undefined',
+        auth_password_length: webhookSettings.auth_password ? webhookSettings.auth_password.length : 0
+      });
+
+      // Call n8n webhook for status check
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Basic Auth if credentials are configured
+      if (webhookSettings.auth_username && webhookSettings.auth_password &&
+          webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
+        const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
+        headers['Authorization'] = `Basic ${credentials}`;
+        console.log('Basic auth configured:', {
+          username: webhookSettings.auth_username,
+          password_length: webhookSettings.auth_password.length,
+          auth_header: `Basic ${credentials}`
+        });
+      } else {
+        console.log('No basic auth configured:', {
+          has_username: !!webhookSettings.auth_username,
+          has_password: !!webhookSettings.auth_password,
+          username_trimmed: webhookSettings.auth_username?.trim(),
+          password_trimmed: webhookSettings.auth_password?.trim()
+        });
+      }
+
+      // Send status check request to n8n (using Status Check Webhook URL)
+      const response = await fetch(webhookSettings.status_check_webhook_url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type: 'status_check',
+          consignment_id: consignmentId,
+          sale_id: saleId,
+          action: 'check_status'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Status check failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Status check response:', result);
+      
+      // Handle the specific response format from your webhook
+      let newStatus = 'pending';
+      
+      if (Array.isArray(result) && result.length > 0) {
+        // Format: [{ "type": "success", "code": 200, "data": { "order_status": "..." } }]
+        const firstResponse = result[0];
+        if (firstResponse.type === 'success' && firstResponse.data) {
+          newStatus = firstResponse.data.order_status || 'pending';
         }
+      } else if (result.data && result.data.order_status) {
+        // Fallback format: { "data": { "order_status": "..." } }
+        newStatus = result.data.order_status;
+      } else if (result.order_status) {
+        // Direct format: { "order_status": "..." }
+        newStatus = result.order_status;
+      } else if (result.status) {
+        // Legacy format: { "status": "..." }
+        newStatus = result.status;
+      } else if (result.courier_status) {
+        // Legacy format: { "courier_status": "..." }
+        newStatus = result.courier_status;
+      }
+      
+      console.log('Extracted courier status:', newStatus);
+      
+      // Normalize status for consistent display
+      const normalizedStatus = newStatus.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      let displayStatus = newStatus;
+      
+      if (normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel') || normalizedStatus.includes('cancelled')) {
+        displayStatus = 'cancelled';
+      } else if (normalizedStatus.includes('in_transit') || normalizedStatus.includes('picked_up')) {
+        displayStatus = 'in_transit';
+      } else if (normalizedStatus.includes('out_for_delivery')) {
+        displayStatus = 'out_for_delivery';
+      } else if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
+        displayStatus = 'delivered';
+      } else if (normalizedStatus.includes('returned')) {
+        displayStatus = 'returned';
+      }
+      
+      console.log('Status normalization:', { original: newStatus, normalized: normalizedStatus, display: displayStatus });
         
-        // Map courier status to payment status for business logic
-        let paymentStatusUpdate = {};
-        if (newStatus === 'delivered') {
-          paymentStatusUpdate = { payment_status: 'paid' };
-        } else if (newStatus === 'returned' || newStatus === 'lost') {
-          paymentStatusUpdate = { payment_status: 'cancelled' };
-        }
+      // Map courier status to payment status for business logic
+      let paymentStatusUpdate = {};
+      if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
+        paymentStatusUpdate = { payment_status: 'paid' };
+        console.log('Setting payment status to: paid');
+      } else if (normalizedStatus.includes('returned') || normalizedStatus.includes('cancelled') || 
+                 normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel') || normalizedStatus.includes('lost')) {
+        paymentStatusUpdate = { payment_status: 'cancelled' };
+        console.log('Setting payment status to: cancelled');
+      } else {
+        console.log('No payment status update needed for status:', normalizedStatus);
+      }
+      
+      console.log('Payment status update object:', paymentStatusUpdate);
         
-        // Update the sale in database
-        const { error: updateError } = await supabase
-          .from('sales')
-          .update({ 
-            courier_status: newStatus,
-            order_status: newStatus, // Keep for backward compatibility
-            last_status_check: new Date().toISOString(),
-            ...paymentStatusUpdate
-          })
-          .eq('id', saleId);
+      // Update the sale in database
+      console.log('Updating sale in database with:', {
+        courier_status: displayStatus,
+        order_status: displayStatus,
+        last_status_check: new Date().toISOString(),
+        paymentStatusUpdate
+      });
+      
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ 
+          courier_status: displayStatus,
+          order_status: displayStatus, // Keep for backward compatibility
+          last_status_check: new Date().toISOString(),
+          ...paymentStatusUpdate
+        })
+        .eq('id', saleId);
         
         if (!updateError) {
-          if (showToast) toast.success(`Status updated to: ${newStatus.replace('_', ' ').toUpperCase()}`);
+          console.log('Sale updated successfully in database');
+          if (showToast) toast.success(`Status updated to: ${displayStatus.toUpperCase()}`);
           // Refresh the sales data
           queryClient.invalidateQueries({ queryKey: ["sales"] });
           return true;
@@ -130,11 +234,8 @@ export default function Sales() {
           if (showToast) toast.error('Failed to update status in database');
           return false;
         }
-      } else {
-        console.error('Failed to check status for:', consignmentId);
-        if (showToast) toast.error('Failed to get status from courier service');
-        return false;
-      }
+      
+      
     } catch (error) {
       if (showToast) toast.error("Failed to refresh order status");
       console.error("Error refreshing status:", error);
@@ -348,17 +449,22 @@ export default function Sales() {
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead className="flex items-center gap-2">
-                    Courier Status
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleBulkStatusRefresh}
-                      disabled={isRefreshingStatuses}
-                      className="h-6 w-6 p-0"
-                      title="Refresh all order statuses"
-                    >
-                      <RefreshCw className={cn("h-3 w-3", isRefreshingStatuses && "animate-spin")} />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      Courier Status
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Real-time updates active"></div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleBulkStatusRefresh}
+                          disabled={isRefreshingStatuses}
+                          className="h-6 w-6 p-0"
+                          title="Refresh all order statuses"
+                        >
+                          <RefreshCw className={cn("h-3 w-3", isRefreshingStatuses && "animate-spin")} />
+                        </Button>
+                      </div>
+                    </div>
                   </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -378,17 +484,32 @@ export default function Sales() {
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                       <TableCell>{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
-                        <Badge variant={
-                          sale.courier_status === 'delivered' ? 'default' : 
-                          sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
-                          sale.courier_status === 'not_sent' ? 'outline' :
-                          'secondary'
-                        }>
-                          {sale.courier_status === 'not_sent' ? 'Not Sent' : 
-                           sale.courier_status === 'in_transit' ? 'In Transit' :
-                           sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                           sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                        </Badge>
+                        <div className="space-y-1">
+                          <Badge variant={
+                            sale.courier_status === 'delivered' ? 'default' : 
+                            sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
+                            sale.courier_status === 'not_sent' ? 'outline' :
+                            sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {sale.courier_status === 'not_sent' ? 'Not Sent' : 
+                             sale.courier_status === 'in_transit' ? 'In Transit' :
+                             sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
+                             sale.courier_status === 'returned' ? 'Returned' :
+                             sale.courier_status === 'lost' ? 'Lost' :
+                             sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                          </Badge>
+                          {sale.last_status_check && (
+                            <div className="text-xs text-muted-foreground">
+                              Last updated: {format(new Date(sale.last_status_check), "MMM dd, HH:mm")}
+                            </div>
+                          )}
+                          {sale.estimated_delivery && sale.courier_status !== 'delivered' && (
+                            <div className="text-xs text-muted-foreground">
+                              ETA: {format(new Date(sale.estimated_delivery), "MMM dd")}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

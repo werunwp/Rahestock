@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useState, useMemo, useRef } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
@@ -16,11 +17,13 @@ import { isWithinInterval, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useCustomerStatusUpdate } from "@/hooks/useCustomerStatusUpdate";
 
 const Customers = () => {
   const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer } = useCustomers();
   const { formatAmount } = useCurrency();
   const { hasPermission } = useUserRole();
+  const { bulkUpdateCustomerStatus, isUpdating } = useCustomerStatusUpdate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -29,6 +32,8 @@ const Customers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
@@ -334,6 +339,17 @@ const Customers = () => {
               Export
             </Button>
           )}
+          {hasPermission('customers.edit') && (
+            <Button 
+              variant="outline" 
+              onClick={() => bulkUpdateCustomerStatus()} 
+              disabled={isUpdating}
+              className="w-full sm:w-auto"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              {isUpdating ? 'Updating...' : 'Update Status'}
+            </Button>
+          )}
           {hasPermission('customers.add') && (
             <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
@@ -343,9 +359,9 @@ const Customers = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         {isLoading ? (
-          [...Array(4)].map((_, i) => (
+          [...Array(5)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -361,13 +377,25 @@ const Customers = () => {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Filtered Customers</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{filteredCustomers.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Selected period customers
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{customers.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  Total registered customers
+                  All time customers
                 </p>
               </CardContent>
             </Card>
@@ -378,7 +406,7 @@ const Customers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {customers.filter(c => c.status === 'active').length}
+                  {filteredCustomers.filter(c => c.status === 'active').length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Active status customers
@@ -392,9 +420,9 @@ const Customers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatAmount(customers.length > 0 ? 
-                    (customers.filter(c => c.order_count > 0).reduce((sum, c) => sum + c.total_spent, 0) / 
-                    customers.filter(c => c.order_count > 0).length || 1) : 
+                  {formatAmount(filteredCustomers.length > 0 ? 
+                    (filteredCustomers.filter(c => c.order_count > 0).reduce((sum, c) => sum + c.total_spent, 0) / 
+                    filteredCustomers.filter(c => c.order_count > 0).length || 1) : 
                     0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -409,7 +437,7 @@ const Customers = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {customers.filter(c => c.total_spent > 5000).length}
+                  {filteredCustomers.filter(c => c.total_spent > 5000).length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   High-value customers
@@ -420,8 +448,10 @@ const Customers = () => {
         )}
       </div>
 
+
+
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />
+        <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} defaultPreset="all" />
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
@@ -438,18 +468,38 @@ const Customers = () => {
           <CardTitle>Customer List</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Orders</TableHead>
-                <TableHead>Total Spent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+          <TooltipProvider>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>WhatsApp</TableHead>
+                  <TableHead>Orders</TableHead>
+                  <TableHead>Total Spent</TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help border-b border-dotted border-gray-400">Status</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="max-w-xs">
+                          <p className="font-semibold mb-2">Customer Status Logic:</p>
+                          <div className="text-sm space-y-1">
+                            <p>• <strong>Active:</strong> Purchase within last 1 month</p>
+                            <p>• <strong>Neutral:</strong> Purchase within last 3 months</p>
+                            <p>• <strong>Inactive:</strong> No purchase in 6+ months</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Updates automatically with sales or manually via "Update Status" button.
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
@@ -567,6 +617,7 @@ const Customers = () => {
               )}
             </TableBody>
           </Table>
+          </TooltipProvider>
         </CardContent>
       </Card>
 

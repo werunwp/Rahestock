@@ -13,7 +13,7 @@ import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
-import { createPrintableInvoice, downloadInvoiceHtml, downloadInvoicePDFFromHtml } from "@/lib/generateInvoiceHtml";
+import { downloadInvoicePDF, downloadInvoiceHTML, generateInvoiceHTML, downloadInvoicePDFSimple } from "@/lib/simpleInvoiceGenerator";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const Invoices = () => {
@@ -123,7 +123,11 @@ const Invoices = () => {
           </Button>
           <Button variant="outline" onClick={handleExportInvoices}>
             <Download className="mr-2 h-4 w-4" />
-            Export
+            Export All
+          </Button>
+          <Button variant="outline" onClick={handleTestPDFLibraries} title="Test PDF Libraries">
+            <FileText className="mr-2 h-4 w-4" />
+            Test PDF
           </Button>
         </div>
       </div>
@@ -208,6 +212,14 @@ const Invoices = () => {
                              >
                                <Download className="h-4 w-4" />
                              </Button>
+                             <Button 
+                               variant="ghost" 
+                               size="sm"
+                               onClick={() => handleDownloadInvoiceHTML(sale)}
+                               title="Download Invoice (HTML)"
+                             >
+                               <FileText className="h-4 w-4" />
+                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -249,7 +261,21 @@ const Invoices = () => {
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      createPrintableInvoice(saleWithItems, businessSettings, systemSettings);
+      
+      // Generate HTML invoice and open in new window for printing
+      const html = generateInvoiceHTML(saleWithItems, businessSettings, systemSettings);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        // Wait for content to load then print
+        printWindow.onload = () => {
+          printWindow.print();
+          printWindow.close();
+        };
+      }
+      
       toast.success("Invoice sent to printer");
     } catch (error) {
       toast.error("Failed to print invoice");
@@ -266,8 +292,47 @@ const Invoices = () => {
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      await downloadInvoicePDFFromHtml(saleWithItems, businessSettings, systemSettings);
-      toast.success("Invoice PDF downloaded successfully");
+      
+      // Show loading toast
+      toast.loading("Generating PDF invoice...");
+      
+      try {
+        await downloadInvoicePDF(saleWithItems, businessSettings, systemSettings);
+        toast.dismiss();
+        toast.success("Invoice PDF downloaded successfully");
+      } catch (error) {
+        toast.dismiss();
+        console.error("PDF download error:", error);
+        
+        // Try the simple fallback method
+        try {
+          toast.loading("Trying alternative method...");
+          await downloadInvoicePDFSimple(saleWithItems, businessSettings, systemSettings);
+          toast.dismiss();
+          toast.success("Invoice downloaded as image successfully");
+        } catch (fallbackError) {
+          toast.dismiss();
+          console.error("Fallback method also failed:", fallbackError);
+          toast.error("Failed to download invoice. Please try downloading as HTML instead.");
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to download invoice");
+      console.error("Download error:", error);
+    }
+  }
+
+  async function handleDownloadInvoiceHTML(sale: any) {
+    try {
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
+        return;
+      }
+
+      // Get sale with items for complete data
+      const saleWithItems = await getSaleWithItems(sale.id);
+      await downloadInvoiceHTML(saleWithItems, businessSettings, systemSettings);
+      toast.success("Invoice HTML downloaded successfully");
     } catch (error) {
       toast.error("Failed to download invoice");
       console.error("Download error:", error);
@@ -286,20 +351,53 @@ const Invoices = () => {
         return;
       }
 
-      // Export each invoice as a separate PDF using HTML template
-      for (const sale of filteredSales) {
-        try {
-          const saleWithItems = await getSaleWithItems(sale.id);
-          await downloadInvoicePDFFromHtml(saleWithItems, businessSettings, systemSettings);
-        } catch (error) {
-          console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
-        }
-      }
+      // Ask user for export format
+      const format = window.confirm("Export as PDF? Click OK for PDF, Cancel for HTML");
       
-      toast.success(`${filteredSales.length} invoices exported successfully`);
+      if (format) {
+        // Export each invoice as a separate PDF
+        for (const sale of filteredSales) {
+          try {
+            const saleWithItems = await getSaleWithItems(sale.id);
+            await downloadInvoicePDF(saleWithItems, businessSettings, systemSettings);
+          } catch (error) {
+            console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
+          }
+        }
+        toast.success(`${filteredSales.length} invoices exported as PDF successfully`);
+      } else {
+        // Export each invoice as a separate HTML
+        for (const sale of filteredSales) {
+          try {
+            const saleWithItems = await getSaleWithItems(sale.id);
+            downloadInvoiceHTML(saleWithItems, businessSettings, systemSettings);
+          } catch (error) {
+            console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
+          }
+        }
+        toast.success(`${filteredSales.length} invoices exported as HTML successfully`);
+      }
     } catch (error) {
       toast.error("Failed to export invoices");
       console.error("Export error:", error);
+    }
+  }
+
+  // Debug function to test PDF libraries
+  async function handleTestPDFLibraries() {
+    try {
+      const { testPDFLibraries } = await import('@/lib/simpleInvoiceGenerator');
+      const result = await testPDFLibraries();
+      
+      if (result.html2canvas && result.jsPDF) {
+        toast.success("PDF libraries are working correctly!");
+      } else {
+        toast.error(`PDF libraries test failed: ${result.error}`);
+        console.log("PDF Libraries Test Result:", result);
+      }
+    } catch (error) {
+      toast.error("Failed to test PDF libraries");
+      console.error("Test error:", error);
     }
   }
 };

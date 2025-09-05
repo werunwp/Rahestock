@@ -20,20 +20,27 @@ export const useCustomSettings = () => {
     data: customSettings,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["customSettings"],
     queryFn: async () => {
+      console.log('Fetching custom settings...');
       const { data, error } = await supabase
         .from("custom_settings")
-        .select("*");
+        .select("*")
+        .order('setting_type');
 
       if (error) {
+        console.error('Error fetching custom settings:', error);
         throw error;
       }
       
+      console.log('Custom settings fetched:', data);
       return data as CustomSetting[];
     },
     enabled: !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   const updateCustomSetting = useMutation({
@@ -46,43 +53,71 @@ export const useCustomSettings = () => {
       content: string; 
       is_enabled: boolean;
     }) => {
+      console.log('Updating custom setting:', { setting_type, content, is_enabled });
+      
       // First try to update existing setting
-      const { data: existingData } = await supabase
+      const { data: existingData, error: selectError } = await supabase
         .from("custom_settings")
         .select("id")
         .eq("setting_type", setting_type)
         .maybeSingle();
 
+      if (selectError) {
+        console.error('Error checking existing setting:', selectError);
+        throw selectError;
+      }
+
       if (existingData?.id) {
         // Update existing
+        console.log('Updating existing setting:', existingData.id);
         const { data, error } = await supabase
           .from("custom_settings")
-          .update({ content, is_enabled })
+          .update({ 
+            content, 
+            is_enabled,
+            updated_at: new Date().toISOString()
+          })
           .eq("id", existingData.id)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating setting:', error);
+          throw error;
+        }
+        console.log('Setting updated successfully:', data);
         return data;
       } else {
         // Create new
+        console.log('Creating new setting');
         const { data, error } = await supabase
           .from("custom_settings")
-          .insert({ setting_type, content, is_enabled })
+          .insert({ 
+            setting_type, 
+            content, 
+            is_enabled,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error creating setting:', error);
+          throw error;
+        }
+        console.log('Setting created successfully:', data);
         return data;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Setting saved successfully:', data);
       queryClient.invalidateQueries({ queryKey: ["customSettings"] });
-      toast.success("Settings saved");
+      toast.success(`${variables.setting_type.replace('_', ' ')} saved successfully`);
     },
-    onError: (error) => {
-      toast.error("Failed to save settings");
-      console.error("Error updating custom settings:", error);
+    onError: (error, variables) => {
+      console.error('Error updating custom setting:', error);
+      toast.error(`Failed to save ${variables.setting_type.replace('_', ' ')}`);
     },
   });
 
@@ -106,7 +141,8 @@ export const useCustomSettings = () => {
     getBodySnippet,
     isLoading,
     error,
-    updateCustomSetting: updateCustomSetting.mutate,
+    refetch,
+    updateCustomSetting: updateCustomSetting.mutateAsync,
     isUpdating: updateCustomSetting.isPending,
   };
 };

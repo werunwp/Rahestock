@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImageUpload } from "@/components/ImageUpload";
+import { ImagePicker } from "@/components/ImagePicker";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { toast } from "sonner";
 
@@ -82,10 +82,11 @@ export const BusinessTab = () => {
 
               <div>
                 <Label htmlFor="logo_url">Business Logo</Label>
-                <ImageUpload
+                <ImagePicker
                   value={formData.logo_url}
                   onChange={(url) => handleInputChange("logo_url", url)}
                   onRemove={() => handleInputChange("logo_url", "")}
+                  placeholder="Select a business logo"
                 />
               </div>
 

@@ -11,6 +11,9 @@ export interface Sale {
   customer_phone: string | null;
   customer_whatsapp: string | null;
   customer_address: string | null;
+  city?: string | null;
+  zone?: string | null;
+  area?: string | null;
   subtotal: number;
   discount_percent: number;
   discount_amount: number;
@@ -23,6 +26,7 @@ export interface Sale {
   courier_status?: string;
   consignment_id?: string;
   last_status_check?: string;
+  fee?: number;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -46,6 +50,9 @@ export interface CreateSaleData {
   customer_phone?: string;
   customer_whatsapp?: string;
   customer_address?: string;
+  city?: string;
+  zone?: string;
+  area?: string;
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
@@ -72,6 +79,9 @@ export interface UpdateSaleData {
   customer_phone?: string;
   customer_whatsapp?: string;
   customer_address?: string;
+  city?: string;
+  zone?: string;
+  area?: string;
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
@@ -95,6 +105,56 @@ export interface UpdateSaleData {
 export const useSales = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Function to update customer status after sale changes
+  const updateCustomerStatus = async (customerId?: string) => {
+    if (!customerId) return;
+    
+    try {
+      // Get customer's purchase history to calculate new status
+      const { data: sales, error } = await supabase
+        .from('sales')
+        .select('created_at, payment_status, courier_status')
+        .eq('customer_id', customerId)
+        .not('payment_status', 'eq', 'cancelled')
+        .not('courier_status', 'in', '(cancelled,returned,lost)')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching customer sales:', error);
+        return;
+      }
+
+      let newStatus = 'inactive';
+      const now = new Date();
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+      if (sales && sales.length > 0) {
+        const lastPurchase = new Date(sales[0].created_at);
+        
+        if (lastPurchase >= oneMonthAgo) {
+          newStatus = 'active';
+        } else if (lastPurchase >= threeMonthsAgo) {
+          newStatus = 'neutral';
+        } else {
+          newStatus = 'inactive';
+        }
+      }
+
+      // Update customer status
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({ status: newStatus })
+        .eq('id', customerId);
+
+      if (updateError) {
+        console.error('Error updating customer status:', updateError);
+      }
+    } catch (error) {
+      console.error('Error in updateCustomerStatus:', error);
+    }
+  };
 
   const {
     data: sales = [],
@@ -254,10 +314,16 @@ export const useSales = () => {
 
       return sale;
     },
-    onSuccess: () => {
+    onSuccess: (sale) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
+      
+      // Update customer status automatically
+      if (sale.customer_id) {
+        updateCustomerStatus(sale.customer_id);
+      }
+      
       toast.success("Sale created successfully");
     },
     onError: (error) => {
@@ -425,9 +491,16 @@ export const useSales = () => {
 
       return sale;
     },
-    onSuccess: () => {
+    onSuccess: (sale) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      
+      // Update customer status automatically
+      if (sale.customer_id) {
+        updateCustomerStatus(sale.customer_id);
+      }
+      
       toast.success("Sale updated successfully");
     },
     onError: (error) => {
@@ -436,30 +509,46 @@ export const useSales = () => {
   });
 
   const getSaleWithItems = async (saleId: string) => {
-    const { data: sale, error: saleError } = await supabase
-      .from("sales")
-      .select("*")
-      .eq("id", saleId)
-      .single();
+    try {
+      // Add timeout protection
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 8000)
+      );
 
-    if (saleError) throw saleError;
+      const salePromise = supabase
+        .from("sales")
+        .select("*")
+        .eq("id", saleId)
+        .single();
 
-    const { data: items, error: itemsError } = await supabase
-      .from("sales_items")
-      .select(`
-        *,
-        product_variants!left(attributes)
-      `)
-      .eq("sale_id", saleId);
+      const { data: sale, error: saleError } = await Promise.race([salePromise, timeoutPromise]) as any;
 
-    if (itemsError) throw itemsError;
+      if (saleError) throw saleError;
 
-    const itemsWithVariants = (items || []).map(item => ({
-      ...item,
-      variant_attributes: (item as any).product_variants?.attributes || null
-    }));
+      const itemsPromise = supabase
+        .from("sales_items")
+        .select(`
+          *,
+          product_variants!left(attributes),
+          products!left(image_url, name)
+        `)
+        .eq("sale_id", saleId);
 
-    return { ...sale, items: itemsWithVariants };
+      const { data: items, error: itemsError } = await Promise.race([itemsPromise, timeoutPromise]) as any;
+
+      if (itemsError) throw itemsError;
+
+      const itemsWithVariants = (items || []).map(item => ({
+        ...item,
+        variant_attributes: (item as any).product_variants?.attributes || null,
+        product_image_url: (item as any).products?.image_url || null
+      }));
+
+      return { ...sale, items: itemsWithVariants };
+    } catch (error) {
+      console.error("Error in getSaleWithItems:", error);
+      throw error;
+    }
   };
 
   return {

@@ -1,181 +1,137 @@
 import { useState, useMemo } from "react";
-import { BarChart3, TrendingUp, Download, Calendar, Filter } from "lucide-react";
+import { TrendingUp, Download, Users, Package, DollarSign, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
-import { useSalesItems } from "@/hooks/useSalesItems";
+
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
-import { SalesTrendFilter, SalesTrendPeriod, SalesTrendRange } from "@/components/SalesTrendFilter";
+
 import { useCurrency } from "@/hooks/useCurrency";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, eachYearOfInterval, startOfYear, endOfYear, subDays, subMonths, subYears } from "date-fns";
+import { format, eachDayOfInterval, eachMonthOfInterval, startOfDay, endOfDay, subDays, subMonths } from "date-fns";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 const Reports = () => {
   const { formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [salesTrendPeriod, setSalesTrendPeriod] = useState<SalesTrendPeriod>("daily");
-  const [salesTrendRange, setSalesTrendRange] = useState<SalesTrendRange>("last30days");
-  const [salesCustomStart, setSalesCustomStart] = useState<Date>();
-  const [salesCustomEnd, setSalesCustomEnd] = useState<Date>();
   
   const { dashboardStats, isLoading: dashboardLoading } = useDashboard(dateRange.from, dateRange.to);
   const { products, isLoading: productsLoading } = useProducts();
   const { customers, isLoading: customersLoading } = useCustomers();
   const { sales, isLoading: salesLoading } = useSales();
-  const { salesItems, isLoading: salesItemsLoading } = useSalesItems(salesCustomStart, salesCustomEnd);
 
-  const isAnyLoading = dashboardLoading || productsLoading || customersLoading || salesLoading || salesItemsLoading;
+  const isAnyLoading = dashboardLoading || productsLoading || customersLoading || salesLoading;
 
-  // Calculate sales analytics with separate trend filtering
-  const salesAnalytics = useMemo(() => {
-    if (!sales?.length) return { topProducts: [], salesTrend: [], totalSalesItems: 0 };
+  // Generate histogram data based on date range
+  const chartData = useMemo(() => {
+    if (!sales?.length || !products?.length || !customers?.length) return [];
 
-    // Calculate real top products from sales items data
-    const productSalesMap = new Map<string, { 
-      id: string; 
-      name: string; 
-      totalRevenue: number; 
-      totalUnits: number; 
-      rate: number;
-    }>();
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+    let intervals: Date[] = [];
 
-    // Aggregate sales items data by product
-    salesItems.forEach(item => {
-      const existing = productSalesMap.get(item.product_id);
-      if (existing) {
-        existing.totalRevenue += item.total;
-        existing.totalUnits += item.quantity;
-      } else {
-        productSalesMap.set(item.product_id, {
-          id: item.product_id,
-          name: item.product_name,
-          totalRevenue: item.total,
-          totalUnits: item.quantity,
-          rate: item.rate
-        });
-      }
-    });
+    // Determine date range for chart
+    if (dateRange.from && dateRange.to) {
+      startDate = startOfDay(dateRange.from);
+      endDate = endOfDay(dateRange.to);
+    } else {
+      // Default to last 30 days if no date range selected
+      startDate = startOfDay(subDays(now, 30));
+      endDate = endOfDay(now);
+    }
 
-    // Convert to array and sort by revenue
-    const topProducts = Array.from(productSalesMap.values())
-      .sort((a, b) => b.totalRevenue - a.totalRevenue)
-      .slice(0, 5)
-      .map(product => ({
-        id: product.id,
-        name: product.name,
-        salesAmount: product.totalRevenue,
-        unitsSold: product.totalUnits,
-        rate: product.rate
-      }));
+    // Generate daily intervals for detailed view
+    intervals = eachDayOfInterval({ start: startDate, end: endDate });
 
-    // Generate sales trend data based on selected period and range
-    const getSalesTrendData = () => {
-      const now = new Date();
-      let startDate: Date;
-      let endDate: Date = now;
-      let intervals: Date[] = [];
-
-      // Determine date range
-      if (salesTrendRange === "custom" && salesCustomStart && salesCustomEnd) {
-        startDate = salesCustomStart;
-        endDate = salesCustomEnd;
-      } else {
-        switch (salesTrendRange) {
-          case "last30days":
-            startDate = subDays(now, 30);
-            break;
-          case "last6months":
-            startDate = subMonths(now, 6);
-            break;
-          case "last12months":
-            startDate = subMonths(now, 12);
-            break;
-          case "currentYear":
-            startDate = startOfYear(now);
-            endDate = endOfYear(now);
-            break;
-          case "lastYear":
-            startDate = startOfYear(subYears(now, 1));
-            endDate = endOfYear(subYears(now, 1));
-            break;
-          default:
-            startDate = subDays(now, 30);
-        }
-      }
-
-      // Generate intervals based on period
-      switch (salesTrendPeriod) {
-        case "daily":
-          intervals = eachDayOfInterval({ start: startDate, end: endDate });
-          break;
-        case "monthly":
-          intervals = eachMonthOfInterval({ start: startDate, end: endDate });
-          break;
-        case "yearly":
-          intervals = eachYearOfInterval({ start: startDate, end: endDate });
-          break;
-      }
-
-      return intervals.map(date => {
-        let dateStr: string;
-        let matchingFilter: (saleDate: Date) => boolean;
-
-        switch (salesTrendPeriod) {
-          case "daily":
-            dateStr = format(date, 'MMM dd');
-            matchingFilter = (saleDate) => saleDate.toDateString() === date.toDateString();
-            break;
-          case "monthly":
-            dateStr = format(date, 'MMM yyyy');
-            matchingFilter = (saleDate) => 
-              saleDate.getFullYear() === date.getFullYear() && 
-              saleDate.getMonth() === date.getMonth();
-            break;
-          case "yearly":
-            dateStr = format(date, 'yyyy');
-            matchingFilter = (saleDate) => saleDate.getFullYear() === date.getFullYear();
-            break;
-          default:
-            dateStr = format(date, 'MMM dd');
-            matchingFilter = (saleDate) => saleDate.toDateString() === date.toDateString();
-        }
-
-        const periodSales = sales.filter(sale => {
-          const saleDate = new Date(sale.created_at);
-          return matchingFilter(saleDate);
-        });
-
-        const revenue = periodSales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
-        return { date: dateStr, revenue, orders: periodSales.length };
+    return intervals.map(date => {
+      const dateStr = format(date, 'MMM dd');
+      
+      // Filter sales for this specific date
+      const daySales = sales.filter(sale => {
+        const saleDate = new Date(sale.created_at);
+        return saleDate.toDateString() === date.toDateString();
       });
+
+      // Filter customers created on this date
+      const dayCustomers = customers.filter(customer => {
+        const customerDate = new Date(customer.created_at);
+        return customerDate.toDateString() === date.toDateString();
+      });
+
+      // Calculate metrics for this day - only include revenue from successful orders
+      const successfulSales = daySales.filter(sale => {
+        const courierStatus = (sale.courier_status || '').toLowerCase();
+        const paymentStatus = (sale.payment_status || '').toLowerCase();
+        
+        // Exclude cancelled and returned orders
+        if (courierStatus.includes('cancel') || courierStatus.includes('return') || 
+            courierStatus.includes('lost') || paymentStatus === 'cancelled') {
+          return false;
+        }
+        
+        // Include successful deliveries and paid/pending/partial orders
+        return courierStatus.includes('delivered') || courierStatus.includes('completed') ||
+               paymentStatus === 'paid' || paymentStatus === 'pending' || paymentStatus === 'partial';
+      });
+
+      const dailyRevenue = successfulSales.reduce((sum, sale) => {
+        // For partial payments, use amount_paid instead of grand_total
+        if (sale.payment_status?.toLowerCase() === 'partial') {
+          return sum + (sale.amount_paid || 0);
+        }
+        return sum + (sale.grand_total || 0);
+      }, 0);
+      
+      const dailyOrders = daySales.length;
+      const dailyCustomers = dayCustomers.length;
+      
+      // Calculate average order value for this day
+      const dailyAvgOrder = dailyOrders > 0 ? dailyRevenue / dailyOrders : 0;
+
+      // Calculate stock levels (using products data)
+      const totalStock = products.reduce((sum, product) => sum + (product.stock_quantity || 0), 0);
+      const lowStockCount = products.filter(product => 
+        (product.stock_quantity || 0) <= (product.low_stock_threshold || 0)
+      ).length;
+
+      return {
+        date: dateStr,
+        revenue: dailyRevenue,
+        orders: dailyOrders,
+        customers: dailyCustomers,
+        avgOrder: dailyAvgOrder,
+        stockLevel: totalStock,
+        lowStock: lowStockCount
+      };
+    });
+  }, [sales, products, customers, dateRange]);
+
+  // Calculate summary metrics for the chart
+  const chartSummary = useMemo(() => {
+    if (!chartData.length) return null;
+
+    const totalRevenue = chartData.reduce((sum, item) => sum + item.revenue, 0);
+    const totalOrders = chartData.reduce((sum, item) => sum + item.orders, 0);
+    const totalCustomers = chartData.reduce((sum, item) => sum + item.customers, 0);
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const avgStockLevel = chartData.reduce((sum, item) => sum + item.stockLevel, 0) / chartData.length;
+
+    return {
+      totalRevenue,
+      totalOrders,
+      totalCustomers,
+      avgOrderValue,
+      avgStockLevel,
+      trend: totalRevenue > 0 ? 'up' : 'stable'
     };
-
-    const salesTrend = getSalesTrendData();
-
-    const totalSalesItems = salesItems.reduce((sum, item) => sum + item.total, 0);
-
-    return { topProducts, salesTrend, totalSalesItems };
-  }, [sales, products, salesItems, salesTrendPeriod, salesTrendRange, salesCustomStart, salesCustomEnd]);
-
-  const handleSalesTrendFilterChange = (
-    period: SalesTrendPeriod, 
-    range: SalesTrendRange, 
-    customStart?: Date, 
-    customEnd?: Date
-  ) => {
-    setSalesTrendPeriod(period);
-    setSalesTrendRange(range);
-    setSalesCustomStart(customStart);
-    setSalesCustomEnd(customEnd);
-  };
+  }, [chartData]);
 
   const handleExport = () => {
     try {
@@ -198,52 +154,14 @@ const Reports = () => {
         'Date': new Date(sale.created_at).toLocaleDateString()
       }));
 
-      // Prepare top products data
-      const topProductsData = salesAnalytics.topProducts.map((product, index) => ({
-        'Rank': index + 1,
-        'Product Name': product.name,
-        'Units Sold': product.unitsSold,
-        'Revenue': product.salesAmount,
-        'Rate': product.rate
-      }));
-
-      // Prepare customer data
-      const customerData = topCustomers.map((customer, index) => ({
-        'Rank': index + 1,
-        'Customer Name': customer.name,
-        'Total Orders': customer.order_count,
-        'Total Spent': customer.total_spent,
-        'Phone': customer.phone || '',
-        'Status': customer.status || ''
-      }));
-
-      // Prepare inventory data
-      const inventoryData = products.map(product => ({
-        'Product Name': product.name,
-        'SKU': product.sku || '',
-        'Stock Quantity': product.stock_quantity,
-        'Low Stock Threshold': product.low_stock_threshold,
-        'Rate': product.rate,
-        'Cost': product.cost || '',
-        'Stock Value': product.stock_quantity * (product.cost || product.rate),
-        'Status': product.stock_quantity <= 0 ? 'Stock Out' : 
-                 product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock'
-      }));
-
-      // Prepare sales trend data
-      const salesTrendData = salesAnalytics.salesTrend.map(item => ({
-        'Period': item.date,
-        'Revenue': item.revenue,
-        'Orders': item.orders
-      }));
-
       // Prepare summary data
       const summaryData = [{
         'Report Period': `${fromDate} to ${toDate}`,
-        'Total Revenue': dashboardStats?.totalRevenue || 0,
-        'Total Orders': sales.length,
+        'Total Revenue': filteredSalesData.totalRevenue,
+        'Successful Orders': filteredSalesData.successfulOrders,
+        'Total Orders': filteredSalesData.totalOrders,
+        'Cancelled Orders': filteredSalesData.cancelledOrders,
         'Average Order Value': avgOrderValue,
-        'Profit Margin': `${profitMargin.toFixed(1)}%`,
         'Total Customers': customers.length,
         'Total Products': products.length,
         'Low Stock Items': dashboardStats?.lowStockProducts?.length || 0
@@ -262,30 +180,6 @@ const Reports = () => {
         XLSX.utils.book_append_sheet(wb, salesWs, "Sales Report");
       }
 
-      // Add top products sheet
-      if (topProductsData.length > 0) {
-        const productsWs = XLSX.utils.json_to_sheet(topProductsData);
-        XLSX.utils.book_append_sheet(wb, productsWs, "Top Products");
-      }
-
-      // Add customers sheet
-      if (customerData.length > 0) {
-        const customersWs = XLSX.utils.json_to_sheet(customerData);
-        XLSX.utils.book_append_sheet(wb, customersWs, "Top Customers");
-      }
-
-      // Add inventory sheet
-      if (inventoryData.length > 0) {
-        const inventoryWs = XLSX.utils.json_to_sheet(inventoryData);
-        XLSX.utils.book_append_sheet(wb, inventoryWs, "Inventory");
-      }
-
-      // Add sales trend sheet
-      if (salesTrendData.length > 0) {
-        const trendWs = XLSX.utils.json_to_sheet(salesTrendData);
-        XLSX.utils.book_append_sheet(wb, trendWs, "Sales Trend");
-      }
-
       // Generate filename
       const filename = `business_report_${dateRangeStr}.xlsx`;
       
@@ -298,63 +192,75 @@ const Reports = () => {
     }
   };
 
-  // Calculate top customers
-  const topCustomers = customers
-    .sort((a, b) => b.total_spent - a.total_spent)
-    .slice(0, 5);
-
-  // Calculate customer growth
-  const customerGrowth = useMemo(() => {
-    const last6Months = eachMonthOfInterval({
-      start: startOfMonth(new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)),
-      end: endOfMonth(new Date())
-    });
-
-    return last6Months.map(month => {
-      const monthStr = format(month, 'MMM yyyy');
-      const monthCustomers = customers.filter(customer => {
-        const customerDate = new Date(customer.created_at);
-        return customerDate.getFullYear() === month.getFullYear() && 
-               customerDate.getMonth() === month.getMonth();
+  // Calculate filtered sales count and revenue based on selected date range
+  const filteredSalesData = useMemo(() => {
+    let filteredSales = sales;
+    
+    // Apply date range filter
+    if (dateRange.from || dateRange.to) {
+      filteredSales = sales.filter(sale => {
+        const saleDate = new Date(sale.created_at);
+        
+        if (dateRange.from && dateRange.to) {
+          return saleDate >= dateRange.from && saleDate <= dateRange.to;
+        } else if (dateRange.from) {
+          return saleDate >= dateRange.from;
+        } else if (dateRange.to) {
+          return saleDate <= dateRange.to;
+        }
+        
+        return true;
       });
-      return { month: monthStr, customers: monthCustomers.length };
+    }
+
+    // Filter for successful sales only (for revenue calculation)
+    const successfulSales = filteredSales.filter(sale => {
+      const courierStatus = (sale.courier_status || '').toLowerCase();
+      const paymentStatus = (sale.payment_status || '').toLowerCase();
+      
+      // Exclude cancelled and returned orders
+      if (courierStatus.includes('cancel') || courierStatus.includes('return') || 
+          courierStatus.includes('lost') || paymentStatus === 'cancelled') {
+        return false;
+      }
+      
+      // Include successful deliveries and paid/pending/partial orders
+      return courierStatus.includes('delivered') || courierStatus.includes('completed') ||
+             paymentStatus === 'paid' || paymentStatus === 'pending' || paymentStatus === 'partial';
     });
-  }, [customers]);
 
-  // Calculate stock levels for chart
-  const stockLevels = useMemo(() => {
-    return products
-      .slice(0, 10)
-      .map(product => ({
-        name: product.name.length > 10 ? product.name.substring(0, 10) + '...' : product.name,
-        stock: product.stock_quantity,
-        threshold: product.low_stock_threshold,
-        status: product.stock_quantity <= product.low_stock_threshold ? 'Low' : 'Normal'
-      }));
-  }, [products]);
+    // Filter for cancelled/returned orders
+    const cancelledOrders = filteredSales.filter(sale => {
+      const courierStatus = (sale.courier_status || '').toLowerCase();
+      const paymentStatus = (sale.payment_status || '').toLowerCase();
+      
+      return courierStatus.includes('cancel') || courierStatus.includes('return') || 
+             courierStatus.includes('lost') || paymentStatus === 'cancelled';
+    });
 
-  // Calculate financial data
-  const financialData = useMemo(() => {
-    const revenue = dashboardStats?.totalRevenue || 0;
-    const costOfGoods = revenue * 0.6; // Estimate 60% cost
-    const operatingExpenses = revenue * 0.2; // Estimate 20% expenses
-    const profit = revenue - costOfGoods - operatingExpenses;
+    // Calculate total revenue from successful sales
+    const totalRevenue = successfulSales.reduce((sum, sale) => {
+      // For partial payments, use amount_paid instead of grand_total
+      if (sale.payment_status?.toLowerCase() === 'partial') {
+        return sum + (sale.amount_paid || 0);
+      }
+      return sum + (sale.grand_total || 0);
+    }, 0);
 
-    return [
-      { name: 'Revenue', value: revenue, color: 'hsl(var(--primary))' },
-      { name: 'Cost of Goods', value: costOfGoods, color: 'hsl(var(--destructive))' },
-      { name: 'Operating Expenses', value: operatingExpenses, color: 'hsl(var(--muted))' },
-      { name: 'Net Profit', value: profit, color: 'hsl(var(--success))' }
-    ];
-  }, [dashboardStats]);
+    return {
+      totalOrders: filteredSales.length,
+      successfulOrders: successfulSales.length,
+      cancelledOrders: cancelledOrders.length,
+      totalRevenue: totalRevenue
+    };
+  }, [sales, dateRange]);
 
-  const avgOrderValue = dashboardStats?.totalRevenue && sales.length > 0 
-    ? dashboardStats.totalRevenue / sales.length 
+  const avgOrderValue = filteredSalesData.totalRevenue && filteredSalesData.successfulOrders > 0 
+    ? filteredSalesData.totalRevenue / filteredSalesData.successfulOrders 
     : 0;
 
-  const profitMargin = dashboardStats?.totalRevenue 
-    ? ((dashboardStats.totalRevenue * 0.2) / dashboardStats.totalRevenue) * 100 
-    : 0;
+
+
   return (
     <div className="space-y-6 w-full max-w-none overflow-x-hidden">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -396,22 +302,34 @@ const Reports = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatAmount(dashboardStats?.totalRevenue || 0)}
+                  {formatAmount(filteredSalesData.totalRevenue)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Selected period revenue
+                  Revenue from successful orders only
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{sales.length}</div>
+                <div className="text-2xl font-bold">{filteredSalesData.totalOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Total sales orders
+                  Selected period orders (all)
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Cancelled Orders</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{filteredSalesData.cancelledOrders}</div>
+                <p className="text-xs text-muted-foreground">
+                  Cancelled/returned orders
                 </p>
               </CardContent>
             </Card>
@@ -427,266 +345,165 @@ const Reports = () => {
                 </p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{profitMargin.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">
-                  Estimated margin
-                </p>
-              </CardContent>
-            </Card>
           </>
         )}
       </div>
 
-      <Tabs defaultValue="sales" className="space-y-4 w-full">
-        <div className="w-full overflow-x-auto">
-          <TabsList className="inline-flex w-max min-w-full h-12 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground">
-            <TabsTrigger value="sales" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Sales</TabsTrigger>
-            <TabsTrigger value="inventory" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Inventory</TabsTrigger>
-            <TabsTrigger value="customers" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Customers</TabsTrigger>
-            <TabsTrigger value="financial" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex-1 min-w-[90px]">Financial</TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="sales" className="space-y-4 w-full">
-          <SalesTrendFilter onFilterChange={handleSalesTrendFilterChange} />
-          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
-            <Card className="xl:col-span-2 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Sales Trend - {salesTrendPeriod.charAt(0).toUpperCase() + salesTrendPeriod.slice(1)} View</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
-                {isAnyLoading ? (
-                  <div className="h-[300px] sm:h-[350px] flex items-center justify-center">
-                    <div className="space-y-4 w-full p-6">
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-32 w-full" />
-                    </div>
-                  </div>
-                ) : (
-                  <ChartContainer
-                    config={{
-                      revenue: { label: "Revenue", color: "hsl(var(--primary))" },
-                      orders: { label: "Orders", color: "hsl(var(--secondary))" }
-                    }}
-                    className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={salesAnalytics.salesTrend} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
-                        <Line type="monotone" dataKey="orders" stroke="hsl(var(--secondary))" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="xl:col-span-1 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Top Products</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4">
-                <div className="space-y-3">
-                  {isAnyLoading ? (
-                    [...Array(5)].map((_, i) => (
-                      <div key={i} className="flex items-center justify-between p-2">
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-3/4" />
-                          <Skeleton className="h-3 w-1/2" />
-                        </div>
-                        <Skeleton className="h-4 w-16 ml-2" />
-                      </div>
-                    ))
-                  ) : salesAnalytics.topProducts.length > 0 ? salesAnalytics.topProducts.map((product, index) => (
-                    <div key={product.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">{product.unitsSold} units sold</p>
-                      </div>
-                      <p className="font-bold text-right ml-2 shrink-0">{formatAmount(product.salesAmount)}</p>
-                    </div>
-                  )) : (
-                    <p className="text-muted-foreground text-center py-8">No sales data available</p>
-                  )}
+      {/* Comprehensive Business Overview Chart */}
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                             <CardTitle className="text-xl">Business Performance Histogram</CardTitle>
+               <p className="text-sm text-muted-foreground">
+                 Histogram view showing distribution of revenue, orders, customers, and average order values
+               </p>
+            </div>
+            {chartSummary && (
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span>Revenue: {formatAmount(chartSummary.totalRevenue)}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="inventory" className="space-y-4 w-full">
-          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
-            <Card className="xl:col-span-2 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Stock Levels</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
-                <ChartContainer
-                  config={{
-                    stock: { label: "Current Stock", color: "hsl(var(--primary))" },
-                    threshold: { label: "Low Stock Threshold", color: "hsl(var(--destructive))" }
-                  }}
-                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stockLevels} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="stock" fill="hsl(var(--primary))" />
-                      <Bar dataKey="threshold" fill="hsl(var(--destructive))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-            <Card className="xl:col-span-1 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Low Stock Alert</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4">
-                <div className="space-y-3">
-                  {dashboardStats?.lowStockProducts?.length > 0 ? 
-                    dashboardStats.lowStockProducts.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
-                        </div>
-                        <p className="font-bold text-destructive text-right ml-2 shrink-0">{item.stock_quantity} left</p>
-                      </div>
-                    )) : (
-                      <p className="text-muted-foreground text-center py-8">No low stock items</p>
-                    )}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span>Orders: {chartSummary.totalOrders}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="customers" className="space-y-4 w-full">
-          <div className="grid gap-4 md:gap-6 md:grid-cols-1 xl:grid-cols-3 w-full max-w-full">
-            <Card className="xl:col-span-2 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Customer Growth</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
-                <ChartContainer
-                  config={{
-                    customers: { label: "New Customers", color: "hsl(var(--primary))" }
-                  }}
-                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={customerGrowth} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="customers" fill="hsl(var(--primary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-            <Card className="xl:col-span-1 max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Top Customers</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4">
-                <div className="space-y-3">
-                  {topCustomers.length > 0 ? topCustomers.map((customer, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{customer.name}</p>
-                        <p className="text-sm text-muted-foreground">{customer.order_count} orders</p>
-                      </div>
-                      <p className="font-bold text-right ml-2 shrink-0">{formatAmount(customer.total_spent)}</p>
-                    </div>
-                  )) : (
-                    <p className="text-muted-foreground text-center py-8">No customer data available</p>
-                  )}
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                  <span>Customers: {chartSummary.totalCustomers}</span>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="financial" className="space-y-4 w-full">
-          <div className="grid gap-4 md:gap-6 md:grid-cols-1 lg:grid-cols-2 w-full max-w-full">
-            <Card className="max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Revenue vs Expenses</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4 max-w-full overflow-hidden">
-                <ChartContainer
-                  config={{
-                    value: { label: "Amount", color: "hsl(var(--primary))" }
-                  }}
-                  className="h-[280px] sm:h-[320px] w-full max-w-full overflow-hidden"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={financialData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius="75%"
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {financialData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-            <Card className="max-w-full overflow-hidden">
-              <CardHeader>
-                <CardTitle>Profit Analysis</CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
-                    <span className="text-xs sm:text-sm font-medium truncate">Gross Revenue</span>
-                    <span className="font-bold text-sm sm:text-lg shrink-0 ml-2">{formatAmount(dashboardStats?.totalRevenue || 0)}</span>
+        </CardHeader>
+        <CardContent>
+          {isAnyLoading ? (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="space-y-4 w-full p-6">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-64 w-full" />
+              </div>
+            </div>
+          ) : chartData.length > 0 ? (
+            <div className="space-y-4">
+                             <ResponsiveContainer width="100%" height={400}>
+                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                   <XAxis 
+                     dataKey="date" 
+                     tick={{ fontSize: 12 }}
+                     tickLine={false}
+                     axisLine={false}
+                   />
+                   <YAxis 
+                     tick={{ fontSize: 12 }}
+                     tickLine={false}
+                     axisLine={false}
+                     label={{ value: 'Count & Amount', angle: -90, position: 'insideLeft' }}
+                   />
+                   <Tooltip 
+                     content={({ active, payload, label }) => {
+                       if (active && payload && payload.length) {
+                         return (
+                           <div className="bg-white p-4 border rounded-lg shadow-lg">
+                             <p className="font-semibold text-gray-800 mb-2">{label}</p>
+                             <div className="space-y-1">
+                               {payload.map((entry: any, index: number) => (
+                                 <div key={index} className="flex items-center gap-2">
+                                   <div 
+                                     className="w-3 h-3 rounded-full" 
+                                     style={{ backgroundColor: entry.fill }}
+                                   ></div>
+                                   <span className="text-sm font-medium">
+                                     {entry.name}: {entry.name === 'Revenue' ? formatAmount(entry.value) : 
+                                                    entry.name === 'Avg Order' ? formatAmount(entry.value) : 
+                                                    entry.value}
+                                   </span>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         );
+                       }
+                       return null;
+                     }}
+                   />
+                   <Legend />
+                   
+                   {/* Revenue Histogram */}
+                   <Bar
+                     dataKey="revenue"
+                     fill="#10b981"
+                     fillOpacity={0.8}
+                     name="Revenue"
+                     radius={[4, 4, 0, 0]}
+                   />
+                   
+                   {/* Orders Histogram */}
+                   <Bar
+                     dataKey="orders"
+                     fill="#3b82f6"
+                     fillOpacity={0.8}
+                     name="Orders"
+                     radius={[4, 4, 0, 0]}
+                   />
+                   
+                   {/* Customers Histogram */}
+                   <Bar
+                     dataKey="customers"
+                     fill="#8b5cf6"
+                     fillOpacity={0.8}
+                     name="New Customers"
+                     radius={[4, 4, 0, 0]}
+                   />
+                   
+                   {/* Average Order Value Histogram */}
+                   <Bar
+                     dataKey="avgOrder"
+                     fill="#f59e0b"
+                     fillOpacity={0.8}
+                     name="Avg Order"
+                     radius={[4, 4, 0, 0]}
+                   />
+                 </BarChart>
+               </ResponsiveContainer>
+              
+              {/* Chart Insights */}
+              <div className="grid gap-4 md:grid-cols-3 p-4 bg-muted/30 rounded-lg">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {chartSummary?.totalRevenue ? formatAmount(chartSummary.totalRevenue) : '৳0'}
                   </div>
-                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
-                    <span className="text-xs sm:text-sm font-medium truncate">Cost of Goods</span>
-                    <span className="font-bold text-sm sm:text-lg text-destructive shrink-0 ml-2">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.6)}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg hover:bg-muted/50 border min-w-0">
-                    <span className="text-xs sm:text-sm font-medium truncate">Operating Expenses</span>
-                    <span className="font-bold text-sm sm:text-lg text-destructive shrink-0 ml-2">-{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
-                  </div>
-                  <div className="border-t-2 pt-3 flex justify-between items-center p-2 sm:p-3 rounded-lg bg-primary/10 border-primary/20 min-w-0">
-                    <span className="font-bold text-sm sm:text-base truncate">Net Profit</span>
-                    <span className="font-bold text-lg sm:text-xl text-green-600 shrink-0 ml-2">{formatAmount((dashboardStats?.totalRevenue || 0) * 0.2)}</span>
-                  </div>
+                  <div className="text-sm text-muted-foreground">Total Revenue</div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {chartSummary?.totalOrders || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total Orders</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {chartSummary?.totalCustomers || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">New Customers</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-[400px] flex items-center justify-center">
+              <div className="text-center space-y-2">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">No data available for the selected period</p>
+                <p className="text-sm text-muted-foreground">Try adjusting the date range or check your data</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

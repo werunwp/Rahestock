@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback } from "react";
 import { User, Mail, Phone, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const ProfileTab = () => {
@@ -25,17 +25,26 @@ export const ProfileTab = () => {
     full_name: '',
   });
 
-  useEffect(() => {
-    if (user) {
-      setProfileForm({
-        full_name: profile?.full_name || user.user_metadata?.full_name || '',
-        phone: profile?.phone || '',
-        email: user.email || '',
-      });
-    }
-  }, [profile, user]);
+  // Memoize the form data to prevent unnecessary updates
+  const initialFormData = React.useMemo(() => ({
+    full_name: profile?.full_name || user?.user_metadata?.full_name || '',
+    phone: profile?.phone || '',
+    email: user?.email || '',
+  }), [profile?.full_name, profile?.phone, user?.user_metadata?.full_name, user?.email]);
 
-  const validateForm = () => {
+  useEffect(() => {
+    // Only update form if data actually changed
+    if (user && (
+      profileForm.full_name !== initialFormData.full_name ||
+      profileForm.phone !== initialFormData.phone ||
+      profileForm.email !== initialFormData.email
+    )) {
+      setProfileForm(initialFormData);
+    }
+  }, [initialFormData, user]);
+
+  // Memoize validation function
+  const validateForm = useCallback(() => {
     const newErrors = { email: '', phone: '', full_name: '' };
     
     if (!profileForm.full_name.trim()) {
@@ -52,12 +61,29 @@ export const ProfileTab = () => {
 
     setErrors(newErrors);
     return !Object.values(newErrors).some(error => error);
-  };
+  }, [profileForm.full_name, profileForm.email, profileForm.phone]);
 
-  const handleSubmit = async () => {
+  // Memoize submit handler
+  const handleSubmit = useCallback(async () => {
     if (!validateForm()) return;
     updateProfile(profileForm);
-  };
+  }, [validateForm, updateProfile, profileForm]);
+
+  // Memoize input change handlers
+  const handleFullNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileForm(prev => ({ ...prev, full_name: e.target.value }));
+    if (errors.full_name) setErrors(prev => ({ ...prev, full_name: '' }));
+  }, [errors.full_name]);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileForm(prev => ({ ...prev, email: e.target.value }));
+    if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+  }, [errors.email]);
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileForm(prev => ({ ...prev, phone: e.target.value }));
+    if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+  }, [errors.phone]);
 
   if (isLoading) {
     return (
@@ -100,10 +126,7 @@ export const ProfileTab = () => {
             <Input 
               id="fullName" 
               value={profileForm.full_name}
-              onChange={(e) => {
-                setProfileForm(prev => ({ ...prev, full_name: e.target.value }));
-                if (errors.full_name) setErrors(prev => ({ ...prev, full_name: '' }));
-              }}
+              onChange={handleFullNameChange}
               placeholder="Enter your full name"
               className={errors.full_name ? "border-destructive" : ""}
             />
@@ -121,10 +144,7 @@ export const ProfileTab = () => {
               id="email" 
               type="email" 
               value={profileForm.email}
-              onChange={(e) => {
-                setProfileForm(prev => ({ ...prev, email: e.target.value }));
-                if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
-              }}
+              onChange={handleEmailChange}
               placeholder="Your email address"
               className={errors.email ? "border-destructive" : ""}
             />
@@ -141,10 +161,7 @@ export const ProfileTab = () => {
             <Input 
               id="phone" 
               value={profileForm.phone}
-              onChange={(e) => {
-                setProfileForm(prev => ({ ...prev, phone: e.target.value }));
-                if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
-              }}
+              onChange={handlePhoneChange}
               placeholder="Enter your phone number"
               className={errors.phone ? "border-destructive" : ""}
             />

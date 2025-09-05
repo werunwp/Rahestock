@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Eye, Archive } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 interface ProductVariant {
   id: string;
@@ -31,10 +32,13 @@ interface InventoryProductCardProps {
 
 export const InventoryProductCard = ({ product, onImageClick }: InventoryProductCardProps) => {
   const { formatAmount } = useCurrency();
+  const { businessSettings } = useBusinessSettings();
 
   const getStockStatus = (stock: number, threshold: number | null) => {
     if (stock <= 0) return { status: "Out of Stock", variant: "destructive" as const };
-    if (threshold && stock <= threshold) return { status: "Low Stock", variant: "secondary" as const };
+    // Use business settings low stock threshold if available, otherwise fall back to product threshold
+    const lowStockThreshold = businessSettings?.low_stock_alert_quantity || threshold || 10;
+    if (stock <= lowStockThreshold) return { status: "Low Stock", variant: "secondary" as const };
     return { status: "In Stock", variant: "default" as const };
   };
 

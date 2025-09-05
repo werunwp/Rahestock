@@ -1,55 +1,78 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCustomSettings } from "@/hooks/useCustomSettings";
 
 export const CustomCodeInjector = () => {
   const { customSettings } = useCustomSettings();
+  const styleElementRef = useRef<HTMLStyleElement | null>(null);
+  const headElementRef = useRef<HTMLDivElement | null>(null);
+  const bodyElementRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const customCSS = customSettings.find(s => s.setting_type === 'custom_css');
     const headSnippet = customSettings.find(s => s.setting_type === 'head_snippet');
     const bodySnippet = customSettings.find(s => s.setting_type === 'body_snippet');
 
+    // Clean up existing elements first
+    if (styleElementRef.current) {
+      styleElementRef.current.remove();
+      styleElementRef.current = null;
+    }
+    if (headElementRef.current) {
+      headElementRef.current.remove();
+      headElementRef.current = null;
+    }
+    if (bodyElementRef.current) {
+      bodyElementRef.current.remove();
+      bodyElementRef.current = null;
+    }
+
     // Inject custom CSS
-    let styleElement: HTMLStyleElement | null = null;
     if (customCSS?.is_enabled && customCSS.content) {
-      styleElement = document.createElement('style');
+      const styleElement = document.createElement('style');
       styleElement.id = 'custom-css-injection';
       styleElement.textContent = customCSS.content;
       document.head.appendChild(styleElement);
+      styleElementRef.current = styleElement;
+      console.log('Custom CSS injected:', customCSS.content);
     }
 
     // Inject head snippet
-    let headElement: HTMLDivElement | null = null;
     if (headSnippet?.is_enabled && headSnippet.content) {
       // Sanitize content by removing dangerous patterns
       const sanitizedContent = sanitizeCode(headSnippet.content);
-      headElement = document.createElement('div');
+      const headElement = document.createElement('div');
       headElement.id = 'custom-head-injection';
       headElement.innerHTML = sanitizedContent;
       document.head.appendChild(headElement);
+      headElementRef.current = headElement;
+      console.log('Head snippet injected:', sanitizedContent);
     }
 
     // Inject body snippet
-    let bodyElement: HTMLDivElement | null = null;
     if (bodySnippet?.is_enabled && bodySnippet.content) {
       // Sanitize content by removing dangerous patterns
       const sanitizedContent = sanitizeCode(bodySnippet.content);
-      bodyElement = document.createElement('div');
+      const bodyElement = document.createElement('div');
       bodyElement.id = 'custom-body-injection';
       bodyElement.innerHTML = sanitizedContent;
       document.body.appendChild(bodyElement);
+      bodyElementRef.current = bodyElement;
+      console.log('Body snippet injected:', sanitizedContent);
     }
 
     // Cleanup function
     return () => {
-      if (styleElement) {
-        styleElement.remove();
+      if (styleElementRef.current) {
+        styleElementRef.current.remove();
+        styleElementRef.current = null;
       }
-      if (headElement) {
-        headElement.remove();
+      if (headElementRef.current) {
+        headElementRef.current.remove();
+        headElementRef.current = null;
       }
-      if (bodyElement) {
-        bodyElement.remove();
+      if (bodyElementRef.current) {
+        bodyElementRef.current.remove();
+        bodyElementRef.current = null;
       }
     };
   }, [customSettings]);

@@ -20,6 +20,7 @@ export interface BusinessSettings {
   address_line1?: string;
   address_line2?: string;
   business_hours?: string;
+  low_stock_alert_quantity?: number;
   created_at: string;
   updated_at: string;
 }

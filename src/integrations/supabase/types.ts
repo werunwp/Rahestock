@@ -87,6 +87,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          status_check_webhook_url: string
           updated_at: string
           webhook_description: string | null
           webhook_name: string
@@ -98,6 +99,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          status_check_webhook_url?: string
           updated_at?: string
           webhook_description?: string | null
           webhook_name?: string
@@ -109,6 +111,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          status_check_webhook_url?: string
           updated_at?: string
           webhook_description?: string | null
           webhook_name?: string
@@ -519,6 +522,8 @@ export type Database = {
         Row: {
           amount_due: number | null
           amount_paid: number | null
+          area: string | null
+          city: string | null
           consignment_id: string | null
           courier_status: string | null
           created_at: string | null
@@ -539,10 +544,13 @@ export type Database = {
           payment_status: string | null
           subtotal: number
           updated_at: string | null
+          zone: string | null
         }
         Insert: {
           amount_due?: number | null
           amount_paid?: number | null
+          area?: string | null
+          city?: string | null
           consignment_id?: string | null
           courier_status?: string | null
           created_at?: string | null
@@ -563,10 +571,13 @@ export type Database = {
           payment_status?: string | null
           subtotal: number
           updated_at?: string | null
+          zone?: string | null
         }
         Update: {
           amount_due?: number | null
           amount_paid?: number | null
+          area?: string | null
+          city?: string | null
           consignment_id?: string | null
           courier_status?: string | null
           created_at?: string | null
@@ -587,6 +598,7 @@ export type Database = {
           payment_status?: string | null
           subtotal?: number
           updated_at?: string | null
+          zone?: string | null
         }
         Relationships: [
           {
@@ -967,6 +979,53 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "woocommerce_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reusable_attributes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_name: string
+          id: string
+          is_required: boolean
+          name: string
+          options: Json | null
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          id?: string
+          is_required?: boolean
+          name: string
+          options?: Json | null
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          id?: string
+          is_required?: boolean
+          name?: string
+          options?: Json | null
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reusable_attributes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

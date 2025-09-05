@@ -11,7 +11,12 @@ import { useUserRole } from "@/hooks/useUserRole";
 
 export const CustomCodeSettings = () => {
   const { isAdmin } = useUserRole();
-  const { getCustomCSS, getHeadSnippet, getBodySnippet, updateCustomSetting, isUpdating } = useCustomSettings();
+  const { customSettings, updateCustomSetting, isUpdating, isLoading, error } = useCustomSettings();
+  
+  // Separate loading states for each button
+  const [cssSaving, setCssSaving] = useState(false);
+  const [headSaving, setHeadSaving] = useState(false);
+  const [bodySaving, setBodySaving] = useState(false);
   
   const [customCSS, setCustomCSS] = useState({
     content: '',
@@ -30,47 +35,93 @@ export const CustomCodeSettings = () => {
 
   // Initialize and sync form state with database
   useEffect(() => {
-    const cssData = getCustomCSS();
-    setCustomCSS({
-      content: cssData?.content || '',
-      is_enabled: cssData?.is_enabled || false
-    });
+    console.log('CustomCodeSettings: customSettings changed:', customSettings);
+    
+    if (customSettings && customSettings.length > 0) {
+      const cssData = customSettings.find(s => s.setting_type === 'custom_css');
+      const headData = customSettings.find(s => s.setting_type === 'head_snippet');
+      const bodyData = customSettings.find(s => s.setting_type === 'body_snippet');
 
-    const headData = getHeadSnippet();
-    setHeadSnippet({
-      content: headData?.content || '',
-      is_enabled: headData?.is_enabled || false
-    });
+      console.log('Found settings:', { cssData, headData, bodyData });
 
-    const bodyData = getBodySnippet();
-    setBodySnippet({
-      content: bodyData?.content || '',
-      is_enabled: bodyData?.is_enabled || false
-    });
-  }, [getCustomCSS, getHeadSnippet, getBodySnippet]);
+      if (cssData) {
+        setCustomCSS({
+          content: cssData.content || '',
+          is_enabled: cssData.is_enabled || false
+        });
+      }
 
-  const handleSaveCSS = () => {
-    updateCustomSetting({
-      setting_type: 'custom_css',
-      content: customCSS.content,
-      is_enabled: customCSS.is_enabled
-    });
+      if (headData) {
+        setHeadSnippet({
+          content: headData.content || '',
+          is_enabled: headData.is_enabled || false
+        });
+      }
+
+      if (bodyData) {
+        setBodySnippet({
+          content: bodyData.content || '',
+          is_enabled: bodyData.is_enabled || false
+        });
+      }
+    }
+  }, [customSettings]);
+
+  const handleSaveCSS = async () => {
+    console.log('Saving CSS:', customCSS);
+    setCssSaving(true);
+    try {
+      await updateCustomSetting({
+        setting_type: 'custom_css',
+        content: customCSS.content,
+        is_enabled: customCSS.is_enabled
+      });
+    } finally {
+      setCssSaving(false);
+    }
   };
 
-  const handleSaveHeadSnippet = () => {
-    updateCustomSetting({
-      setting_type: 'head_snippet',
-      content: headSnippet.content,
-      is_enabled: headSnippet.is_enabled
-    });
+  const handleSaveHeadSnippet = async () => {
+    console.log('Saving head snippet:', headSnippet);
+    setHeadSaving(true);
+    try {
+      await updateCustomSetting({
+        setting_type: 'head_snippet',
+        content: headSnippet.content,
+        is_enabled: headSnippet.is_enabled
+      });
+    } finally {
+      setHeadSaving(false);
+    }
   };
 
-  const handleSaveBodySnippet = () => {
-    updateCustomSetting({
-      setting_type: 'body_snippet',
-      content: bodySnippet.content,
-      is_enabled: bodySnippet.is_enabled
-    });
+  const handleSaveBodySnippet = async () => {
+    console.log('Saving body snippet:', bodySnippet);
+    setBodySaving(true);
+    try {
+      await updateCustomSetting({
+        setting_type: 'body_snippet',
+        content: bodySnippet.content,
+        is_enabled: bodySnippet.is_enabled
+      });
+    } finally {
+      setBodySaving(false);
+    }
+  };
+
+  const handleToggleCSS = (checked: boolean) => {
+    console.log('CSS toggle changed to:', checked);
+    setCustomCSS(prev => ({ ...prev, is_enabled: checked }));
+  };
+
+  const handleToggleHead = (checked: boolean) => {
+    console.log('Head toggle changed to:', checked);
+    setHeadSnippet(prev => ({ ...prev, is_enabled: checked }));
+  };
+
+  const handleToggleBody = (checked: boolean) => {
+    console.log('Body toggle changed to:', checked);
+    setBodySnippet(prev => ({ ...prev, is_enabled: checked }));
   };
 
   const hasDangerousContent = (content: string) => {
@@ -95,8 +146,50 @@ export const CustomCodeSettings = () => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading Custom Settings...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+              <div className="h-32 bg-gray-200 rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Error loading custom settings: {error.message}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert>
+          <AlertDescription>
+            <strong>Debug Info:</strong><br />
+            Custom Settings Count: {customSettings.length}<br />
+            CSS Enabled: {customCSS.is_enabled ? 'Yes' : 'No'}<br />
+            Head Enabled: {headSnippet.is_enabled ? 'Yes' : 'No'}<br />
+            Body Enabled: {bodySnippet.is_enabled ? 'Yes' : 'No'}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Custom CSS Panel */}
       <Card>
         <CardHeader>
@@ -129,12 +222,12 @@ export const CustomCodeSettings = () => {
               <Switch
                 id="enableCSS"
                 checked={customCSS.is_enabled}
-                onCheckedChange={(checked) => setCustomCSS(prev => ({ ...prev, is_enabled: checked }))}
+                onCheckedChange={handleToggleCSS}
               />
               <Label htmlFor="enableCSS">Enable Custom CSS</Label>
             </div>
-            <Button onClick={handleSaveCSS} disabled={isUpdating}>
-              {isUpdating ? 'Saving...' : 'Save CSS'}
+            <Button onClick={handleSaveCSS} disabled={cssSaving}>
+              {cssSaving ? 'Saving...' : 'Save CSS'}
             </Button>
           </div>
         </CardContent>
@@ -190,12 +283,12 @@ export const CustomCodeSettings = () => {
                 <Switch
                   id="enableHead"
                   checked={headSnippet.is_enabled}
-                  onCheckedChange={(checked) => setHeadSnippet(prev => ({ ...prev, is_enabled: checked }))}
+                  onCheckedChange={handleToggleHead}
                 />
                 <Label htmlFor="enableHead">Enable Head Snippet</Label>
               </div>
-              <Button onClick={handleSaveHeadSnippet} disabled={isUpdating}>
-                {isUpdating ? 'Saving...' : 'Save Head Snippet'}
+              <Button onClick={handleSaveHeadSnippet} disabled={headSaving}>
+                {headSaving ? 'Saving...' : 'Save Head Snippet'}
               </Button>
             </div>
           </div>
@@ -233,12 +326,12 @@ export const CustomCodeSettings = () => {
                 <Switch
                   id="enableBody"
                   checked={bodySnippet.is_enabled}
-                  onCheckedChange={(checked) => setBodySnippet(prev => ({ ...prev, is_enabled: checked }))}
+                  onCheckedChange={handleToggleBody}
                 />
                 <Label htmlFor="enableBody">Enable Body Snippet</Label>
               </div>
-              <Button onClick={handleSaveBodySnippet} disabled={isUpdating}>
-                {isUpdating ? 'Saving...' : 'Save Body Snippet'}
+              <Button onClick={handleSaveBodySnippet} disabled={bodySaving}>
+                {bodySaving ? 'Saving...' : 'Save Body Snippet'}
               </Button>
             </div>
           </div>

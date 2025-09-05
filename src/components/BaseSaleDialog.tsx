@@ -41,6 +41,9 @@ export interface SaleFormData {
   customer_whatsapp?: string;
   customerAddress?: string;
   customer_address?: string;
+  city?: string;
+  zone?: string;
+  area?: string;
   paymentMethod: string;
   payment_method?: string;
   paymentStatus: string;
@@ -51,7 +54,7 @@ export interface SaleFormData {
   discount_percent?: number;
   discountAmount: number;
   discount_amount?: number;
-  fee: number;
+  charge: number;
   subtotal?: number;
   grand_total?: number;
   amount_due?: number;
@@ -92,12 +95,15 @@ export const BaseSaleDialog = ({
     customerPhone: "",
     customerWhatsapp: "",
     customerAddress: "",
+    city: "",
+    zone: "",
+    area: "",
     paymentMethod: "cash",
     paymentStatus: "pending",
     amountPaid: 0,
     discountPercent: 0,
     discountAmount: 0,
-    fee: 0,
+    charge: 0,
     items: [],
   });
 
@@ -118,12 +124,15 @@ export const BaseSaleDialog = ({
         customerPhone: "",
         customerWhatsapp: "",
         customerAddress: "",
+        city: "",
+        zone: "",
+        area: "",
         paymentMethod: "cash",
         paymentStatus: "pending",
         amountPaid: 0,
         discountPercent: 0,
         discountAmount: 0,
-        fee: 0,
+        charge: 0,
         items: [],
       });
       setSelectedProductId("");
@@ -140,12 +149,15 @@ export const BaseSaleDialog = ({
         customerPhone: initialData.customerPhone || initialData.customer_phone || "",
         customerWhatsapp: initialData.customerWhatsapp || initialData.customer_whatsapp || "",
         customerAddress: initialData.customerAddress || initialData.customer_address || "",
+        city: initialData.city || "",
+        zone: initialData.zone || "",
+        area: initialData.area || "",
         paymentMethod: initialData.paymentMethod || initialData.payment_method || "cash",
         paymentStatus: initialData.paymentStatus || initialData.payment_status || "pending",
         amountPaid: initialData.amountPaid || initialData.amount_paid || 0,
         discountPercent: initialData.discountPercent || initialData.discount_percent || 0,
         discountAmount: initialData.discountAmount || initialData.discount_amount || 0,
-        fee: initialData.fee || 0,
+        charge: initialData.charge || 0,
         items: initialData.items.map(item => ({
           ...item,
           productId: item.productId || item.product_id,
@@ -243,7 +255,7 @@ export const BaseSaleDialog = ({
   const discountAmount = discountType === "percentage" 
     ? (subtotal * formData.discountPercent) / 100 
     : formData.discountAmount;
-  const grandTotal = subtotal - discountAmount + formData.fee;
+  const grandTotal = subtotal - discountAmount + formData.charge;
   const amountDue = grandTotal - formData.amountPaid;
 
   // Auto-update payment status based on amount paid
@@ -420,7 +432,10 @@ export const BaseSaleDialog = ({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl">
           <div className="flex items-center justify-center p-8">
-            <div className="text-center">Loading...</div>
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <div className="text-muted-foreground">Loading sale data...</div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -434,11 +449,11 @@ export const BaseSaleDialog = ({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
           {/* Customer Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Customer Details</CardTitle>
+          <Card className="border-2 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+            <CardHeader className="bg-gradient-to-r from-blue-100/30 to-indigo-100/30 border-b">
+              <CardTitle className="text-lg text-blue-900">Customer Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -539,13 +554,41 @@ export const BaseSaleDialog = ({
                   placeholder="Customer address"
                 />
               </div>
+
+              {/* Location Fields */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input
+                    value={formData.city || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                    placeholder="City"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Zone</Label>
+                  <Input
+                    value={formData.zone || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, zone: e.target.value }))}
+                    placeholder="Zone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Area</Label>
+                  <Input
+                    value={formData.area || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+                    placeholder="Area"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Product Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Add Products</CardTitle>
+          <Card className="border-2 bg-gradient-to-r from-green-50/50 to-emerald-50/50">
+            <CardHeader className="bg-gradient-to-r from-green-100/30 to-emerald-100/30 border-b">
+              <CardTitle className="text-lg text-green-900">Add Products</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2">
@@ -631,9 +674,9 @@ export const BaseSaleDialog = ({
 
           {/* Selected Products */}
           {formData.items.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Selected Products</CardTitle>
+            <Card className="border-2 bg-gradient-to-r from-purple-50/50 to-violet-50/50">
+              <CardHeader className="bg-gradient-to-r from-purple-100/30 to-violet-100/30 border-b">
+                <CardTitle className="text-lg text-purple-900">Selected Products</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -727,10 +770,10 @@ export const BaseSaleDialog = ({
           )}
 
           {/* Payment & Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Payment Information</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card className="border-2 bg-gradient-to-r from-orange-50/50 to-amber-50/50">
+              <CardHeader className="bg-gradient-to-r from-orange-100/30 to-amber-100/30 border-b">
+                <CardTitle className="text-lg text-orange-900">Payment Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -774,13 +817,13 @@ export const BaseSaleDialog = ({
                 )}
 
                 <div className="space-y-2">
-                  <Label>Fee</Label>
+                  <Label>Charge</Label>
                   <Input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={formData.fee}
-                    onChange={(e) => setFormData(prev => ({ ...prev, fee: parseFloat(e.target.value) || 0 }))}
+                    value={formData.charge}
+                    onChange={(e) => setFormData(prev => ({ ...prev, charge: parseFloat(e.target.value) || 0 }))}
                     placeholder="0"
                   />
                 </div>
@@ -813,7 +856,7 @@ export const BaseSaleDialog = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Payment Status</Label>
+                  <Label>Order Status</Label>
                   <Select value={formData.paymentStatus} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentStatus: value }))}>
                     <SelectTrigger>
                       <SelectValue />
@@ -829,9 +872,9 @@ export const BaseSaleDialog = ({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Order Summary</CardTitle>
+            <Card className="border-2 bg-gradient-to-r from-teal-50/50 to-cyan-50/50">
+              <CardHeader className="bg-gradient-to-r from-teal-100/30 to-cyan-100/30 border-b">
+                <CardTitle className="text-lg text-teal-900">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
@@ -843,8 +886,8 @@ export const BaseSaleDialog = ({
                   <span>-{formatAmount(discountAmount)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Fee:</span>
-                  <span>{formatAmount(formData.fee)}</span>
+                  <span>Charge:</span>
+                  <span>{formatAmount(formData.charge)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-lg border-t pt-2">
                   <span>Grand Total:</span>
@@ -864,7 +907,7 @@ export const BaseSaleDialog = ({
             </Card>
           </div>
 
-          <div className="flex justify-end gap-4">
+          <div className="flex justify-end gap-4 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

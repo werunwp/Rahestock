@@ -1,10 +1,53 @@
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Database, Users, FileText, Settings, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Shield, Database, Users, FileText, Settings, AlertCircle, Database as DatabaseIcon } from "lucide-react";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { currencyOptions, getCurrencySymbol } from "@/lib/currencySymbols";
+import { CourierWebhookSettings } from "@/components/CourierWebhookSettings";
+import { CustomCodeSettings } from "@/components/CustomCodeSettings";
+import { DataBackupControls } from "@/components/DataBackupControls";
+import { WooCommerceImport } from "@/components/WooCommerceImport";
+import { AppResetControls } from "@/components/AppResetControls";
 
 export function SystemSettings() {
+  const { systemSettings, updateSystemSettings, isUpdating: isSystemUpdating } = useSystemSettings();
+  
+  const [systemForm, setSystemForm] = useState({
+    currency_code: 'BDT',
+    timezone: 'Asia/Dhaka',
+    date_format: 'dd/MM/yyyy',
+    time_format: '12h'
+  });
+
+  useEffect(() => {
+    if (systemSettings) {
+      const nextForm = {
+        currency_code: systemSettings.currency_code || 'BDT',
+        timezone: systemSettings.timezone || 'Asia/Dhaka',
+        date_format: systemSettings.date_format || 'dd/MM/yyyy',
+        time_format: systemSettings.time_format || '12h'
+      };
+      setSystemForm(prev => {
+        return JSON.stringify(prev) === JSON.stringify(nextForm) ? prev : nextForm;
+      });
+    }
+  }, [systemSettings]);
+
+  const handleSystemSubmit = () => {
+    updateSystemSettings(systemForm);
+  };
+
   return (
     <div className="space-y-6">
+      {/* System Information Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -62,6 +105,7 @@ export function SystemSettings() {
         </CardContent>
       </Card>
 
+      {/* Security Notes Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -93,6 +137,113 @@ export function SystemSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* System Settings Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DatabaseIcon className="h-5 w-5" />
+            System Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="currencyCode">Currency <span className="text-muted-foreground">({getCurrencySymbol(systemForm.currency_code)})</span></Label>
+              <Select value={systemForm.currency_code} onValueChange={(value) => setSystemForm(prev => ({ ...prev, currency_code: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencyOptions.map((currency) => (
+                    <SelectItem key={currency.code} value={currency.code}>
+                      {currency.code} - {currency.name} ({getCurrencySymbol(currency.code)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="timezone">Timezone</Label>
+              <Select value={systemForm.timezone} onValueChange={(value) => setSystemForm(prev => ({ ...prev, timezone: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Asia/Dhaka">Asia/Dhaka (UTC+6)</SelectItem>
+                  <SelectItem value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</SelectItem>
+                  <SelectItem value="Asia/Karachi">Asia/Karachi (UTC+5)</SelectItem>
+                  <SelectItem value="Asia/Dubai">Asia/Dubai (UTC+4)</SelectItem>
+                  <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+                  <SelectItem value="Europe/Paris">Europe/Paris (UTC+1)</SelectItem>
+                  <SelectItem value="America/New_York">America/New_York (UTC-5)</SelectItem>
+                  <SelectItem value="America/Chicago">America/Chicago (UTC-6)</SelectItem>
+                  <SelectItem value="America/Denver">America/Denver (UTC-7)</SelectItem>
+                  <SelectItem value="America/Los_Angeles">America/Los_Angeles (UTC-8)</SelectItem>
+                  <SelectItem value="Australia/Sydney">Australia/Sydney (UTC+11)</SelectItem>
+                  <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
+                  <SelectItem value="Asia/Shanghai">Asia/Shanghai (UTC+8)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dateFormat">Date Format</Label>
+              <Select value={systemForm.date_format} onValueChange={(value) => setSystemForm(prev => ({ ...prev, date_format: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select date format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dd/MM/yyyy">DD/MM/YYYY</SelectItem>
+                  <SelectItem value="MM/dd/yyyy">MM/DD/YYYY</SelectItem>
+                  <SelectItem value="yyyy-MM-dd">YYYY-MM-DD</SelectItem>
+                  <SelectItem value="dd-MM-yyyy">DD-MM-YYYY</SelectItem>
+                  <SelectItem value="dd.MM.yyyy">DD.MM.YYYY</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="timeFormat">Time Format</Label>
+              <Select value={systemForm.time_format} onValueChange={(value) => setSystemForm(prev => ({ ...prev, time_format: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="12h">12 Hour (AM/PM)</SelectItem>
+                  <SelectItem value="24h">24 Hour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Auto-backup</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically backup your data daily
+              </p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Button onClick={handleSystemSubmit} disabled={isSystemUpdating}>
+            {isSystemUpdating ? 'Saving...' : 'Save System Settings'}
+          </Button>
+        </CardContent>
+      </Card>
+      
+      {/* Courier Webhook Settings */}
+      <CourierWebhookSettings />
+      
+      {/* Custom Code Settings */}
+      <CustomCodeSettings />
+      
+      {/* Data Backup Controls */}
+      <DataBackupControls />
+      
+      {/* WooCommerce Import */}
+      <WooCommerceImport />
+      
+      {/* App Reset Controls */}
+      <AppResetControls />
     </div>
   );
 }

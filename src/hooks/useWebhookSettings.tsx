@@ -8,6 +8,7 @@ export interface CourierWebhookSettings {
   webhook_url: string;
   webhook_name: string;
   webhook_description?: string;
+  status_check_webhook_url: string;
   is_active: boolean;
   auth_username?: string;
   auth_password?: string;
@@ -16,9 +17,10 @@ export interface CourierWebhookSettings {
 }
 
 const DEFAULT_WEBHOOK_SETTINGS: Omit<CourierWebhookSettings, 'id' | 'created_at' | 'updated_at'> = {
-  webhook_url: 'https://n8n.pronirob.com/webhook/send-order-to-pathao',
-  webhook_name: 'Courier Webhook',
-  webhook_description: 'Default courier delivery webhook',
+  webhook_url: 'https://n8n.pronirob.com/webhook/courier-orders',
+  webhook_name: 'Courier n8n Webhook',
+  webhook_description: 'n8n webhook that handles both order creation and status checking',
+  status_check_webhook_url: 'https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info',
   is_active: true,
   auth_username: '',
   auth_password: ''
@@ -38,6 +40,7 @@ export const useWebhookSettings = () => {
       const { data, error } = await supabase
         .from("courier_webhook_settings")
         .select("*")
+        .order("updated_at", { ascending: false })
         .limit(1);
 
       if (error) {
@@ -102,12 +105,7 @@ export const useWebhookSettings = () => {
   });
 
   return {
-    webhookSettings: webhookSettings || { 
-      ...DEFAULT_WEBHOOK_SETTINGS, 
-      id: '', 
-      created_at: new Date().toISOString(), 
-      updated_at: new Date().toISOString()
-    },
+    webhookSettings: webhookSettings || null,
     isLoading,
     error,
     updateWebhookSettings: updateWebhookSettings.mutate,

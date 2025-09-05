@@ -12,6 +12,7 @@ import { useSales } from "@/hooks/useSales";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { addDays, isAfter, format, differenceInDays, differenceInHours } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +34,7 @@ const Alerts = () => {
   const { sales } = useSales();
   const { customers } = useCustomers();
   const { formatAmount } = useCurrency();
+  const { businessSettings } = useBusinessSettings();
 
   // Load dismissed alerts from database and alert settings from localStorage on component mount
   useEffect(() => {
@@ -89,6 +91,9 @@ const Alerts = () => {
   const allAlerts = useMemo(() => {
     const alerts = [];
     const now = new Date();
+    
+    // Get the low stock alert quantity from business settings (default to 10)
+    const lowStockThreshold = businessSettings?.low_stock_alert_quantity || 10;
 
     // Out of stock alerts (Critical)
     if (alertSettings.lowStock) {
@@ -108,16 +113,16 @@ const Alerts = () => {
           });
         });
 
-      // Low stock alerts (Warning)
+      // Low stock alerts (Warning) - using business settings threshold
       products
-        .filter(p => p.stock_quantity <= p.low_stock_threshold && p.stock_quantity > 0)
+        .filter(p => p.stock_quantity <= lowStockThreshold && p.stock_quantity > 0)
         .forEach(product => {
           alerts.push({
             id: `low-stock-${product.id}`,
             type: "warning" as const,
             category: "inventory",
             title: "Low Stock Alert",
-            message: `${product.name} is below minimum threshold (${product.stock_quantity} remaining, threshold: ${product.low_stock_threshold})`,
+            message: `${product.name} is below minimum threshold (${product.stock_quantity} remaining, threshold: ${lowStockThreshold})`,
             time: product.updated_at,
             icon: Package,
             actionable: true,

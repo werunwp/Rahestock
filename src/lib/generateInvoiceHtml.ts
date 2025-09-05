@@ -10,6 +10,9 @@ interface SaleData {
   customer_phone?: string;
   customer_address?: string;
   customer_email?: string;
+  city?: string;
+  zone?: string;
+  area?: string;
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;

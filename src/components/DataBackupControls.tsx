@@ -47,6 +47,7 @@ export const DataBackupControls = () => {
   };
 
   const handleExport = () => {
+    console.log('Export button clicked with tables:', selectedTables);
     exportData.mutate({
       includeTables: selectedTables
     });
@@ -132,6 +133,7 @@ export const DataBackupControls = () => {
           <p className="text-xs text-muted-foreground">
             * Critical tables are essential for system operation
           </p>
+          
           <Button 
             onClick={handleExport}
             disabled={isExporting || selectedTables.length === 0}
@@ -140,6 +142,18 @@ export const DataBackupControls = () => {
             <Download className="h-4 w-4 mr-2" />
             {isExporting ? 'Generating Export...' : 'Export Selected Data'}
           </Button>
+          
+          {/* Export Status */}
+          {exportData.isError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-800">
+                <strong>Export Error:</strong> {exportData.error?.message}
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                Check browser console for detailed error information.
+              </p>
+            </div>
+          )}
         </div>
 
         <Separator />

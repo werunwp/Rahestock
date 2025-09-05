@@ -2,8 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://fbpzvcixoocdtzqvtwfr.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZicHp2Y2l4b29jZHR6cXZ0d2ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxNTkzNTUsImV4cCI6MjA2ODczNTM1NX0.g_RCJill8N9I_19sanPLob7gDdjp1TjxzeKvZCJCxl4";
+// Use environment variables for VPS Supabase configuration
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://supabase.akhiyanbd.com";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -14,4 +15,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
   }
+});
+
+// Log current configuration for debugging
+console.log('Supabase Client Configuration:', {
+  url: SUPABASE_URL,
+  key: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...',
+  environment: import.meta.env.MODE
 });

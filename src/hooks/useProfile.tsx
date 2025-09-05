@@ -21,7 +21,7 @@ export const useProfile = () => {
         supabase
           .from("profiles")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("id", user.id)
           .maybeSingle(),
         supabase
           .from("user_roles")
@@ -39,6 +39,12 @@ export const useProfile = () => {
       };
     },
     enabled: !!user?.id,
+    // Add caching and performance optimizations
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 1,
   });
 
   const updateProfileMutation = useMutation({
@@ -58,11 +64,11 @@ export const useProfile = () => {
         const { error: profileError } = await supabase
           .from("profiles")
           .upsert({
-            user_id: user.id,
+            id: user.id,
             full_name: profileUpdates.full_name || user.email?.split('@')[0] || 'User',
             phone: profileUpdates.phone || null
           }, {
-            onConflict: 'user_id'
+            onConflict: 'id'
           });
         
         if (profileError) throw profileError;

@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CourierStatusDetails } from "./CourierStatusDetails";
 
 interface SaleDetailsDialogProps {
   open: boolean;
@@ -26,6 +27,9 @@ interface SaleWithItems {
   customer_phone?: string;
   customer_address?: string;
   customer_whatsapp?: string;
+  city?: string;
+  zone?: string;
+  area?: string;
   subtotal: number;
   discount_percent: number;
   discount_amount: number;
@@ -48,6 +52,7 @@ interface SaleWithItems {
     total: number;
     variant_id: string | null;
     variant_attributes?: Record<string, string>;
+    product_image_url?: string; // Added for product image
   }>;
 }
 
@@ -65,11 +70,6 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
     try {
       const saleData = await getSaleWithItems(saleId);
       setSale(saleData);
-      
-      // If sale has consignment_id, refresh status automatically
-      if (saleData.consignment_id) {
-        handleStatusRefresh(saleData.consignment_id);
-      }
     } catch (error) {
       console.error("Error fetching sale details:", error);
       toast.error("Failed to load sale details");
@@ -82,51 +82,131 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
     setIsRefreshingStatus(true);
     
     try {
-      // Get webhook settings for status check
-      const { data: webhookSettings } = await supabase
+      // Get webhook settings for status check (using same pattern as useWebhookSettings)
+      const { data: webhookData } = await supabase
         .from('courier_webhook_settings')
-        .select('webhook_url')
-        .eq('is_active', true)
-        .maybeSingle();
+        .select('*')
+        .limit(1);
+      
+      const webhookSettings = webhookData?.[0];
 
-      if (!webhookSettings?.webhook_url) {
+      if (!webhookSettings?.status_check_webhook_url) {
         toast.error("No status check webhook URL configured");
         return;
       }
 
-      const statusCheckUrl = `${webhookSettings.webhook_url}?consignment_id=${consignmentId}`;
-      const response = await fetch(statusCheckUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      // Prepare headers for webhook request
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Basic Auth if credentials are configured
+      if (webhookSettings.auth_username && webhookSettings.auth_password &&
+          webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
+        const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
+        headers['Authorization'] = `Basic ${credentials}`;
+      }
+
+      // Send status check request to the webhook
+      const response = await fetch(webhookSettings.status_check_webhook_url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type: 'status_check',
+          action: 'check_status',
+          consignment_id: consignmentId,
+          sale_id: saleId
+        })
       });
 
       if (response.ok) {
         const result = await response.json();
-        const newCourierStatus = result.status || result.order_status || 'pending';
+        console.log('Status check response:', result);
+        
+        // Handle the specific response format from your webhook
+        let newCourierStatus = 'pending';
+        
+        if (Array.isArray(result) && result.length > 0) {
+          // Format: [{ "type": "success", "code": 200, "data": { "order_status": "..." } }]
+          const firstResponse = result[0];
+          if (firstResponse.type === 'success' && firstResponse.data) {
+            newCourierStatus = firstResponse.data.order_status || 'pending';
+          }
+        } else if (result.data && result.data.order_status) {
+          // Fallback format: { "data": { "order_status": "..." } }
+          newCourierStatus = result.data.order_status;
+        } else if (result.order_status) {
+          // Direct format: { "order_status": "..." }
+          newCourierStatus = result.order_status;
+        }
+        
+        console.log('Extracted courier status:', newCourierStatus);
+        
+        // Normalize status for consistent display
+        const normalizedStatus = newCourierStatus.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        let displayStatus = newCourierStatus;
+        
+        if (normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel')) {
+          displayStatus = 'cancelled';
+        } else if (normalizedStatus.includes('in_transit') || normalizedStatus.includes('picked_up')) {
+          displayStatus = 'in_transit';
+        } else if (normalizedStatus.includes('out_for_delivery')) {
+          displayStatus = 'out_for_delivery';
+        } else if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
+          displayStatus = 'delivered';
+        } else if (normalizedStatus.includes('returned')) {
+          displayStatus = 'returned';
+        }
+        
+        console.log('Normalized display status:', displayStatus);
+        
+        // Map courier status to payment status for business logic
+        let paymentStatusUpdate = {};
+        if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
+          paymentStatusUpdate = { payment_status: 'paid' };
+          console.log('SaleDetails: Setting payment status to: paid');
+        } else if (normalizedStatus.includes('returned') || normalizedStatus.includes('cancelled') || 
+                   normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel') || normalizedStatus.includes('lost')) {
+          paymentStatusUpdate = { payment_status: 'cancelled' };
+          console.log('SaleDetails: Setting payment status to: cancelled');
+        } else {
+          console.log('SaleDetails: No payment status update needed for status:', normalizedStatus);
+        }
+        
+        console.log('SaleDetails: Payment status update object:', paymentStatusUpdate);
         
         // Update the sale in database and local state
         const { error: updateError } = await supabase
           .from('sales')
           .update({ 
-            courier_status: newCourierStatus,
-            order_status: newCourierStatus,
-            last_status_check: new Date().toISOString()
+            courier_status: displayStatus,
+            order_status: displayStatus,
+            last_status_check: new Date().toISOString(),
+            ...paymentStatusUpdate
           })
           .eq('id', saleId);
         
         if (!updateError && sale) {
           setSale({
             ...sale,
-            courier_status: newCourierStatus,
-            order_status: newCourierStatus,
-            last_status_check: new Date().toISOString()
+            courier_status: displayStatus,
+            order_status: displayStatus,
+            last_status_check: new Date().toISOString(),
+            ...paymentStatusUpdate
           });
+          toast.success(`Status updated to: ${displayStatus}`);
+        } else if (updateError) {
+          console.error('Failed to update sale status:', updateError);
+          toast.error('Failed to update status in database');
         }
+      } else {
+        const errorText = await response.text();
+        console.error('Status check failed:', response.status, errorText);
+        toast.error(`Status check failed: ${response.status}`);
       }
     } catch (error) {
       console.error("Error refreshing status:", error);
+      toast.error('Failed to check status');
     } finally {
       setIsRefreshingStatus(false);
     }
@@ -173,42 +253,50 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-8">
           {/* Customer Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Customer Information</CardTitle>
+          <Card className="border-2 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+            <CardHeader className="bg-gradient-to-r from-blue-100/30 to-indigo-100/30 border-b">
+              <CardTitle className="text-lg text-blue-900">Customer Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm font-medium">Name</p>
-                <p className="text-sm text-muted-foreground">{sale.customer_name}</p>
-              </div>
-              {sale.customer_phone && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium">Name</p>
+                  <p className="text-sm text-muted-foreground">{sale.customer_name}</p>
+                </div>
                 <div>
                   <p className="text-sm font-medium">Phone</p>
-                  <p className="text-sm text-muted-foreground">{sale.customer_phone}</p>
+                  <p className="text-sm text-muted-foreground">{sale.customer_phone || "Not provided"}</p>
                 </div>
-              )}
-              {sale.customer_whatsapp && (
                 <div>
                   <p className="text-sm font-medium">WhatsApp</p>
-                  <p className="text-sm text-muted-foreground">{sale.customer_whatsapp}</p>
+                  <p className="text-sm text-muted-foreground">{sale.customer_whatsapp || "Not provided"}</p>
                 </div>
-              )}
-              {sale.customer_address && (
                 <div>
                   <p className="text-sm font-medium">Address</p>
                   <p className="text-sm text-muted-foreground">{sale.customer_address}</p>
                 </div>
-              )}
+                <div>
+                  <p className="text-sm font-medium">City</p>
+                  <p className="text-sm text-muted-foreground">{sale.city || "Not provided"}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Zone</p>
+                  <p className="text-sm text-muted-foreground">{sale.zone || "Not provided"}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Area</p>
+                  <p className="text-sm text-muted-foreground">{sale.area || "Not provided"}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           {/* Sale Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Sale Information</CardTitle>
+          <Card className="border-2 bg-gradient-to-r from-green-50/50 to-emerald-50/50">
+            <CardHeader className="bg-gradient-to-r from-green-100/30 to-emerald-100/30 border-b">
+              <CardTitle className="text-lg text-green-900">Sale Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
@@ -231,75 +319,22 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
           </Card>
 
           {/* Courier Status Card - Full Width */}
-          {sale.consignment_id && (
-            <div className="col-span-full">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center justify-between">
-                    Courier Information
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleStatusRefresh(sale.consignment_id!)}
-                      disabled={isRefreshingStatus}
-                      className="h-6 w-6 p-0"
-                    >
-                      <RefreshCw className={cn("h-3 w-3", isRefreshingStatus && "animate-spin")} />
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Tracking ID</p>
-                      <a
-                        href={`https://merchant.pathao.com/courier/orders/${sale.consignment_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline font-mono text-sm flex items-center gap-1"
-                      >
-                        {sale.consignment_id}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm font-medium mb-1">Delivery Status</p>
-                      <Badge variant={
-                        sale.courier_status === 'delivered' ? 'default' : 
-                        sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
-                        sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
-                        'outline'
-                      }>
-                        {sale.courier_status === 'in_transit' ? 'In Transit' :
-                         sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                         sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                      </Badge>
-                    </div>
-
-                    {sale.last_status_check && (
-                      <div>
-                        <p className="text-sm font-medium mb-1">Last Status Check</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(sale.last_status_check), 'PPp')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Click the tracking ID to view real-time status on Pathao's website
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <div className="col-span-full">
+            <CourierStatusDetails 
+              sale={sale}
+              onRefreshStatus={async (saleId, consignmentId) => {
+                await handleStatusRefresh(consignmentId);
+                return true;
+              }}
+              isRefreshing={isRefreshingStatus}
+            />
+          </div>
         </div>
 
         {/* Items Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Items</CardTitle>
+        <Card className="border-2 bg-gradient-to-r from-orange-50/50 to-amber-50/50">
+          <CardHeader className="bg-gradient-to-r from-orange-100/30 to-amber-100/30 border-b">
+            <CardTitle className="text-lg text-orange-900">Items</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -315,15 +350,37 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                 {sale.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{item.product_name}</p>
-                        {item.variant_attributes && (
-                          <p className="text-sm text-muted-foreground">
-                            {Object.entries(item.variant_attributes)
-                              .map(([key, value]) => `${key}: ${value}`)
-                              .join(', ')}
-                          </p>
-                        )}
+                      <div className="flex items-center space-x-3">
+                        {/* Product Image */}
+                        <div className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                          {item.product_image_url ? (
+                            <img
+                              src={item.product_image_url}
+                              alt={item.product_name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                e.currentTarget.src = '/placeholder.svg';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-xs text-gray-500">No Image</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{item.product_name}</p>
+                          {item.variant_attributes && (
+                            <p className="text-sm text-muted-foreground">
+                              {Object.entries(item.variant_attributes)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(', ')}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">{item.quantity}</TableCell>
@@ -337,11 +394,11 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
         </Card>
 
         {/* Payment Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Payment Summary</CardTitle>
+        <Card className="border-2 bg-gradient-to-r from-teal-50/50 to-cyan-50/50">
+          <CardHeader className="bg-gradient-to-r from-teal-100/30 to-cyan-100/30 border-b">
+            <CardTitle className="text-lg text-teal-900">Payment Summary</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span>Subtotal</span>
               <span>{formatAmount(sale.subtotal)}</span>
@@ -350,6 +407,12 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
               <div className="flex justify-between text-green-600">
                 <span>Discount ({sale.discount_percent}%)</span>
                 <span>-{formatAmount(sale.discount_amount)}</span>
+              </div>
+            )}
+            {sale.fee > 0 && (
+              <div className="flex justify-between text-blue-600">
+                <span>Charge/Fee</span>
+                <span>+{formatAmount(sale.fee)}</span>
               </div>
             )}
             <Separator />

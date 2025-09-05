@@ -15,6 +15,7 @@ export const CourierWebhookSettings = () => {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookName, setWebhookName] = useState("");
   const [webhookDescription, setWebhookDescription] = useState("");
+  const [statusCheckWebhookUrl, setStatusCheckWebhookUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -24,9 +25,19 @@ export const CourierWebhookSettings = () => {
       setWebhookUrl(webhookSettings.webhook_url || "");
       setWebhookName(webhookSettings.webhook_name || "");
       setWebhookDescription(webhookSettings.webhook_description || "");
+      setStatusCheckWebhookUrl(webhookSettings.status_check_webhook_url || "");
       setIsActive(webhookSettings.is_active);
       setAuthUsername(webhookSettings.auth_username || "");
       setAuthPassword(webhookSettings.auth_password || "");
+    } else {
+      // Only set defaults when there are no saved settings
+      setWebhookUrl("");
+      setWebhookName("");
+      setWebhookDescription("");
+      setStatusCheckWebhookUrl("");
+      setIsActive(true);
+      setAuthUsername("");
+      setAuthPassword("");
     }
   }, [webhookSettings]);
 
@@ -49,6 +60,7 @@ export const CourierWebhookSettings = () => {
       webhook_url: webhookUrl,
       webhook_name: webhookName || "Courier Webhook",
       webhook_description: webhookDescription,
+      status_check_webhook_url: statusCheckWebhookUrl,
       is_active: isActive,
       auth_username: authUsername,
       auth_password: authPassword
@@ -120,17 +132,31 @@ export const CourierWebhookSettings = () => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="webhook_url">Webhook URL *</Label>
+            <Label htmlFor="webhook_url">n8n Webhook URL</Label>
             <Input
               id="webhook_url"
-              type="url"
-              placeholder="https://your-workflow.com/webhook/courier-orders"
+              placeholder="https://n8n.pronirob.com/webhook/courier-orders"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
               required
             />
             <p className="text-xs text-muted-foreground">
-              The webhook URL where order data will be sent when "Send to Courier" is clicked
+              n8n webhook URL that handles both order creation and status checking
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status_check_webhook_url">Status Check Webhook URL *</Label>
+            <Input
+              id="status_check_webhook_url"
+              type="url"
+              placeholder="https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info"
+              value={statusCheckWebhookUrl}
+              onChange={(e) => setStatusCheckWebhookUrl(e.target.value)}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              The Pathao API endpoint for checking order status. Use {"{consignment_id}"} as placeholder for the actual consignment ID.
             </p>
           </div>
 
@@ -157,29 +183,29 @@ export const CourierWebhookSettings = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="auth_username">Basic Auth Username</Label>
+              <Label htmlFor="auth_username">n8n Webhook Username</Label>
               <Input
                 id="auth_username"
-                placeholder="e.g., username"
+                type="text"
+                placeholder="Enter username for basic auth"
                 value={authUsername}
                 onChange={(e) => setAuthUsername(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Username for basic authentication (optional)
+                Username for n8n webhook basic authentication
               </p>
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="auth_password">Basic Auth Password</Label>
+              <Label htmlFor="auth_password">n8n Webhook Password</Label>
               <Input
                 id="auth_password"
                 type="password"
-                placeholder="e.g., password123"
+                placeholder="Enter password for basic auth"
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Password for basic authentication (optional)
+                Password for n8n webhook basic authentication
               </p>
             </div>
           </div>

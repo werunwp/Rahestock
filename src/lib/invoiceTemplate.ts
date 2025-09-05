@@ -14,6 +14,9 @@ export interface InvoiceData {
     addressLine2?: string;
     email?: string;
     phone?: string;
+    city?: string;
+    zone?: string;
+    area?: string;
   };
   business: {
     name: string;
@@ -75,7 +78,10 @@ export const processInvoiceTemplate = (
       addressLine1: saleData.customer_address?.split('\n')[0] || '',
       addressLine2: saleData.customer_address?.split('\n').slice(1).join('\n') || '',
       email: saleData.customer_email || '',
-      phone: saleData.customer_phone || ''
+      phone: saleData.customer_phone || '',
+      city: saleData.city || '',
+      zone: saleData.zone || '',
+      area: saleData.area || ''
     },
     business: {
       name: businessSettings.business_name,

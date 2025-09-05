@@ -131,57 +131,83 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
       console.log("Sending order to courier webhook via backend");
       console.log("Order data:", orderData);
 
-      // Call our backend edge function instead of directly calling n8n
-      const { data, error } = await supabase.functions.invoke('courier-webhook', {
-        body: orderData
+      // Direct webhook call (bypass Edge Function)
+      console.log("Sending order directly to webhook URL:", webhookSettings.webhook_url);
+      
+      // For n8n webhooks, we typically don't need Basic Authentication
+      // Only add auth headers if both username and password are provided AND not empty
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Only add Basic Auth if both credentials are provided and not empty
+      if (webhookSettings.auth_username && webhookSettings.auth_password && 
+          webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
+        const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
+        headers['Authorization'] = `Basic ${credentials}`;
+        console.log("Added Basic Authentication headers");
+      } else {
+        console.log("No Basic Authentication - sending without auth headers");
+      }
+
+      const webhookResponse = await fetch(webhookSettings.webhook_url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(orderData)
       });
 
-      if (error) {
-        throw error;
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text();
+        throw new Error(`Webhook Error (${webhookResponse.status}): ${errorText}`);
       }
 
-      if (data?.success) {
-        // Extract consignment_id from nested webhook_response structure
-        let consignmentId = null;
-        const webhookName = data.webhook_name;
-        
-        // Handle array response structure from webhook
-        if (data.webhook_response && Array.isArray(data.webhook_response) && data.webhook_response.length > 0) {
-          const firstResponse = data.webhook_response[0];
-          if (firstResponse.data && firstResponse.data.consignment_id) {
-            consignmentId = firstResponse.data.consignment_id;
-          }
+      const webhookResult = await webhookResponse.json();
+      console.log('Webhook response:', webhookResult);
+
+      // Extract consignment_id from webhook response
+      let consignmentId = null;
+      const webhookName = webhookSettings.webhook_name || 'Courier Service';
+      
+      // Handle array response structure from webhook
+      if (webhookResult && Array.isArray(webhookResult) && webhookResult.length > 0) {
+        const firstResponse = webhookResult[0];
+        if (firstResponse.data && firstResponse.data.consignment_id) {
+          consignmentId = firstResponse.data.consignment_id;
         }
-        
-        console.log('Extracted consignment_id:', consignmentId);
-        
-        // Update the sale with consignment_id and courier status
-        if (consignmentId && orderData.sale_id) {
-          const { error: updateError } = await supabase
-            .from('sales')
-            .update({ 
-              consignment_id: consignmentId,
-              courier_status: 'pending',
-              order_status: 'pending',
-              last_status_check: new Date().toISOString()
-            })
-            .eq('id', orderData.sale_id);
-          
-          if (updateError) {
-            console.error('Failed to update sale with consignment_id:', updateError);
-          } else {
-            console.log('Successfully updated sale with consignment_id:', consignmentId);
-          }
-        }
-        
-        toast.success(`Order successfully sent to ${webhookName}! Tracking ID: ${consignmentId || 'Generated'}`);
-        onOpenChange(false);
-        
-        // Refresh sales data without page reload
-        window.dispatchEvent(new CustomEvent('salesDataUpdated'));
-      } else {
-        throw new Error(data?.message || 'Failed to send order to courier');
+      } else if (webhookResult?.consignment_id) {
+        consignmentId = webhookResult.consignment_id;
+      } else if (webhookResult?.tracking_id) {
+        consignmentId = webhookResult.tracking_id;
+      } else if (webhookResult?.order_id) {
+        consignmentId = webhookResult.order_id;
       }
+      
+      console.log('Extracted consignment_id:', consignmentId);
+      
+      // Update the sale with consignment_id and courier status
+      if (consignmentId && orderData.sale_id) {
+        const { error: updateError } = await supabase
+          .from('sales')
+          .update({ 
+            consignment_id: consignmentId,
+            courier_status: 'pending',
+            order_status: 'pending',
+            last_status_check: new Date().toISOString()
+          })
+          .eq('id', orderData.sale_id);
+        
+        if (updateError) {
+          console.error('Failed to update sale with consignment_id:', updateError);
+        } else {
+          console.log('Successfully updated sale with consignment_id:', consignmentId);
+        }
+      }
+      
+      toast.success(`Order successfully sent to ${webhookName}! Tracking ID: ${consignmentId || 'Generated'}`);
+      onOpenChange(false);
+      
+      // Refresh sales data without page reload
+      window.dispatchEvent(new CustomEvent('salesDataUpdated'));
     } catch (error) {
       console.error("Error sending order to webhook:", error);
       toast.error(error.message || "Failed to send order to courier workflow. Please try again.");

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, UserCheck, UserX, Shield, Eye, Users, Edit, Trash2, User } from "lucide-react";
+import { Plus, UserCheck, UserX, Shield, Users, Edit, Trash2, User, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -21,7 +21,7 @@ interface UserProfile {
   full_name: string;
   email: string;
   phone: string | null;
-  role: 'admin' | 'manager' | 'staff' | 'viewer';
+  role: 'admin' | 'manager' | 'staff';
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -30,22 +30,20 @@ interface UserFormData {
   full_name: string;
   email: string;
   phone: string;
-  role: 'admin' | 'manager' | 'staff' | 'viewer';
+  role: 'admin' | 'manager' | 'staff';
   password: string;
 }
 
 const roleColors = {
   admin: "destructive",
   manager: "default", 
-  staff: "secondary",
-  viewer: "outline"
+  staff: "secondary"
 } as const;
 
 const roleIcons = {
   admin: Shield,
   manager: Users,
-  staff: UserCheck,
-  viewer: Eye
+  staff: UserCheck
 };
 
 const initialFormData: UserFormData = {
@@ -64,7 +62,7 @@ export function UserManagement() {
   const queryClient = useQueryClient();
 
   // Role Permission Management state
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'staff' | 'viewer'>('staff');
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'staff'>('staff');
   const [activeTab, setActiveTab] = useState(
     'general' as 'general' | 'products_inventory' | 'sales_invoices' | 'customers' | 'reports' | 'settings' | 'administration'
   );
@@ -159,18 +157,23 @@ export function UserManagement() {
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('admin-list-users');
+      const { data, error } = await supabase.rpc('get_all_users_with_roles');
       
       if (error) {
         console.error('Error fetching users:', error);
         throw new Error(error.message || 'Failed to fetch users');
       }
       
-      if (!data?.success) {
-        throw new Error(data?.error || 'Failed to fetch users');
-      }
-      
-      return data.users as UserProfile[];
+      // Transform the data to match UserProfile interface
+      return (data || []).map((user: any) => ({
+        id: user.id,
+        full_name: user.full_name || 'N/A',
+        email: user.email,
+        phone: user.phone,
+        role: user.role || 'user',
+        created_at: user.created_at,
+        last_sign_in_at: user.last_sign_in_at
+      })) as UserProfile[];
     },
     staleTime: 30000, // Cache for 30 seconds
     gcTime: 300000, // Keep in cache for 5 minutes
@@ -180,11 +183,9 @@ export function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      const { data, error } = await supabase.functions.invoke('admin-create-user', {
-        body: userData
-      });
-      if (error) throw error;
-      return data;
+      // For self-hosted Supabase without Edge Functions, we need to create users manually
+      // through the Supabase Dashboard. This is a limitation of self-hosted environments.
+      throw new Error('User creation through the app is not available in self-hosted Supabase. Please create users manually through the Supabase Dashboard Authentication section, then assign roles here.');
     },
     onSuccess: () => {
       toast.success("User created successfully!");
@@ -200,11 +201,30 @@ export function UserManagement() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, ...userData }: { userId: string } & Partial<UserFormData>) => {
-      const { data, error } = await supabase.functions.invoke('admin-update-user', {
-        body: { userId, ...userData }
-      });
-      if (error) throw error;
-      return data;
+      // Update profile
+      if (userData.full_name || userData.phone) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: userData.full_name,
+            phone: userData.phone
+          })
+          .eq('id', userId);
+        
+        if (profileError) throw profileError;
+      }
+      
+      // Update user role if changed
+      if (userData.role) {
+        const { error: roleError } = await supabase.rpc('update_user_role', {
+          p_user_id: userId,
+          p_new_role: userData.role
+        });
+        
+        if (roleError) throw roleError;
+      }
+      
+      return { success: true };
     },
     onSuccess: () => {
       toast.success("User updated successfully!");
@@ -220,11 +240,16 @@ export function UserManagement() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
-        body: { userId }
+      // Use the database function to delete user
+      const { error } = await supabase.rpc('delete_user', {
+        p_user_id: userId
       });
+      
       if (error) throw error;
-      return data;
+      
+      // Note: auth.users deletion should be handled by the app using Supabase Auth admin functions
+      // For now, we'll just delete the profile and role data
+      return { success: true };
     },
     onSuccess: () => {
       toast.success("User deleted successfully!");
@@ -318,72 +343,38 @@ export function UserManagement() {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>
-                  Create a new user account. The account will be activated immediately.
+                  For self-hosted Supabase, users must be created manually through the Supabase Dashboard.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    placeholder="John Doe"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                  />
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-2">How to add a new user:</h3>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                    <li>Go to your Supabase Dashboard</li>
+                    <li>Navigate to Authentication → Users</li>
+                    <li>Click "Add User" or "Invite User"</li>
+                    <li>Fill in the user details and send invitation</li>
+                    <li>Once the user is created, come back here to assign their role</li>
+                  </ol>
                 </div>
-                <div>
-                  <Label htmlFor="email">Email Address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  />
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => window.open('https://supabase.akhiyanbd.com/project/default/auth/users', '_blank')}
+                    className="flex-1"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open Supabase Auth
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsAddDialogOpen(false)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    placeholder="+1234567890"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Temporary Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Leave empty for default password"
-                    value={formData.password}
-                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff' | 'viewer') => setFormData(prev => ({ ...prev, role: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin - Full access</SelectItem>
-                      <SelectItem value="manager">Manager - Business management</SelectItem>
-                      <SelectItem value="staff">Staff - Daily operations</SelectItem>
-                      <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button 
-                  onClick={handleCreateUser} 
-                  disabled={createUserMutation.isPending}
-                  className="w-full"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  {createUserMutation.isPending ? "Creating..." : "Create User"}
-                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -494,20 +485,19 @@ export function UserManagement() {
             <CardTitle>User Role Permission Management</CardTitle>
             <CardDescription>Control which features each role can access</CardDescription>
           </div>
-          <div className="w-full sm:w-64">
-            <Label className="sr-only">Role</Label>
-            <Select value={selectedRole} onValueChange={(v: 'admin' | 'manager' | 'staff' | 'viewer') => setSelectedRole(v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                     <div className="w-full sm:w-64">
+             <Label className="sr-only">Role</Label>
+             <Select value={selectedRole} onValueChange={(v: 'admin' | 'manager' | 'staff') => setSelectedRole(v)}>
+               <SelectTrigger>
+                 <SelectValue placeholder="Select role" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="admin">Admin</SelectItem>
+                 <SelectItem value="manager">Manager</SelectItem>
+                 <SelectItem value="staff">Staff</SelectItem>
+               </SelectContent>
+             </Select>
+           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
@@ -593,20 +583,19 @@ export function UserManagement() {
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               />
             </div>
-            <div>
-              <Label htmlFor="edit_role">Role</Label>
-              <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff' | 'viewer') => setFormData(prev => ({ ...prev, role: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin - Full access</SelectItem>
-                  <SelectItem value="manager">Manager - Business management</SelectItem>
-                  <SelectItem value="staff">Staff - Daily operations</SelectItem>
-                  <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                         <div>
+               <Label htmlFor="edit_role">Role</Label>
+               <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff') => setFormData(prev => ({ ...prev, role: value }))}>
+                 <SelectTrigger>
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="admin">Admin - Full access</SelectItem>
+                   <SelectItem value="manager">Manager - Business management</SelectItem>
+                   <SelectItem value="staff">Staff - Daily operations</SelectItem>
+                 </SelectContent>
+               </Select>
+             </div>
             <Button 
               onClick={handleUpdateUser} 
               disabled={updateUserMutation.isPending}

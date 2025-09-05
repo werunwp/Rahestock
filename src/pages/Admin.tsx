@@ -3,43 +3,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BusinessAnalytics } from "@/components/admin/BusinessAnalytics";
 import { SystemSettings } from "@/components/admin/SystemSettings";
-import { Users, BarChart3, Settings, Shield } from "lucide-react";
+import { Users, BarChart3, Shield, Database } from "lucide-react";
 import { Loader2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
-  const queryClient = useQueryClient();
-
-  // Prefetch users data when component mounts for instant loading
-  useEffect(() => {
-    if (user && isAdmin && !authLoading && !roleLoading) {
-      queryClient.prefetchQuery({
-        queryKey: ["admin-users"],
-        queryFn: async () => {
-          const { data, error } = await supabase.functions.invoke('admin-list-users');
-          
-          if (error) {
-            throw new Error(error.message || 'Failed to fetch users');
-          }
-          
-          if (!data?.success) {
-            throw new Error(data?.error || 'Failed to fetch users');
-          }
-          
-          return data.users;
-        },
-        staleTime: 30000,
-        gcTime: 300000
-      });
-    }
-  }, [user, isAdmin, authLoading, roleLoading, queryClient]);
 
   if (authLoading || roleLoading) {
     return (
@@ -64,7 +36,7 @@ export default function Admin() {
           </div>
         </div>
 
-        <Tabs defaultValue="analytics" className="space-y-6">
+        <Tabs defaultValue="system" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -74,9 +46,9 @@ export default function Admin() {
               <Users className="h-4 w-4" />
               Users
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              System
             </TabsTrigger>
           </TabsList>
 
@@ -88,7 +60,7 @@ export default function Admin() {
             <UserManagement />
           </TabsContent>
 
-          <TabsContent value="settings">
+          <TabsContent value="system">
             <SystemSettings />
           </TabsContent>
         </Tabs>

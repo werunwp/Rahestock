@@ -33,7 +33,12 @@ export const ProductCard = ({
   };
 
   const status = getStatus();
-  const stockValue = product.stock_quantity * (product.cost || product.rate);
+  const stockValue = product.has_variants
+    ? (variants || []).reduce((total, variant) => {
+        const unitCost = variant.cost ?? variant.rate ?? 0;
+        return total + (variant.stock_quantity * unitCost);
+      }, 0)
+    : product.stock_quantity * (product.cost || product.rate);
 
   const getVariantLabel = (attributes: Record<string, string>) => {
     // Get the first attribute value (usually Size, Color, etc.)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -19,7 +19,8 @@ interface DateRangeFilterProps {
 
 export function DateRangeFilter({ onDateRangeChange }: DateRangeFilterProps) {
   const [date, setDate] = useState<DateRange | undefined>();
-  const [selectedPreset, setSelectedPreset] = useState<string>("all");
+  const [selectedPreset, setSelectedPreset] = useState<string>("today");
+  const hasInitialized = useRef(false);
 
   const presets = [
     { label: "All Time", value: "all", days: null },
@@ -27,6 +28,17 @@ export function DateRangeFilter({ onDateRangeChange }: DateRangeFilterProps) {
     { label: "Last 7 days", value: "7days", days: 7 },
     { label: "Last 30 days", value: "30days", days: 30 },
   ];
+
+  // Set "Today" as default on component mount (only once)
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      const today = new Date();
+      const newRange = { from: today, to: today };
+      setDate(newRange);
+      onDateRangeChange(startOfDay(today), endOfDay(today));
+      hasInitialized.current = true;
+    }
+  }, []); // Empty dependency array - only runs once
 
   const handlePresetClick = (preset: typeof presets[0]) => {
     setSelectedPreset(preset.value);

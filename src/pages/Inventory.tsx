@@ -7,6 +7,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useProducts } from "@/hooks/useProducts";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { StockAdjustmentDialog } from "@/components/StockAdjustmentDialog";
 import { InventoryProductCard } from "@/components/inventory/InventoryProductCard";
 import { InventoryFilters } from "@/components/inventory/InventoryFilters";
@@ -26,6 +27,7 @@ const Inventory = () => {
   
   const { products, isLoading } = useProducts();
   const { formatAmount } = useCurrency();
+  const { businessSettings } = useBusinessSettings();
   const { user } = useAuth();
 
   // Debounce search input
@@ -293,10 +295,33 @@ const Inventory = () => {
   }, [selectedImage]);
 
   // Calculate stats (excluding deleted products)
-  const totalProducts = products.filter(p => !p.is_deleted).length;
-  const lowStockProducts = products.filter(p => !p.is_deleted && p.stock_quantity <= p.low_stock_threshold);
-  const outOfStockProducts = products.filter(p => !p.is_deleted && p.stock_quantity === 0);
-  const totalValue = products.filter(p => !p.is_deleted).reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
+  // Include both simple products and products with variants in total count
+  const activeProducts = products.filter(p => !p.is_deleted);
+  const simpleProducts = activeProducts.filter(p => !p.has_variants);
+  const productsWithVariants = activeProducts.filter(p => p.has_variants);
+  
+  // Total products = simple products + all variants (individual items)
+  const totalProducts = simpleProducts.length + allVariants.length;
+  
+  // Get the low stock alert quantity from business settings (default to 10)
+  const lowStockThreshold = businessSettings?.low_stock_alert_quantity || 10;
+  
+  // Low stock calculation: simple products + variants (excluding 0 stock items)
+  const simpleLowStock = simpleProducts.filter(p => p.stock_quantity > 0 && p.stock_quantity <= lowStockThreshold);
+  const variantLowStock = allVariants.filter(v => v.stock_quantity > 0 && v.stock_quantity <= lowStockThreshold);
+  const lowStockProducts = simpleLowStock.length + variantLowStock.length;
+  
+  // Out of stock calculation: simple products + variants
+  const simpleOutOfStock = simpleProducts.filter(p => p.stock_quantity === 0);
+  const variantOutOfStock = allVariants.filter(v => v.stock_quantity === 0);
+  const outOfStockProducts = simpleOutOfStock.length + variantOutOfStock.length;
+  
+  // Total value calculation: simple products + variants
+  const simpleTotalValue = simpleProducts.reduce((sum, p) => sum + (p.stock_quantity * (p.cost || p.rate)), 0);
+  const variantTotalValue = allVariants.reduce((sum, v) => sum + (v.stock_quantity * (v.cost || v.rate)), 0);
+  const totalValue = simpleTotalValue + variantTotalValue;
+
+  
   
   return (
     <div className="space-y-6">
@@ -339,7 +364,7 @@ const Inventory = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{totalProducts}</div>
-                <p className="text-xs text-muted-foreground">Products in inventory</p>
+                <p className="text-xs text-muted-foreground">Individual items in inventory</p>
               </CardContent>
             </Card>
             <Card>
@@ -348,7 +373,7 @@ const Inventory = () => {
                 <TrendingDown className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">{lowStockProducts.length}</div>
+                <div className="text-2xl font-bold text-destructive">{lowStockProducts}</div>
                 <p className="text-xs text-muted-foreground">Needs restocking</p>
               </CardContent>
             </Card>
@@ -358,7 +383,7 @@ const Inventory = () => {
                 <TrendingDown className="h-4 w-4 text-destructive" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">{outOfStockProducts.length}</div>
+                <div className="text-2xl font-bold text-destructive">{outOfStockProducts}</div>
                 <p className="text-xs text-muted-foreground">Urgent restocking</p>
               </CardContent>
             </Card>

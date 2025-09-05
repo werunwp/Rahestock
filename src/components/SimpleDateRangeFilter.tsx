@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CalendarIcon } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -15,13 +15,15 @@ import { Separator } from "@/components/ui/separator";
 
 interface SimpleDateRangeFilterProps {
   onDateRangeChange: (startDate?: Date, endDate?: Date) => void;
+  defaultPreset?: string;
 }
 
-export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilterProps) {
+export function SimpleDateRangeFilter({ onDateRangeChange, defaultPreset = "today" }: SimpleDateRangeFilterProps) {
   const [date, setDate] = useState<DateRange | undefined>();
   const [tempDate, setTempDate] = useState<DateRange | undefined>();
-  const [selectedPreset, setSelectedPreset] = useState<string>("all");
+  const [selectedPreset, setSelectedPreset] = useState<string>(defaultPreset);
   const [isOpen, setIsOpen] = useState(false);
+  const hasInitialized = useRef(false);
 
   const presets = [
     { label: "All Time", value: "all", days: null },
@@ -29,6 +31,35 @@ export function SimpleDateRangeFilter({ onDateRangeChange }: SimpleDateRangeFilt
     { label: "Last 7 days", value: "7days", days: 7 },
     { label: "Last 30 days", value: "30days", days: 30 },
   ];
+
+  // Set default preset on component mount (only once)
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      if (defaultPreset === "all") {
+        setDate(undefined);
+        setTempDate(undefined);
+        onDateRangeChange();
+      } else if (defaultPreset === "today") {
+        const today = new Date();
+        const newRange = { from: today, to: today };
+        setDate(newRange);
+        setTempDate(newRange);
+        onDateRangeChange(startOfDay(today), endOfDay(today));
+      } else {
+        // Handle other presets
+        const preset = presets.find(p => p.value === defaultPreset);
+        if (preset && preset.days) {
+          const endDate = new Date();
+          const startDate = subDays(endDate, preset.days - 1);
+          const newRange = { from: startDate, to: endDate };
+          setDate(newRange);
+          setTempDate(newRange);
+          onDateRangeChange(startOfDay(startDate), endOfDay(endDate));
+        }
+      }
+      hasInitialized.current = true;
+    }
+  }, [defaultPreset, onDateRangeChange]); // Include dependencies
 
   const handlePresetClick = (preset: typeof presets[0]) => {
     setSelectedPreset(preset.value);

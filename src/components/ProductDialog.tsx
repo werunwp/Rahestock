@@ -5,12 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProducts, Product, CreateProductData } from "@/hooks/useProducts";
-import { Loader2, X } from "lucide-react";
-import { ImageUpload } from "./ImageUpload";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useAttributes, ReusableAttribute } from "@/hooks/useAttributes";
+import { Loader2, X, Plus } from "lucide-react";
+import { ImagePicker } from "./ImagePicker";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useProductVariants, AttributeDefinition } from "@/hooks/useProductVariants";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 interface ProductDialogProps {
   open: boolean;
@@ -20,15 +23,15 @@ interface ProductDialogProps {
 
 export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProps) => {
   const { createProduct, updateProduct } = useProducts();
+  const { businessSettings } = useBusinessSettings();
+  const { attributes: reusableAttributes, createAttribute, updateAttribute, getSelectAttributes, getTextAttributes, getNumberAttributes, getColorAttributes, getSizeAttributes } = useAttributes();
   const [formData, setFormData] = useState<CreateProductData>({
     name: "",
     sku: "",
     rate: 0,
     cost: 0,
     stock_quantity: 0,
-    low_stock_threshold: 10,
-    size: "",
-    color: "",
+    low_stock_threshold: businessSettings?.low_stock_alert_quantity || 10,
     image_url: "",
   });
 
@@ -37,6 +40,8 @@ const isEditing = !!product;
 // Variations state
 const [hasVariants, setHasVariants] = useState<boolean>(product?.has_variants ?? false);
 const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
+const [selectedReusableAttributes, setSelectedReusableAttributes] = useState<ReusableAttribute[]>([]);
+const [selectValue, setSelectValue] = useState<string>("");
 type VariantFormRow = { sku?: string; rate?: number | null; cost?: number | null; quantity: number; low_stock_threshold?: number | null; image_url?: string };
 const [variantState, setVariantState] = useState<Record<string, VariantFormRow>>({});
 const [bulkRate, setBulkRate] = useState<string>("");
@@ -49,6 +54,77 @@ const setVariant = (key: string, patch: Partial<VariantFormRow>) => {
     ...prev,
     [key]: { quantity: 0, ...prev[key], ...patch },
   }));
+};
+
+// Handle reusable attribute selection
+const handleReusableAttributeSelect = (attribute: ReusableAttribute) => {
+  setSelectedReusableAttributes(prev => {
+    const exists = prev.find(attr => attr.id === attribute.id);
+    if (exists) return prev;
+    return [...prev, attribute];
+  });
+  
+  // Convert reusable attribute to AttributeDefinition
+  const attributeDef: AttributeDefinition = {
+    name: attribute.name,
+    values: attribute.options || []
+  };
+  
+  setAttributes(prev => {
+    const exists = prev.find(attr => attr.name === attribute.name);
+    if (exists) return prev;
+    return [...prev, attributeDef];
+  });
+  
+  // Clear the select value after selection
+  setSelectValue("");
+};
+
+const handleReusableAttributeRemove = (attributeId: string) => {
+  setSelectedReusableAttributes(prev => prev.filter(attr => attr.id !== attributeId));
+  
+  // Also remove from attributes
+  const attribute = selectedReusableAttributes.find(attr => attr.id === attributeId);
+  if (attribute) {
+    setAttributes(prev => prev.filter(attr => attr.name !== attribute.name));
+  }
+  
+  // Clear the select value
+  setSelectValue("");
+};
+
+// Function to save custom attributes to the database
+const saveCustomAttributeToDatabase = async (attribute: AttributeDefinition) => {
+  try {
+    await createAttribute.mutateAsync({
+      name: attribute.name.toLowerCase().replace(/\s+/g, '_'),
+      display_name: attribute.name,
+      type: 'select', // Default to select for custom attributes
+      options: attribute.values,
+      is_required: false,
+      sort_order: 0
+    });
+  } catch (error) {
+    console.error('Failed to save custom attribute:', error);
+  }
+};
+
+// Function to update existing reusable attribute with new values
+const updateReusableAttributeValues = async (attributeId: string, newValues: string[]) => {
+  try {
+    const existingAttribute = reusableAttributes.find(attr => attr.id === attributeId);
+    if (existingAttribute) {
+      const currentOptions = existingAttribute.options || [];
+      const mergedOptions = [...new Set([...currentOptions, ...newValues])]; // Merge and remove duplicates
+      
+      await updateAttribute.mutateAsync({
+        id: attributeId,
+        options: mergedOptions
+      });
+    }
+  } catch (error) {
+    console.error('Failed to update reusable attribute:', error);
+  }
 };
 
 const applyBulk = () => {
@@ -64,7 +140,7 @@ const applyBulk = () => {
       ...cur,
       rate: r ?? cur.rate ?? formData.rate,
       cost: c ?? cur.cost ?? (formData.cost || null),
-      low_stock_threshold: l ?? cur.low_stock_threshold ?? formData.low_stock_threshold,
+      low_stock_threshold: l ?? cur.low_stock_threshold ?? (businessSettings?.low_stock_alert_quantity || formData.low_stock_threshold),
       quantity: q ?? cur.quantity,
     };
   });
@@ -112,8 +188,6 @@ useEffect(() => {
       cost: product.cost || 0,
       stock_quantity: product.stock_quantity,
       low_stock_threshold: product.low_stock_threshold,
-      size: product.size || "",
-      color: product.color || "",
       image_url: product.image_url || "",
       has_variants: product.has_variants,
     });
@@ -125,15 +199,23 @@ useEffect(() => {
       rate: 0,
       cost: 0,
       stock_quantity: 0,
-      low_stock_threshold: 10,
-      size: "",
-      color: "",
+      low_stock_threshold: businessSettings?.low_stock_alert_quantity || 10,
       image_url: "",
       has_variants: false,
     });
     setHasVariants(false);
   }
 }, [product]);
+
+// Update form data when business settings change (for new products)
+useEffect(() => {
+  if (!product && businessSettings?.low_stock_alert_quantity) {
+    setFormData(prev => ({
+      ...prev,
+      low_stock_threshold: businessSettings.low_stock_alert_quantity
+    }));
+  }
+}, [businessSettings?.low_stock_alert_quantity, product]);
 
 useEffect(() => {
   if (isEditing && product?.id && hasVariants) {
@@ -244,6 +326,39 @@ const handleSubmit = async (e: React.FormEvent) => {
         await createProduct.mutateAsync({ ...formData, has_variants: false });
       }
     }
+    
+    // Save custom attributes and update reusable attributes (non-blocking)
+    if (hasVariants) {
+      // Save custom attributes (non-reusable ones) to the database
+      const customAttributes = attributes.filter(attr => 
+        !selectedReusableAttributes.some(selected => selected.name === attr.name)
+      );
+      
+      // Run attribute saving in background
+      Promise.all([
+        ...customAttributes.map(customAttr => {
+          if (customAttr.name && customAttr.values.length > 0) {
+            return saveCustomAttributeToDatabase(customAttr);
+          }
+          return Promise.resolve();
+        }),
+        ...selectedReusableAttributes.map(selectedAttr => {
+          const localAttr = attributes.find(attr => attr.name === selectedAttr.name);
+          if (localAttr && localAttr.values.length > 0) {
+            const newValues = localAttr.values.filter(value => 
+              !selectedAttr.options?.includes(value)
+            );
+            if (newValues.length > 0) {
+              return updateReusableAttributeValues(selectedAttr.id, newValues);
+            }
+          }
+          return Promise.resolve();
+        })
+      ]).catch(error => {
+        console.error('Error saving attributes:', error);
+      });
+    }
+    
     onOpenChange(false);
   } catch (error) {
     // handled in hooks
@@ -341,8 +456,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 type="number"
                 min="0"
                 value={formData.low_stock_threshold}
-                onChange={(e) => handleChange("low_stock_threshold", parseInt(e.target.value) || 10)}
-                placeholder="10"
+                onChange={(e) => handleChange("low_stock_threshold", parseInt(e.target.value) || (businessSettings?.low_stock_alert_quantity || 10))}
+                placeholder={businessSettings?.low_stock_alert_quantity?.toString() || "10"}
               />
             </div>
           </div>
@@ -362,14 +477,63 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="rounded-lg border p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Attributes</span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setAttributes([...attributes, { name: "", values: [] }])}>
-                    Add Attribute
-                  </Button>
+                  <div className="flex gap-2">
+                    <Select 
+                      value={selectValue}
+                      onValueChange={(value) => {
+                        setSelectValue(value);
+                        const attribute = reusableAttributes.find(attr => attr.id === value);
+                        if (attribute) handleReusableAttributeSelect(attribute);
+                      }}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select reusable attribute" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {reusableAttributes
+                          .filter(attr => !selectedReusableAttributes.find(selected => selected.id === attr.id))
+                          .map((attribute) => (
+                            <SelectItem key={attribute.id} value={attribute.id}>
+                              {attribute.display_name} ({attribute.type})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setAttributes([...attributes, { name: "", values: [] }])}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Custom
+                    </Button>
+                  </div>
                 </div>
+                
+                {/* Selected Reusable Attributes */}
+                {selectedReusableAttributes.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Selected Attributes</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedReusableAttributes.map((attr) => (
+                        <Badge key={attr.id} variant="secondary" className="flex items-center gap-1">
+                          {attr.display_name} ({attr.type})
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => handleReusableAttributeRemove(attr.id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Attributes */}
                 <div className="space-y-3">
                   {attributes.map((attr, idx) => (
-                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-start">
-                      <div className="sm:col-span-2 space-y-1">
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                      <div className="space-y-1">
                         <Label>Attribute Name</Label>
                         <Input
                           value={attr.name}
@@ -381,7 +545,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                           placeholder="e.g., Size"
                         />
                       </div>
-                      <div className="sm:col-span-3 space-y-1">
+                      <div className="space-y-1">
                         <Label>Values (comma separated)</Label>
                         <Input
                           value={attr.values.join(", ")}
@@ -394,23 +558,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                           placeholder="e.g., 0-6 years, 6-12 years"
                         />
                       </div>
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const copy = [...attributes];
-                            copy.splice(idx, 1);
-                            setAttributes(copy);
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
                   ))}
-                  {!attributes.length && (
+                  {!attributes.length && !selectedReusableAttributes.length && (
                     <p className="text-xs text-muted-foreground">No attributes yet. Add one to start creating variants.</p>
                   )}
                 </div>
@@ -464,7 +614,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                               <TableRow key={key + i}>
                                 <TableCell className="whitespace-nowrap">{name}</TableCell>
                                 <TableCell>
-                                  <Input value={v.sku || ""} onChange={(e) => setVariant(key, { sku: e.target.value })} placeholder={(formData.sku || "") + `-${i + 1}`} />
+                                  <Input value={v.sku || ""} onChange={(e) => setVariant(key, { sku: e.target.value })} placeholder={formData.sku ? `${formData.sku}-${i + 1}` : `Variant-${i + 1}`} />
                                 </TableCell>
                                 <TableCell>
                                   <Input type="number" step="0.01" value={v.rate ?? ""} onChange={(e) => setVariant(key, { rate: e.target.value ? parseFloat(e.target.value) : null })} placeholder={`${formData.rate}`} />
@@ -480,11 +630,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 </TableCell>
                                   <TableCell>
                                     <div className="min-w-[120px]">
-                                      <ImageUpload
-                                        compact
+                                      <ImagePicker
                                         value={v.image_url || ""}
                                         onChange={(url) => setVariant(key, { image_url: url })}
                                         onRemove={() => setVariant(key, { image_url: "" })}
+                                        placeholder="Select variant image"
+                                        iconOnly={true}
                                       />
                                     </div>
                                   </TableCell>
@@ -505,27 +656,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </>
               )}
             </>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="size">Size</Label>
-                  <Input id="size" value={formData.size} onChange={(e) => handleChange("size", e.target.value)} placeholder="e.g., S, M, L, XL" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="color">Color</Label>
-                  <Input id="color" value={formData.color} onChange={(e) => handleChange("color", e.target.value)} placeholder="e.g., Red, Blue" />
-                </div>
-              </div>
-            </>
-          )}
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="image_url">Featured Image</Label>
-            <ImageUpload
+            <ImagePicker
               value={formData.image_url}
               onChange={(url) => handleChange("image_url", url)}
               onRemove={() => handleChange("image_url", "")}
+              placeholder="Select a product image"
             />
           </div>
 

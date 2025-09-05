@@ -99,6 +99,7 @@ CREATE TABLE public.sales (
     subtotal numeric NOT NULL,
     discount_percent numeric DEFAULT 0,
     discount_amount numeric DEFAULT 0,
+    charge numeric DEFAULT 0,
     grand_total numeric NOT NULL,
     payment_method text NOT NULL,
     payment_status text DEFAULT 'pending'::text,

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useProducts } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { ProductDialog } from "@/components/ProductDialog";
@@ -16,6 +17,7 @@ import * as XLSX from "xlsx";
 const Products = () => {
   const { products, isLoading, deleteProduct, createProduct, updateProduct, duplicateProduct } = useProducts();
   const { formatAmount } = useCurrency();
+  const { businessSettings } = useBusinessSettings();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -133,7 +135,7 @@ const Products = () => {
                 rate: parseFloat(String(row.Rate || row.rate || row.RATE || row.price || row.Price || '0').replace(/[^0-9.-]/g, '')) || 0,
                 cost: row.Cost || row.cost || row.COST ? parseFloat(String(row.Cost || row.cost || row.COST || '0').replace(/[^0-9.-]/g, '')) || undefined : undefined,
                 stock_quantity: parseInt(String(row['Stock Quantity'] || row.stock_quantity || row.stock || row.Stock || row.STOCK || '0').replace(/[^0-9]/g, '')) || 0,
-                low_stock_threshold: parseInt(String(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || '10').replace(/[^0-9]/g, '')) || 10,
+                low_stock_threshold: parseInt(String(row['Low Stock Threshold'] || row.low_stock_threshold || row.threshold || row.Threshold || (businessSettings?.low_stock_alert_quantity || 10)).replace(/[^0-9]/g, '')) || (businessSettings?.low_stock_alert_quantity || 10),
                 size: row.Size || row.size || row.SIZE ? String(row.Size || row.size || row.SIZE).trim() : undefined,
                 color: row.Color || row.color || row.COLOR ? String(row.Color || row.color || row.COLOR).trim() : undefined,
                 image_url: row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL ? String(row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL).trim() : undefined,
