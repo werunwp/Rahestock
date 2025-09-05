@@ -303,7 +303,10 @@ export const useWooCommerceConnections = () => {
     const { site_url, consumer_key, consumer_secret } = connection;
     
     console.log('Starting to fetch WooCommerce products...');
-    console.log('Connection details:', { site_url, consumer_key: consumer_key?.substring(0, 10) + '...', consumer_secret: consumer_secret?.substring(0, 10) + '...' });
+    // Connection details logged for debugging (sensitive data masked)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Connection details:', { site_url, consumer_key: consumer_key?.substring(0, 10) + '...', consumer_secret: consumer_secret?.substring(0, 10) + '...' });
+    }
     
     try {
       let allProducts: any[] = [];

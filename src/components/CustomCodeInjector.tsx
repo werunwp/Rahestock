@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useCustomSettings } from "@/hooks/useCustomSettings";
+import DOMPurify from 'dompurify';
 
 export const CustomCodeInjector = () => {
   const { customSettings } = useCustomSettings();
@@ -80,13 +81,16 @@ export const CustomCodeInjector = () => {
   return null;
 };
 
-// Basic sanitization function to remove obviously dangerous patterns
+// Enhanced sanitization function using DOMPurify for security
 function sanitizeCode(code: string): string {
-  return code
-    // Remove javascript: URLs
-    .replace(/javascript:/gi, '')
-    // Remove eval() calls
-    .replace(/eval\s*\(/gi, '')
-    // Remove on* event handlers in HTML
-    .replace(/\son\w+\s*=/gi, '');
+  return DOMPurify.sanitize(code, {
+    ALLOWED_TAGS: ['div', 'span', 'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+    ALLOWED_ATTR: ['class', 'id', 'style'],
+    FORBID_TAGS: ['script', 'object', 'embed', 'iframe', 'form', 'input', 'button', 'link', 'meta'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'onsubmit'],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    SANITIZE_DOM: true,
+    KEEP_CONTENT: true
+  });
 }

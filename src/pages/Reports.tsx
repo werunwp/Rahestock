@@ -13,7 +13,7 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, eachDayOfInterval, eachMonthOfInterval, startOfDay, endOfDay, subDays, subMonths } from "date-fns";
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
@@ -133,7 +133,7 @@ const Reports = () => {
     };
   }, [chartData]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       // Get date range for filename
       const fromDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : 'all-time';
@@ -167,24 +167,59 @@ const Reports = () => {
         'Low Stock Items': dashboardStats?.lowStockProducts?.length || 0
       }];
 
-      // Create workbook
-      const wb = XLSX.utils.book_new();
-
+      // Create workbook using ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      
       // Add summary sheet
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+      const summarySheet = workbook.addWorksheet('Summary');
+      summarySheet.addRow(Object.keys(summaryData[0]));
+      summarySheet.addRow(Object.values(summaryData[0]));
+      
+      // Style the header row
+      summarySheet.getRow(1).font = { bold: true };
+      summarySheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
 
       // Add sales sheet
       if (salesData.length > 0) {
-        const salesWs = XLSX.utils.json_to_sheet(salesData);
-        XLSX.utils.book_append_sheet(wb, salesWs, "Sales Report");
+        const salesSheet = workbook.addWorksheet('Sales Report');
+        salesSheet.addRow(Object.keys(salesData[0]));
+        
+        // Add data rows
+        salesData.forEach(row => {
+          salesSheet.addRow(Object.values(row));
+        });
+        
+        // Style the header row
+        salesSheet.getRow(1).font = { bold: true };
+        salesSheet.getRow(1).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE0E0E0' }
+        };
+        
+        // Auto-fit columns
+        salesSheet.columns.forEach(column => {
+          column.width = 15;
+        });
       }
 
       // Generate filename
       const filename = `business_report_${dateRangeStr}.xlsx`;
       
-      // Download file
-      XLSX.writeFile(wb, filename);
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
       toast.success("Report exported successfully");
 
     } catch (error) {

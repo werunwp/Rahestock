@@ -133,7 +133,10 @@ serve(async (req) => {
     };
 
     console.log('Sending request to:', webhookSettings.webhook_url);
-    console.log('Request headers:', Object.keys(webhookHeaders));
+    // Request headers logged for debugging (no sensitive data exposed)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Request headers:', Object.keys(webhookHeaders));
+    }
     console.log('Request payload:', statusCheckPayload);
 
     const webhookResponse = await fetch(webhookSettings.webhook_url, {

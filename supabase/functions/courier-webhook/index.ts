@@ -143,7 +143,10 @@ serve(async (req) => {
       console.log('Added basic auth credentials for webhook');
     }
 
-    console.log('Request headers:', Object.keys(webhookHeaders));
+    // Request headers logged for debugging (no sensitive data exposed)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Request headers:', Object.keys(webhookHeaders));
+    }
 
     // Send order data to the configured webhook
     const webhookResponse = await fetch(webhookSettings.webhook_url, {

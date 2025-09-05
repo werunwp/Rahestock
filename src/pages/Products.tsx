@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { ProductDialog } from "@/components/ProductDialog";
 import { ProductCard } from "@/components/ProductCard";
 import { useCurrency } from "@/hooks/useCurrency";
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 
 const Products = () => {
   const { products, isLoading, deleteProduct, createProduct, updateProduct, duplicateProduct } = useProducts();
@@ -62,7 +62,7 @@ const Products = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -96,12 +96,42 @@ const Products = () => {
             }
           }
         } else {
-          // Handle XLSX/XLS files
+          // Handle XLSX/XLS files using ExcelJS
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          jsonData = XLSX.utils.sheet_to_json(worksheet);
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(data);
+          const worksheet = workbook.worksheets[0];
+          
+          if (!worksheet) {
+            throw new Error('No worksheet found in the file');
+          }
+          
+          // Convert worksheet to JSON
+          const headers: string[] = [];
+          const rows: any[] = [];
+          
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+              // First row contains headers
+              row.eachCell((cell, colNumber) => {
+                headers[colNumber - 1] = cell.text || '';
+              });
+            } else {
+              // Data rows
+              const rowData: any = {};
+              row.eachCell((cell, colNumber) => {
+                const header = headers[colNumber - 1];
+                if (header) {
+                  rowData[header] = cell.text || '';
+                }
+              });
+              if (Object.keys(rowData).length > 0) {
+                rows.push(rowData);
+              }
+            }
+          });
+          
+          jsonData = rows;
         }
 
         if (jsonData.length === 0) {
