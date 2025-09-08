@@ -11,6 +11,7 @@ import { ThemeInitializer } from "@/components/ThemeInitializer";
 import { CustomCodeInjector } from "@/components/CustomCodeInjector";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useFavicon } from "@/hooks/useFavicon";
 // Direct imports for faster loading
 import Index from "./pages/Index";
 import Products from "./pages/Products";
@@ -27,6 +28,12 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Component to handle favicon updates
+const FaviconUpdater = () => {
+  useFavicon();
+  return null;
+};
 
 // Component to handle routing with first-time setup check
 const AppRoutes = () => {
@@ -122,6 +129,7 @@ const App = () => (
       <AuthProvider>
         <ThemeInitializer />
         <CustomCodeInjector />
+        <FaviconUpdater />
         <SystemSettingsProvider>
           <TooltipProvider>
             <Toaster />

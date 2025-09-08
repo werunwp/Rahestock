@@ -183,12 +183,39 @@ export function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      // For self-hosted Supabase without Edge Functions, we need to create users manually
-      // through the Supabase Dashboard. This is a limitation of self-hosted environments.
-      throw new Error('User creation through the app is not available in self-hosted Supabase. Please create users manually through the Supabase Dashboard Authentication section, then assign roles here.');
+      // For self-hosted Supabase, we'll create the user profile and role
+      // The actual auth user should be created through Supabase Dashboard first
+      
+      // First, check if user exists in auth.users
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userData.email);
+      
+      if (authError || !authUser) {
+        throw new Error('User must be created in Supabase Dashboard first. Please create the user in Authentication → Users, then come back here to assign their role.');
+      }
+      
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authUser.user.id,
+          full_name: userData.full_name,
+          phone: userData.phone || null
+        });
+      
+      if (profileError) throw profileError;
+      
+      // Assign role
+      const { error: roleError } = await supabase.rpc('update_user_role', {
+        p_user_id: authUser.user.id,
+        p_new_role: userData.role
+      });
+      
+      if (roleError) throw roleError;
+      
+      return { success: true };
     },
     onSuccess: () => {
-      toast.success("User created successfully!");
+      toast.success("User profile created and role assigned successfully!");
       setFormData(initialFormData);
       setIsAddDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -217,7 +244,7 @@ export function UserManagement() {
       // Update user role if changed
       if (userData.role) {
         const { error: roleError } = await supabase.rpc('update_user_role', {
-          p_user_id: userId,
+          p_user_id: userId, // This should be the UUID, not email
           p_new_role: userData.role
         });
         
@@ -345,34 +372,72 @@ export function UserManagement() {
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>
-                  For self-hosted Supabase, users must be created manually through the Supabase Dashboard.
+                  Create a user profile and assign a role. The user must first be created in Supabase Dashboard.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="font-medium text-blue-900 mb-2">How to add a new user:</h3>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-                    <li>Go to your Supabase Dashboard</li>
-                    <li>Navigate to Authentication → Users</li>
-                    <li>Click "Add User" or "Invite User"</li>
-                    <li>Fill in the user details and send invitation</li>
-                    <li>Once the user is created, come back here to assign their role</li>
-                  </ol>
+                <div>
+                  <Label htmlFor="add_full_name">Full Name *</Label>
+                  <Input
+                    id="add_full_name"
+                    placeholder="John Doe"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add_email">Email Address *</Label>
+                  <Input
+                    id="add_email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add_phone">Phone Number</Label>
+                  <Input
+                    id="add_phone"
+                    placeholder="+1234567890"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add_role">Role</Label>
+                  <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff') => setFormData(prev => ({ ...prev, role: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin - Full access</SelectItem>
+                      <SelectItem value="manager">Manager - Business management</SelectItem>
+                      <SelectItem value="staff">Staff - Daily operations</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> The user must first be created in Supabase Dashboard (Authentication → Users) before you can assign a role here.
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => window.open('https://supabase.akhiyanbd.com/project/default/auth/users', '_blank')}
+                    variant="outline"
                     className="flex-1"
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open Supabase Auth
                   </Button>
                   <Button 
-                    variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
+                    onClick={handleCreateUser}
+                    disabled={createUserMutation.isPending}
                     className="flex-1"
                   >
-                    Close
+                    <Plus className="h-4 w-4 mr-2" />
+                    {createUserMutation.isPending ? "Creating..." : "Create Profile"}
                   </Button>
                 </div>
               </div>
