@@ -17,9 +17,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Log current configuration for debugging
-console.log('Supabase Client Configuration:', {
-  url: SUPABASE_URL,
-  key: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...',
-  environment: import.meta.env.MODE
-});
+// Security: No configuration logging to prevent data exposure

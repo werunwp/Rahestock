@@ -305,7 +305,7 @@ export const useWooCommerceConnections = () => {
     console.log('Starting to fetch WooCommerce products...');
     // Connection details logged for debugging (sensitive data masked)
     if (process.env.NODE_ENV === 'development') {
-      console.log('Connection details:', { site_url, consumer_key: consumer_key?.substring(0, 10) + '...', consumer_secret: consumer_secret?.substring(0, 10) + '...' });
+      // Connection details logged (development only)
     }
     
     try {
@@ -315,7 +315,10 @@ export const useWooCommerceConnections = () => {
       
       while (hasMorePages) {
         const apiUrl = `${site_url}/wp-json/wc/v3/products?consumer_key=${consumer_key}&consumer_secret=${consumer_secret}&per_page=100&page=${page}&status=publish`;
-        console.log(`Fetching from URL: ${apiUrl}`);
+        // API URL logged for debugging (development only)
+        if (process.env.NODE_ENV === 'development') {
+          // Fetching from WooCommerce API
+        }
         
         // Fetch products from WooCommerce REST API with pagination and timeout
         const controller = new AbortController();

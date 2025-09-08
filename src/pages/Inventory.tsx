@@ -295,13 +295,14 @@ const Inventory = () => {
   }, [selectedImage]);
 
   // Calculate stats (excluding deleted products)
-  // Include both simple products and products with variants in total count
   const activeProducts = products.filter(p => !p.is_deleted);
   const simpleProducts = activeProducts.filter(p => !p.has_variants);
   const productsWithVariants = activeProducts.filter(p => p.has_variants);
   
-  // Total products = simple products + all variants (individual items)
-  const totalProducts = simpleProducts.length + allVariants.length;
+  // Total products = combined stock quantity of all items
+  const simpleProductsStock = simpleProducts.reduce((sum, p) => sum + (p.stock_quantity || 0), 0);
+  const variantsStock = allVariants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0);
+  const totalProducts = simpleProductsStock + variantsStock;
   
   // Get the low stock alert quantity from business settings (default to 10)
   const lowStockThreshold = businessSettings?.low_stock_alert_quantity || 10;
@@ -341,9 +342,9 @@ const Inventory = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         {isLoading ? (
-          [...Array(4)].map((_, i) => (
+          [...Array(5)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -364,7 +365,17 @@ const Inventory = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{totalProducts}</div>
-                <p className="text-xs text-muted-foreground">Individual items in inventory</p>
+                <p className="text-xs text-muted-foreground">Combined stock quantity</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                <Archive className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{activeProducts.length}</div>
+                <p className="text-xs text-muted-foreground">Parent products only</p>
               </CardContent>
             </Card>
             <Card>

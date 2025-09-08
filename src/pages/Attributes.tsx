@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAttributes, ReusableAttribute, CreateAttributeData, UpdateAttributeData } from "@/hooks/useAttributes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,14 @@ const Attributes = () => {
     isLoading, 
     createAttribute, 
     updateAttribute, 
-    deleteAttribute 
+    deleteAttribute,
+    checkAttributeUsage
   } = useAttributes();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAttribute, setEditingAttribute] = useState<ReusableAttribute | null>(null);
+  const [attributeUsage, setAttributeUsage] = useState<Record<string, { isUsed: boolean; productCount: number }>>({});
   const [formData, setFormData] = useState<CreateAttributeData>({
     name: '',
     display_name: '',
@@ -44,6 +46,50 @@ const Attributes = () => {
       sort_order: 0,
     });
   };
+
+  // Function to refresh usage for all attributes
+  const refreshAttributeUsage = async () => {
+    const usagePromises = attributes.map(async (attr) => {
+      try {
+        const usage = await checkAttributeUsage(attr.id);
+        return { id: attr.id, usage };
+      } catch (error) {
+        console.error(`Error checking usage for attribute ${attr.id}:`, error);
+        return { id: attr.id, usage: { isUsed: false, productCount: 0 } };
+      }
+    });
+
+    const results = await Promise.all(usagePromises);
+    const usageMap = results.reduce((acc, { id, usage }) => {
+      acc[id] = usage;
+      return acc;
+    }, {} as Record<string, { isUsed: boolean; productCount: number }>);
+
+    setAttributeUsage(usageMap);
+  };
+
+  // Check usage for all attributes
+  useEffect(() => {
+    if (attributes.length > 0) {
+      refreshAttributeUsage();
+    }
+  }, [attributes, checkAttributeUsage]);
+
+  // Listen for product changes to refresh attribute usage
+  useEffect(() => {
+    const handleProductChange = () => {
+      refreshAttributeUsage();
+    };
+
+    // Listen for custom events that indicate product changes
+    window.addEventListener('productDeleted', handleProductChange);
+    window.addEventListener('productRestored', handleProductChange);
+
+    return () => {
+      window.removeEventListener('productDeleted', handleProductChange);
+      window.removeEventListener('productRestored', handleProductChange);
+    };
+  }, [attributes, checkAttributeUsage]);
 
   const handleCreate = async () => {
     if (!formData.name || !formData.display_name) {
@@ -105,6 +151,13 @@ const Attributes = () => {
   };
 
   const handleDelete = async (id: string) => {
+    const usage = attributeUsage[id];
+    
+    if (usage?.isUsed) {
+      toast.error(`Cannot delete attribute. It is currently used by ${usage.productCount} product(s).`);
+      return;
+    }
+
     try {
       await deleteAttribute.mutateAsync(id);
     } catch (error) {
@@ -302,7 +355,12 @@ const Attributes = () => {
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        disabled={attributeUsage[attribute.id]?.isUsed}
+                        title={attributeUsage[attribute.id]?.isUsed ? `Cannot delete: Used by ${attributeUsage[attribute.id]?.productCount} product(s)` : 'Delete attribute'}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -310,20 +368,29 @@ const Attributes = () => {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Attribute</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to delete "{attribute.display_name}"? This action cannot be undone.
+                          {attributeUsage[attribute.id]?.isUsed ? (
+                            <>
+                              Cannot delete "{attribute.display_name}" because it is currently used by {attributeUsage[attribute.id]?.productCount} product(s). 
+                              Please remove this attribute from all products before deleting it.
+                            </>
+                          ) : (
+                            `Are you sure you want to delete "${attribute.display_name}"? This action cannot be undone.`
+                          )}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(attribute.id)}>
-                          Delete
-                        </AlertDialogAction>
+                        {!attributeUsage[attribute.id]?.isUsed && (
+                          <AlertDialogAction onClick={() => handleDelete(attribute.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        )}
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
               </div>
-              <CardDescription>
+              <div className="text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Badge className={getTypeColor(attribute.type)}>
                     {attribute.type}
@@ -332,7 +399,7 @@ const Attributes = () => {
                     <Badge variant="destructive">Required</Badge>
                   )}
                 </div>
-              </CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -347,6 +414,19 @@ const Attributes = () => {
                 <div className="text-sm text-muted-foreground">
                   <strong>Sort Order:</strong> {attribute.sort_order}
                 </div>
+                {attributeUsage[attribute.id] && (
+                  <div className="text-sm">
+                    {attributeUsage[attribute.id].isUsed ? (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                        Used by {attributeUsage[attribute.id].productCount} product(s)
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-green-600">
+                        Not in use
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

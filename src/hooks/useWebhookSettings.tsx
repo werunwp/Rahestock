@@ -17,11 +17,11 @@ export interface CourierWebhookSettings {
 }
 
 const DEFAULT_WEBHOOK_SETTINGS: Omit<CourierWebhookSettings, 'id' | 'created_at' | 'updated_at'> = {
-  webhook_url: 'https://n8n.pronirob.com/webhook/courier-orders',
-  webhook_name: 'Courier n8n Webhook',
-  webhook_description: 'n8n webhook that handles both order creation and status checking',
-  status_check_webhook_url: 'https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info',
-  is_active: true,
+  webhook_url: '',
+  webhook_name: '',
+  webhook_description: '',
+  status_check_webhook_url: '',
+  is_active: false,
   auth_username: '',
   auth_password: ''
 };

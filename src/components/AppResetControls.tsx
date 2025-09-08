@@ -66,12 +66,15 @@ export const AppResetControls = () => {
           'product_variants',
           'product_attribute_values',
           'product_attributes',
+          'reusable_attributes',
           'products',
           'customers',
           'woocommerce_import_logs',
           'woocommerce_connections',
           'dismissed_alerts',
-          'user_preferences'
+          'user_preferences',
+          'courier_webhook_settings',
+          'custom_settings'
         ];
 
         let deletedCounts: Record<string, number> = {};
@@ -114,6 +117,42 @@ export const AppResetControls = () => {
           }
         }
 
+        // Clean up storage files
+        console.log('Starting storage cleanup...');
+        let storageFilesDeleted = 0;
+        
+        try {
+          // Clean up product images bucket
+          const { data: productImages, error: listError } = await supabase.storage
+            .from('product-images')
+            .list('', { limit: 1000, offset: 0 });
+
+          if (listError) {
+            console.error('Error listing product images:', listError);
+          } else if (productImages && productImages.length > 0) {
+            const filePaths = productImages.map(file => file.name);
+            const { error: deleteError } = await supabase.storage
+              .from('product-images')
+              .remove(filePaths);
+
+            if (deleteError) {
+              console.error('Error deleting product images:', deleteError);
+            } else {
+              storageFilesDeleted += productImages.length;
+              console.log(`Deleted ${productImages.length} product images from storage`);
+            }
+          }
+
+          // Add cleanup for other storage buckets if they exist
+          // You can add more buckets here as needed
+          
+        } catch (error) {
+          console.error('Storage cleanup error:', error);
+        }
+
+        deletedCounts['storage_files'] = storageFilesDeleted;
+        totalDeleted += storageFilesDeleted;
+
         // Reset business_settings to defaults (keep the structure)
         await supabase
           .from('business_settings')
@@ -123,9 +162,9 @@ export const AppResetControls = () => {
         await supabase
           .from('business_settings')
           .insert({
-            business_name: 'Your Business Name',
+            business_name: '',
             invoice_prefix: 'INV',
-            invoice_footer_message: 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+            invoice_footer_message: '',
             brand_color: '#2c7be5',
             low_stock_alert_quantity: 10,
             created_by: user?.id,
@@ -150,6 +189,47 @@ export const AppResetControls = () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
+
+        // Ensure admin user has proper profile and role
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (!existingProfile) {
+          await supabase
+            .from('profiles')
+            .insert({
+              user_id: user?.id,
+              full_name: 'Admin User',
+              email: user?.email || 'admin@example.com',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+        }
+
+        // Ensure admin role exists
+        const { data: existingRole } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (!existingRole) {
+          await supabase
+            .from('user_roles')
+            .insert({
+              user_id: user?.id,
+              role: 'admin',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+        }
+
+        // Don't restore default reusable attributes - leave them empty for fresh start
+
+        // Don't restore courier webhook settings - leave them empty for fresh start
 
         const backupFilename = `backup-before-reset-${new Date().toISOString().split('T')[0]}.json`;
 

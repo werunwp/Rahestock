@@ -19,6 +19,7 @@ interface Sale {
   id: string;
   invoice_number: string;
   grand_total: number;
+  amount_paid: number;
   payment_status: string;
   payment_method: string;
   created_at: string;
@@ -58,6 +59,7 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
           id,
           invoice_number,
           grand_total,
+          amount_paid,
           payment_status,
           payment_method,
           created_at
@@ -105,10 +107,12 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
     }
   };
 
-  // Only calculate totals for paid orders (exclude cancelled orders)
-  const paidSales = sales.filter(sale => sale.payment_status === 'paid');
-  const totalSpent = paidSales.reduce((sum, sale) => sum + sale.grand_total, 0);
-  const totalOrders = paidSales.length;
+  // Calculate totals for all orders and paid orders
+  const totalOrders = sales.length;
+  const paidOrders = sales.filter(sale => sale.payment_status === 'paid');
+  const successfulOrders = paidOrders.length;
+  const totalSpent = paidOrders.reduce((sum, sale) => sum + sale.grand_total, 0);
+  const avgOrderValue = successfulOrders > 0 ? totalSpent / successfulOrders : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,36 +135,48 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
         ) : (
           <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total order</CardTitle>
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalOrders}</div>
+                  <p className="text-xs text-muted-foreground">All orders count</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+                  <CardTitle className="text-sm font-medium">Successful orders</CardTitle>
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{successfulOrders}</div>
+                  <p className="text-xs text-muted-foreground">Paid orders count</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total spent</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatAmount(totalSpent)}</div>
+                  <p className="text-xs text-muted-foreground">Paid orders total</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Avg. Order Value</CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg Order value</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatAmount(totalOrders > 0 ? totalSpent / totalOrders : 0)}
-                  </div>
+                  <div className="text-2xl font-bold">{formatAmount(avgOrderValue)}</div>
+                  <p className="text-xs text-muted-foreground">Paid orders average</p>
                 </CardContent>
               </Card>
             </div>

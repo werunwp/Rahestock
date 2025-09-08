@@ -857,7 +857,18 @@ export const BaseSaleDialog = ({
 
                 <div className="space-y-2">
                   <Label>Order Status</Label>
-                  <Select value={formData.paymentStatus} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentStatus: value }))}>
+                  <Select value={formData.paymentStatus} onValueChange={(value) => {
+                    if (value === "paid") {
+                      // When "Paid" is selected, automatically set amount paid to grand total
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        paymentStatus: value,
+                        amountPaid: grandTotal
+                      }));
+                    } else {
+                      setFormData(prev => ({ ...prev, paymentStatus: value }));
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

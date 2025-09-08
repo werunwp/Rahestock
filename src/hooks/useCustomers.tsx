@@ -12,6 +12,8 @@ export interface Customer {
   address: string | null;
   tags: string[];
   order_count: number;
+  delivered_count: number;
+  cancelled_count: number;
   total_spent: number;
   status: string;
   last_purchase_date: string | null;
@@ -161,6 +163,101 @@ export const useCustomers = () => {
     },
   });
 
+
+  const updateCustomerStats = useMutation({
+    mutationFn: async (showNotification: boolean = true) => {
+      // Get all customers and update their statistics with new columns
+      const { data: customers, error: customersError } = await supabase
+        .from("customers")
+        .select("id");
+
+      if (customersError) throw customersError;
+
+      // For each customer, recalculate their statistics
+      const updatePromises = customers.map(async (customer) => {
+        // Get all sales for this customer
+        const { data: allSales, error: salesError } = await supabase
+          .from("sales")
+          .select("grand_total, created_at, payment_status, amount_paid")
+          .eq("customer_id", customer.id);
+
+        if (salesError) throw salesError;
+
+        // Filter for paid sales (only payment_status = 'paid')
+        const paidSales = allSales?.filter(sale => 
+          sale.payment_status === 'paid'
+        ) || [];
+
+        // Filter for cancelled orders
+        const cancelledOrders = allSales?.filter(sale => 
+          sale.payment_status === 'cancelled'
+        ) || [];
+
+        const orderCount = allSales?.length || 0; // Total orders count (all orders)
+        const deliveredCount = paidSales.length; // Delivered = Paid orders count
+        const cancelledCount = cancelledOrders.length; // Cancelled orders count
+        const totalSpent = paidSales.reduce((sum, sale) => sum + sale.grand_total, 0); // Paid orders total
+        const lastPurchaseDate = paidSales.length > 0 
+          ? paidSales.reduce((latest, sale) => 
+              new Date(sale.created_at) > new Date(latest.created_at) ? sale : latest
+            ).created_at
+          : null;
+
+        // Update customer statistics - only update existing columns for now
+        const updateData: any = {
+          order_count: orderCount,
+          total_spent: totalSpent,
+          last_purchase_date: lastPurchaseDate,
+          updated_at: new Date().toISOString()
+        };
+
+        // Try to update with new columns, fall back to basic columns if they don't exist
+        try {
+          const { error: updateError } = await supabase
+            .from("customers")
+            .update({
+              ...updateData,
+              delivered_count: deliveredCount,
+              cancelled_count: cancelledCount,
+            })
+            .eq("id", customer.id);
+
+          if (updateError) {
+            // If new columns don't exist, update without them
+            console.log("New columns don't exist, updating basic columns only");
+            const { error: basicUpdateError } = await supabase
+              .from("customers")
+              .update(updateData)
+              .eq("id", customer.id);
+            
+            if (basicUpdateError) throw basicUpdateError;
+          }
+        } catch (error) {
+          // Fallback to basic update
+          const { error: basicUpdateError } = await supabase
+            .from("customers")
+            .update(updateData)
+            .eq("id", customer.id);
+          
+          if (basicUpdateError) throw basicUpdateError;
+        }
+      });
+
+      await Promise.all(updatePromises);
+      return { updatedCount: customers.length };
+    },
+    onSuccess: (data, showNotification) => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      if (showNotification) {
+        toast.success(`Updated statistics for ${data.updatedCount} customers`);
+      }
+    },
+    onError: (error) => {
+      console.error("Error updating customer statistics:", error);
+      toast.error("Failed to update customer statistics: " + error.message);
+    },
+  });
+
   return {
     customers,
     isLoading,
@@ -168,5 +265,7 @@ export const useCustomers = () => {
     createCustomer,
     updateCustomer,
     deleteCustomer,
+    updateCustomerStats: updateCustomerStats.mutate,
+    isUpdatingStats: updateCustomerStats.isPending,
   };
 };

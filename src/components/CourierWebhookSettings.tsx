@@ -3,18 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useWebhookSettings } from "@/hooks/useWebhookSettings";
-import { Webhook, Save, TestTube } from "lucide-react";
+import { Webhook, Save } from "lucide-react";
 import { toast } from "sonner";
 
 export const CourierWebhookSettings = () => {
   const { webhookSettings, updateWebhookSettings, isUpdating } = useWebhookSettings();
   
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [webhookName, setWebhookName] = useState("");
-  const [webhookDescription, setWebhookDescription] = useState("");
   const [statusCheckWebhookUrl, setStatusCheckWebhookUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [authUsername, setAuthUsername] = useState("");
@@ -23,8 +20,6 @@ export const CourierWebhookSettings = () => {
   useEffect(() => {
     if (webhookSettings) {
       setWebhookUrl(webhookSettings.webhook_url || "");
-      setWebhookName(webhookSettings.webhook_name || "");
-      setWebhookDescription(webhookSettings.webhook_description || "");
       setStatusCheckWebhookUrl(webhookSettings.status_check_webhook_url || "");
       setIsActive(webhookSettings.is_active);
       setAuthUsername(webhookSettings.auth_username || "");
@@ -32,8 +27,6 @@ export const CourierWebhookSettings = () => {
     } else {
       // Only set defaults when there are no saved settings
       setWebhookUrl("");
-      setWebhookName("");
-      setWebhookDescription("");
       setStatusCheckWebhookUrl("");
       setIsActive(true);
       setAuthUsername("");
@@ -58,8 +51,8 @@ export const CourierWebhookSettings = () => {
 
     updateWebhookSettings({
       webhook_url: webhookUrl,
-      webhook_name: webhookName || "Courier Webhook",
-      webhook_description: webhookDescription,
+      webhook_name: "",
+      webhook_description: "",
       status_check_webhook_url: statusCheckWebhookUrl,
       is_active: isActive,
       auth_username: authUsername,
@@ -67,56 +60,6 @@ export const CourierWebhookSettings = () => {
     });
   };
 
-  const handleTestWebhook = async () => {
-    if (!webhookUrl.trim()) {
-      toast.error("Please enter a webhook URL first");
-      return;
-    }
-
-    try {
-      new URL(webhookUrl);
-    } catch {
-      toast.error("Please enter a valid webhook URL");
-      return;
-    }
-
-    try {
-      const testData = {
-        test: true,
-        timestamp: new Date().toISOString(),
-        message: "Test webhook from courier settings",
-        sample_order: {
-          recipient_name: "Test Customer",
-          recipient_phone: "01234567890",
-          recipient_address: "Test Address, Dhaka",
-          item_description: "Test Item",
-          amount_to_collect: 100
-        }
-      };
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      // Add basic auth header if credentials provided
-      if (authUsername && authPassword) {
-        const credentials = btoa(`${authUsername}:${authPassword}`);
-        headers['Authorization'] = `Basic ${credentials}`;
-      }
-
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers,
-        mode: "no-cors",
-        body: JSON.stringify(testData),
-      });
-
-      toast.success("Test webhook sent successfully! Check your workflow to confirm it was received.");
-    } catch (error) {
-      console.error("Error testing webhook:", error);
-      toast.error("Failed to send test webhook. Please check the URL and try again.");
-    }
-  };
 
   return (
     <Card>
@@ -135,7 +78,7 @@ export const CourierWebhookSettings = () => {
             <Label htmlFor="webhook_url">n8n Webhook URL</Label>
             <Input
               id="webhook_url"
-              placeholder="https://n8n.pronirob.com/webhook/courier-orders"
+              placeholder="Enter your webhook URL"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
               required
@@ -150,7 +93,7 @@ export const CourierWebhookSettings = () => {
             <Input
               id="status_check_webhook_url"
               type="url"
-              placeholder="https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info"
+              placeholder="Enter your status check API URL"
               value={statusCheckWebhookUrl}
               onChange={(e) => setStatusCheckWebhookUrl(e.target.value)}
               required
@@ -160,26 +103,6 @@ export const CourierWebhookSettings = () => {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="webhook_name">Webhook Name</Label>
-            <Input
-              id="webhook_name"
-              placeholder="My Courier Webhook"
-              value={webhookName}
-              onChange={(e) => setWebhookName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="webhook_description">Description</Label>
-            <Textarea
-              id="webhook_description"
-              placeholder="Description of your courier workflow webhook"
-              value={webhookDescription}
-              onChange={(e) => setWebhookDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -223,16 +146,6 @@ export const CourierWebhookSettings = () => {
             <Button type="submit" disabled={isUpdating}>
               <Save className="h-4 w-4 mr-2" />
               {isUpdating ? "Saving..." : "Save Settings"}
-            </Button>
-            
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleTestWebhook}
-              disabled={!webhookUrl.trim()}
-            >
-              <TestTube className="h-4 w-4 mr-2" />
-              Test Webhook
             </Button>
           </div>
         </form>

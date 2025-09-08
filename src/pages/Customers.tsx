@@ -1,4 +1,4 @@
-import { Plus, Users, Phone, Search, Edit, Trash2, MessageCircle, Download, Eye, Upload } from "lucide-react";
+import { Plus, Users, Phone, Search, Edit, Trash2, MessageCircle, Download, Eye, Upload, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCustomers } from "@/hooks/useCustomers";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { CustomerDialog } from "@/components/CustomerDialog";
 import { CustomerHistoryDialog } from "@/components/CustomerHistoryDialog";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -17,13 +17,11 @@ import { isWithinInterval, parseISO } from "date-fns";
 import * as ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useCustomerStatusUpdate } from "@/hooks/useCustomerStatusUpdate";
 
 const Customers = () => {
-  const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer } = useCustomers();
+  const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer, updateCustomerStats, isUpdatingStats } = useCustomers();
   const { formatAmount } = useCurrency();
   const { hasPermission } = useUserRole();
-  const { bulkUpdateCustomerStatus, isUpdating } = useCustomerStatusUpdate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -32,8 +30,16 @@ const Customers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasRefreshedStats = useRef(false);
 
-
+  // Automatically refresh customer stats when the page loads
+  useEffect(() => {
+    // Only refresh if customers are loaded, we have customers, stats are not being updated, and we haven't refreshed yet
+    if (!isLoading && customers.length > 0 && !isUpdatingStats && !hasRefreshedStats.current) {
+      hasRefreshedStats.current = true;
+      updateCustomerStats(false); // Pass false to hide notification for auto refresh
+    }
+  }, [isLoading, customers.length, isUpdatingStats]); // Dependencies to ensure we wait for data to load
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
@@ -73,12 +79,6 @@ const Customers = () => {
     setEndDate(end);
   };
 
-  const handleStatusChange = (customerId: string, newStatus: string) => {
-    updateCustomer.mutate({
-      id: customerId,
-      data: { status: newStatus }
-    });
-  };
 
   const handleViewHistory = (customer) => {
     setSelectedCustomer(customer);
@@ -369,17 +369,15 @@ const Customers = () => {
               Export
             </Button>
           )}
-          {hasPermission('customers.edit') && (
-            <Button 
-              variant="outline" 
-              onClick={() => bulkUpdateCustomerStatus()} 
-              disabled={isUpdating}
-              className="w-full sm:w-auto"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              {isUpdating ? 'Updating...' : 'Update Status'}
-            </Button>
-          )}
+          <Button 
+            onClick={() => updateCustomerStats(true)} 
+            disabled={isUpdatingStats}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
+          </Button>
           {hasPermission('customers.add') && (
             <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
@@ -500,40 +498,23 @@ const Customers = () => {
         <CardContent>
           <TooltipProvider>
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>WhatsApp</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Total Spent</TableHead>
-                  <TableHead>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help border-b border-dotted border-gray-400">Status</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="max-w-xs">
-                          <p className="font-semibold mb-2">Customer Status Logic:</p>
-                          <div className="text-sm space-y-1">
-                            <p>• <strong>Active:</strong> Purchase within last 1 month</p>
-                            <p>• <strong>Neutral:</strong> Purchase within last 3 months</p>
-                            <p>• <strong>Inactive:</strong> No purchase in 6+ months</p>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Updates automatically with sales or manually via "Update Status" button.
-                          </p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>WhatsApp</TableHead>
+            <TableHead>Orders</TableHead>
+            <TableHead>Delivered</TableHead>
+            <TableHead>Cancelled</TableHead>
+            <TableHead>Total Spent</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
             <TableBody>
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
                   <TableRow key={i}>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
@@ -572,51 +553,10 @@ const Customers = () => {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>{customer.order_count}</TableCell>
-                      <TableCell>{formatAmount(customer.total_spent)}</TableCell>
-                      <TableCell>
-                        {hasPermission('customers.edit') ? (
-                          <Select 
-                            value={customer.status} 
-                            onValueChange={(value) => handleStatusChange(customer.id, value)}
-                          >
-                            <SelectTrigger className="w-[120px]">
-                              <SelectValue>
-                                <Badge 
-                                  variant={
-                                    customer.status === "active" ? "default" : 
-                                    customer.status === "neutral" ? "secondary" : 
-                                    "outline"
-                                  }
-                                >
-                                  {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                                </Badge>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">
-                                <Badge variant="default">Active</Badge>
-                              </SelectItem>
-                              <SelectItem value="neutral">
-                                <Badge variant="secondary">Neutral</Badge>
-                              </SelectItem>
-                              <SelectItem value="inactive">
-                                <Badge variant="outline">Inactive</Badge>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge 
-                            variant={
-                              customer.status === "active" ? "default" : 
-                              customer.status === "neutral" ? "secondary" : 
-                              "outline"
-                            }
-                          >
-                            {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                          </Badge>
-                        )}
-                      </TableCell>
+                    <TableCell>{customer.order_count}</TableCell>
+                    <TableCell>{customer.delivered_count ?? 0}</TableCell>
+                    <TableCell>{customer.cancelled_count ?? 0}</TableCell>
+                    <TableCell>{formatAmount(customer.total_spent)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           {hasPermission('customers.view_history') && (

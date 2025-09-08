@@ -27,9 +27,18 @@ export const ProductCard = ({
   const { variants } = useProductVariants(product.has_variants ? product.id : undefined);
 
   const getStatus = () => {
-    if (product.stock_quantity <= 0) return "Stock Out";
-    if (product.stock_quantity <= product.low_stock_threshold) return "Low Stock";
-    return "In Stock";
+    if (product.has_variants) {
+      // For products with variants, check total stock across all variants
+      const totalVariantStock = (variants || []).reduce((total, variant) => total + variant.stock_quantity, 0);
+      if (totalVariantStock <= 0) return "Stock Out";
+      if (totalVariantStock <= product.low_stock_threshold) return "Low Stock";
+      return "In Stock";
+    } else {
+      // For products without variants, use the product's stock_quantity
+      if (product.stock_quantity <= 0) return "Stock Out";
+      if (product.stock_quantity <= product.low_stock_threshold) return "Low Stock";
+      return "In Stock";
+    }
   };
 
   const status = getStatus();

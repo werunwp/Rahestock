@@ -20,6 +20,109 @@ import { useCourierStatusRealtime } from "@/hooks/useCourierStatusRealtime";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+// Function to restore inventory when an order is cancelled
+const restoreInventoryForCancelledOrder = async (saleId: string) => {
+  try {
+    // Get sale items
+    const { data: saleItems, error: itemsError } = await supabase
+      .from('sales_items')
+      .select('*')
+      .eq('sale_id', saleId);
+
+    if (itemsError) {
+      console.error('Error fetching sale items:', itemsError);
+      return;
+    }
+
+    if (!saleItems || saleItems.length === 0) {
+      console.log('No sale items found for cancelled order');
+      return;
+    }
+
+    console.log('Restoring inventory for cancelled order items:', saleItems);
+
+    // Restore inventory for each item
+    for (const item of saleItems) {
+      if (item.variant_id) {
+        // Restore variant inventory
+        const { data: currentVariant, error: getVariantError } = await supabase
+          .from('product_variants')
+          .select('stock_quantity')
+          .eq('id', item.variant_id)
+          .single();
+
+        if (getVariantError) {
+          console.error('Error getting variant current stock:', getVariantError);
+          continue;
+        }
+
+        const { error: variantError } = await supabase
+          .from('product_variants')
+          .update({ 
+            stock_quantity: (currentVariant.stock_quantity || 0) + item.quantity
+          })
+          .eq('id', item.variant_id);
+
+        if (variantError) {
+          console.error('Error restoring variant inventory:', variantError);
+        } else {
+          console.log(`Restored ${item.quantity} units to variant ${item.variant_id}`);
+        }
+
+        // Log inventory change
+        await supabase
+          .from('inventory_logs')
+          .insert({
+            product_id: item.product_id,
+            variant_id: item.variant_id,
+            type: 'restore_cancellation',
+            quantity: item.quantity,
+            reason: `Restored due to order cancellation (Sale ID: ${saleId})`
+          });
+      } else {
+        // Restore product inventory
+        const { data: currentProduct, error: getProductError } = await supabase
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', item.product_id)
+          .single();
+
+        if (getProductError) {
+          console.error('Error getting product current stock:', getProductError);
+          continue;
+        }
+
+        const { error: productError } = await supabase
+          .from('products')
+          .update({ 
+            stock_quantity: (currentProduct.stock_quantity || 0) + item.quantity
+          })
+          .eq('id', item.product_id);
+
+        if (productError) {
+          console.error('Error restoring product inventory:', productError);
+        } else {
+          console.log(`Restored ${item.quantity} units to product ${item.product_id}`);
+        }
+
+        // Log inventory change
+        await supabase
+          .from('inventory_logs')
+          .insert({
+            product_id: item.product_id,
+            type: 'restore_cancellation',
+            quantity: item.quantity,
+            reason: `Restored due to order cancellation (Sale ID: ${saleId})`
+          });
+      }
+    }
+
+    console.log('Inventory restoration completed for cancelled order');
+  } catch (error) {
+    console.error('Error restoring inventory for cancelled order:', error);
+  }
+};
+
 interface Sale {
   id: string;
   invoice_number: string;
@@ -32,6 +135,7 @@ interface Sale {
   courier_status?: string;
   consignment_id?: string;
   last_status_check?: string;
+  estimated_delivery?: string;
   created_at: string;
   amount_paid: number;
   amount_due: number;
@@ -90,19 +194,22 @@ export default function Sales() {
         throw new Error('Webhook settings not loaded');
       }
 
-      console.log('Webhook settings from hook:', webhookSettings);
+      // Webhook settings loaded
 
       if (!webhookSettings.status_check_webhook_url) {
         console.error('Webhook settings found but missing status_check_webhook_url:', webhookSettings);
         throw new Error('No status check webhook URL configured');
       }
 
-      console.log('Webhook settings details:', {
+      // Webhook settings details logged (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Webhook settings details:', {
         status_check_webhook_url: webhookSettings.status_check_webhook_url,
         auth_username: webhookSettings.auth_username,
         auth_password: webhookSettings.auth_password ? '***' : 'undefined',
         auth_password_length: webhookSettings.auth_password ? webhookSettings.auth_password.length : 0
       });
+      }
 
       // Call n8n webhook for status check
       const headers: Record<string, string> = {
@@ -129,15 +236,16 @@ export default function Sales() {
       }
 
       // Send status check request to n8n (using Status Check Webhook URL)
-      const response = await fetch(webhookSettings.status_check_webhook_url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          type: 'status_check',
-          consignment_id: consignmentId,
-          sale_id: saleId,
-          action: 'check_status'
-        })
+      // Build URL with only consignment_id parameter
+      const url = new URL(webhookSettings.status_check_webhook_url);
+      url.searchParams.append('consignment_id', consignmentId);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          ...(headers.Authorization && { 'Authorization': headers.Authorization })
+        }
       });
 
       if (!response.ok) {
@@ -222,6 +330,12 @@ export default function Sales() {
           ...paymentStatusUpdate
         })
         .eq('id', saleId);
+
+      // If order is cancelled, restore inventory
+      if (displayStatus === 'cancelled') {
+        console.log('Order cancelled, restoring inventory...');
+        await restoreInventoryForCancelledOrder(saleId);
+      }
         
         if (!updateError) {
           console.log('Sale updated successfully in database');

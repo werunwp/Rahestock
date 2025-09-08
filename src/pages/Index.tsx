@@ -30,9 +30,9 @@ const Index = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <div className="text-muted-foreground">
             {getTimeBasedGreeting()}, {isLoading ? <Skeleton className="inline-block h-4 w-16" /> : (profile?.full_name || "User")}
-          </p>
+          </div>
         </div>
         <div className="w-full md:w-auto">
           <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} />

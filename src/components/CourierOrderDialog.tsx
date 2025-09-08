@@ -128,11 +128,14 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
     setIsSubmitting(true);
 
     try {
-      console.log("Sending order to courier webhook via backend");
+      // Sending order to courier webhook via backend
       console.log("Order data:", orderData);
 
       // Direct webhook call (bypass Edge Function)
-      console.log("Sending order directly to webhook URL:", webhookSettings.webhook_url);
+      // Webhook URL logged for debugging (development only)
+      if (process.env.NODE_ENV === 'development') {
+        // Sending order directly to webhook URL
+      }
       
       // For n8n webhooks, we typically don't need Basic Authentication
       // Only add auth headers if both username and password are provided AND not empty
@@ -162,7 +165,7 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
       }
 
       const webhookResult = await webhookResponse.json();
-      console.log('Webhook response:', webhookResult);
+      // Webhook response received
 
       // Extract consignment_id from webhook response
       let consignmentId = null;
@@ -243,7 +246,7 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            Send Order to Courier ({webhookSettings.webhook_name})
+            Send Order to Courier {webhookSettings.webhook_name ? `(${webhookSettings.webhook_name})` : ''}
           </DialogTitle>
         </DialogHeader>
 

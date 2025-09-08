@@ -126,23 +126,26 @@ serve(async (req) => {
     }
 
     // Send status check request to the configured webhook
-    const statusCheckPayload = {
-      action: 'check_status',
-      consignment_id: requestData.consignment_id,
-      type: 'status_check'
-    };
+    // Build URL with only consignment_id parameter
+    const url = new URL(webhookSettings.webhook_url);
+    url.searchParams.append('consignment_id', requestData.consignment_id);
 
-    console.log('Sending request to:', webhookSettings.webhook_url);
+    console.log('Sending request to:', url.toString());
     // Request headers logged for debugging (no sensitive data exposed)
     if (process.env.NODE_ENV === 'development') {
       console.log('Request headers:', Object.keys(webhookHeaders));
     }
-    console.log('Request payload:', statusCheckPayload);
+    console.log('Request parameters:', {
+      consignment_id: requestData.consignment_id
+    });
 
-    const webhookResponse = await fetch(webhookSettings.webhook_url, {
-      method: 'POST',
-      headers: webhookHeaders,
-      body: JSON.stringify(statusCheckPayload),
+    const webhookResponse = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Courier-Status-Checker/1.0',
+        ...(webhookHeaders.Authorization && { 'Authorization': webhookHeaders.Authorization })
+      },
     })
 
     let webhookResult;

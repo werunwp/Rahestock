@@ -114,6 +114,9 @@ export const useProducts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-attributes"] }); // Refresh attribute usage
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('productDeleted'));
       toast.success("Product deleted successfully");
     },
     onError: (error) => {
@@ -137,6 +140,9 @@ export const useProducts = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["all_products"] });
+      queryClient.invalidateQueries({ queryKey: ["reusable-attributes"] }); // Refresh attribute usage
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('productRestored'));
       toast.success("Product restored successfully");
     },
     onError: (error) => {

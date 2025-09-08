@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, DollarSign, Package, Users, ShoppingCart, AlertTriangle, Calendar } from "lucide-react";
-import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface BusinessStats {
   totalRevenue: number;
@@ -12,7 +12,8 @@ interface BusinessStats {
   ordersGrowth: number;
   totalCustomers: number;
   customersGrowth: number;
-  lowStockProducts: number;
+  netProfit: number;
+  profitGrowth: number;
   recentActivity: Array<{
     id: string;
     type: 'sale' | 'product' | 'customer';
@@ -23,24 +24,61 @@ interface BusinessStats {
 }
 
 export function BusinessAnalytics() {
+  const { formatAmount } = useCurrency();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["business-analytics"],
     queryFn: async (): Promise<BusinessStats> => {
       const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); // 90 days
+      const sixtyDaysAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000); // 180 days
 
-      // Current period (last 30 days)
+      // Current period (last 90 days)
       const { data: currentSales } = await supabase
         .from("sales")
         .select("grand_total, created_at")
         .gte("created_at", thirtyDaysAgo.toISOString())
         .lte("created_at", now.toISOString());
 
-      // Previous period (30-60 days ago)
+      // Previous period (90-180 days ago)
       const { data: previousSales } = await supabase
         .from("sales")
-        .select("grand_total")
+        .select("grand_total, created_at")
+        .gte("created_at", sixtyDaysAgo.toISOString())
+        .lt("created_at", thirtyDaysAgo.toISOString());
+
+      // Get cost data for current period - handle both products and variants
+      const { data: currentSalesWithCosts } = await supabase
+        .from("sales")
+        .select(`
+          grand_total, 
+          created_at, 
+          sale_items(
+            quantity, 
+            rate, 
+            product_id, 
+            variant_id,
+            products(cost),
+            product_variants(cost)
+          )
+        `)
+        .gte("created_at", thirtyDaysAgo.toISOString())
+        .lte("created_at", now.toISOString());
+
+      // Get cost data for previous period - handle both products and variants
+      const { data: previousSalesWithCosts } = await supabase
+        .from("sales")
+        .select(`
+          grand_total, 
+          created_at, 
+          sale_items(
+            quantity, 
+            rate, 
+            product_id, 
+            variant_id,
+            products(cost),
+            product_variants(cost)
+          )
+        `)
         .gte("created_at", sixtyDaysAgo.toISOString())
         .lt("created_at", thirtyDaysAgo.toISOString());
 
@@ -56,11 +94,6 @@ export function BusinessAnalytics() {
         .gte("created_at", sixtyDaysAgo.toISOString())
         .lt("created_at", thirtyDaysAgo.toISOString());
 
-      // Low stock products
-      const { data: lowStockProducts } = await supabase
-        .from("products")
-        .select("id")
-        .lt("quantity", 10);
 
       // Recent activity
       const { data: recentSales } = await supabase
@@ -94,6 +127,50 @@ export function BusinessAnalytics() {
       const previousCustomersCount = previousCustomers?.length || 0;
       const customersGrowth = previousCustomersCount > 0 ? ((totalCustomers - previousCustomersCount) / previousCustomersCount) * 100 : 0;
 
+      // Calculate net profit for current period (sum of individual item profits)
+      const currentNetProfit = currentSalesWithCosts?.reduce((totalProfit, sale) => {
+        const saleProfit = sale.sale_items?.reduce((accumulatedProfit: number, item: any) => {
+          // Get cost from variant if available, otherwise from product
+          const productCost = item.variant_id 
+            ? (item.product_variants?.cost || 0)
+            : (item.products?.cost || 0);
+          const sellingPrice = item.rate || 0;
+          const quantity = item.quantity || 0;
+          const itemProfit = (sellingPrice - productCost) * quantity;
+          return accumulatedProfit + itemProfit;
+        }, 0) || 0;
+        return totalProfit + saleProfit;
+      }, 0) || 0;
+
+      // Calculate net profit for previous period
+      const previousNetProfit = previousSalesWithCosts?.reduce((totalProfit, sale) => {
+        const saleProfit = sale.sale_items?.reduce((accumulatedProfit: number, item: any) => {
+          // Get cost from variant if available, otherwise from product
+          const productCost = item.variant_id 
+            ? (item.product_variants?.cost || 0)
+            : (item.products?.cost || 0);
+          const sellingPrice = item.rate || 0;
+          const quantity = item.quantity || 0;
+          const itemProfit = (sellingPrice - productCost) * quantity;
+          return accumulatedProfit + itemProfit;
+        }, 0) || 0;
+        return totalProfit + saleProfit;
+      }, 0) || 0;
+
+      const netProfit = currentNetProfit;
+      const profitGrowth = previousNetProfit > 0 ? ((netProfit - previousNetProfit) / previousNetProfit) * 100 : 0;
+      
+      // Debug logging
+      console.log('Analytics Debug:', {
+        currentSalesCount: currentSales?.length || 0,
+        currentSalesWithCostsCount: currentSalesWithCosts?.length || 0,
+        totalRevenue,
+        currentNetProfit,
+        previousNetProfit,
+        netProfit,
+        profitGrowth
+      });
+
       // Combine recent activity
       const recentActivity = [
         ...(recentSales?.map(sale => ({
@@ -124,7 +201,8 @@ export function BusinessAnalytics() {
         ordersGrowth,
         totalCustomers,
         customersGrowth,
-        lowStockProducts: lowStockProducts?.length || 0,
+        netProfit,
+        profitGrowth,
         recentActivity
       };
     }
@@ -135,13 +213,13 @@ export function BusinessAnalytics() {
     value, 
     growth, 
     icon: Icon, 
-    prefix = "" 
+    isCurrency = false
   }: { 
     title: string; 
     value: number; 
     growth: number; 
     icon: any; 
-    prefix?: string;
+    isCurrency?: boolean;
   }) => (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -149,7 +227,9 @@ export function BusinessAnalytics() {
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{prefix}{value.toLocaleString()}</div>
+        <div className="text-2xl font-bold">
+          {isCurrency ? formatAmount(value) : value.toLocaleString()}
+        </div>
         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
           {growth >= 0 ? (
             <TrendingUp className="h-4 w-4 text-green-500" />
@@ -178,7 +258,7 @@ export function BusinessAnalytics() {
           value={stats?.totalRevenue || 0}
           growth={stats?.revenueGrowth || 0}
           icon={DollarSign}
-          prefix="$"
+          isCurrency={true}
         />
         <StatCard
           title="Orders (30d)"
@@ -192,18 +272,13 @@ export function BusinessAnalytics() {
           growth={stats?.customersGrowth || 0}
           icon={Users}
         />
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.lowStockProducts || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Products below 10 units
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Net Profit (90d)"
+          value={stats?.netProfit || 0}
+          growth={stats?.profitGrowth || 0}
+          icon={DollarSign}
+          isCurrency={true}
+        />
       </div>
 
       {/* Recent Activity */}
@@ -233,7 +308,7 @@ export function BusinessAnalytics() {
                 </div>
                 <div className="flex items-center gap-2">
                   {activity.amount && (
-                    <Badge variant="outline">{formatCurrency(activity.amount)}</Badge>
+                    <Badge variant="outline">{formatAmount(activity.amount)}</Badge>
                   )}
                   <Badge 
                     variant={

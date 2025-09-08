@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Database, Users, FileText, Settings, AlertCircle, Database as DatabaseIcon } from "lucide-react";
+import { Shield, Database, Users, FileText, Settings, AlertCircle, Database as DatabaseIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { currencyOptions, getCurrencySymbol } from "@/lib/currencySymbols";
 import { CourierWebhookSettings } from "@/components/CourierWebhookSettings";
@@ -27,6 +27,24 @@ export function SystemSettings() {
     time_format: '12h'
   });
 
+  // State for managing collapsed sections
+  const [collapsedSections, setCollapsedSections] = useState({
+    systemSettings: false,
+    courierWebhook: true,
+    customCode: true,
+    dataBackup: true,
+    wooCommerce: true,
+    resetApp: true,
+    securityNotes: true
+  });
+
+  const toggleSection = (section: keyof typeof collapsedSections) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   useEffect(() => {
     if (systemSettings) {
       const nextForm = {
@@ -43,6 +61,50 @@ export function SystemSettings() {
 
   const handleSystemSubmit = () => {
     updateSystemSettings(systemForm);
+  };
+
+  // Collapsible Card Component
+  const CollapsibleCard = ({ 
+    title, 
+    description, 
+    icon: Icon, 
+    sectionKey, 
+    children 
+  }: {
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    sectionKey: keyof typeof collapsedSections;
+    children: React.ReactNode;
+  }) => {
+    const isCollapsed = collapsedSections[sectionKey];
+    
+    return (
+      <Card>
+        <CardHeader 
+          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Icon className="h-5 w-5" />
+              <div>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="p-1">
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        {!isCollapsed && (
+          <CardContent>
+            {children}
+          </CardContent>
+        )}
+      </Card>
+    );
   };
 
   return (
@@ -106,15 +168,13 @@ export function SystemSettings() {
       </Card>
 
       {/* Security Notes Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            Security Notes
-          </CardTitle>
-          <CardDescription>Important security considerations</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <CollapsibleCard
+        title="Security Notes"
+        description="Important security considerations"
+        icon={AlertCircle}
+        sectionKey="securityNotes"
+      >
+        <div className="space-y-3">
           <div className="p-3 rounded-lg border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-950">
             <p className="text-sm font-medium">Public Signup Disabled</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -135,18 +195,17 @@ export function SystemSettings() {
               Database policies ensure users can only access data they're authorized to view.
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleCard>
 
       {/* System Settings Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DatabaseIcon className="h-5 w-5" />
-            System Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <CollapsibleCard
+        title="System Settings"
+        description="Configure currency, timezone, and other system preferences"
+        icon={DatabaseIcon}
+        sectionKey="systemSettings"
+      >
+        <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="currencyCode">Currency <span className="text-muted-foreground">({getCurrencySymbol(systemForm.currency_code)})</span></Label>
@@ -227,23 +286,58 @@ export function SystemSettings() {
           <Button onClick={handleSystemSubmit} disabled={isSystemUpdating}>
             {isSystemUpdating ? 'Saving...' : 'Save System Settings'}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleCard>
       
       {/* Courier Webhook Settings */}
-      <CourierWebhookSettings />
+      <CollapsibleCard
+        title="Courier Webhook Settings"
+        description="Configure courier service webhook URLs and authentication"
+        icon={FileText}
+        sectionKey="courierWebhook"
+      >
+        <CourierWebhookSettings />
+      </CollapsibleCard>
       
       {/* Custom Code Settings */}
-      <CustomCodeSettings />
+      <CollapsibleCard
+        title="Custom Code Settings"
+        description="Add custom CSS and JavaScript code to customize the app"
+        icon={Settings}
+        sectionKey="customCode"
+      >
+        <CustomCodeSettings />
+      </CollapsibleCard>
       
       {/* Data Backup Controls */}
-      <DataBackupControls />
+      <CollapsibleCard
+        title="Data Backup & Restore"
+        description="Export and import your data for backup and migration"
+        icon={Database}
+        sectionKey="dataBackup"
+      >
+        <DataBackupControls />
+      </CollapsibleCard>
       
       {/* WooCommerce Import */}
-      <WooCommerceImport />
+      <CollapsibleCard
+        title="Import Products from WooCommerce"
+        description="Import products and data from your WooCommerce store"
+        icon={Users}
+        sectionKey="wooCommerce"
+      >
+        <WooCommerceImport />
+      </CollapsibleCard>
       
       {/* App Reset Controls */}
-      <AppResetControls />
+      <CollapsibleCard
+        title="Reset App"
+        description="Reset the application to factory defaults (removes all data)"
+        icon={Shield}
+        sectionKey="resetApp"
+      >
+        <AppResetControls />
+      </CollapsibleCard>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { Loader2 } from "lucide-react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -11,6 +12,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const { user, loading } = useAuth();
+  const { businessSettings } = useBusinessSettings();
 
   if (loading) {
     return (
@@ -32,7 +34,9 @@ export const Layout = ({ children }: LayoutProps) => {
           <header className="h-14 flex items-center border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50 px-4">
             <SidebarTrigger className="md:hidden mr-2" />
             <div className="flex-1">
-              <h1 className="font-semibold">Rahedeen Productions</h1>
+              <h1 className="font-semibold">
+                {businessSettings?.business_name || "Rahedeen Productions"}
+              </h1>
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 min-w-0">

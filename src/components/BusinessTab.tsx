@@ -75,7 +75,6 @@ export const BusinessTab = () => {
                   id="business_name"
                   value={formData.business_name}
                   onChange={(e) => handleInputChange("business_name", e.target.value)}
-                  placeholder="Your Business Name"
                   required
                 />
               </div>
@@ -86,7 +85,6 @@ export const BusinessTab = () => {
                   value={formData.logo_url}
                   onChange={(url) => handleInputChange("logo_url", url)}
                   onRemove={() => handleInputChange("logo_url", "")}
-                  placeholder="Select a business logo"
                 />
               </div>
 
@@ -103,7 +101,6 @@ export const BusinessTab = () => {
                   <Input
                     value={formData.brand_color}
                     onChange={(e) => handleInputChange("brand_color", e.target.value)}
-                    placeholder="#2c7be5"
                   />
                 </div>
               </div>
@@ -115,7 +112,6 @@ export const BusinessTab = () => {
                   type="email"
                   value={formData.primary_email}
                   onChange={(e) => handleInputChange("primary_email", e.target.value)}
-                  placeholder="contact@business.com"
                 />
               </div>
 
@@ -126,7 +122,6 @@ export const BusinessTab = () => {
                   type="email"
                   value={formData.secondary_email}
                   onChange={(e) => handleInputChange("secondary_email", e.target.value)}
-                  placeholder="support@business.com"
                 />
               </div>
 
@@ -136,7 +131,6 @@ export const BusinessTab = () => {
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => handleInputChange("phone", e.target.value)}
-                  placeholder="+1234567890"
                 />
               </div>
 
@@ -146,7 +140,6 @@ export const BusinessTab = () => {
                   id="whatsapp"
                   value={formData.whatsapp}
                   onChange={(e) => handleInputChange("whatsapp", e.target.value)}
-                  placeholder="+1234567890"
                 />
               </div>
             </div>
@@ -158,7 +151,6 @@ export const BusinessTab = () => {
                   id="address_line1"
                   value={formData.address_line1}
                   onChange={(e) => handleInputChange("address_line1", e.target.value)}
-                  placeholder="Street address"
                 />
               </div>
 
@@ -168,7 +160,6 @@ export const BusinessTab = () => {
                   id="address_line2"
                   value={formData.address_line2}
                   onChange={(e) => handleInputChange("address_line2", e.target.value)}
-                  placeholder="City, State, ZIP"
                 />
               </div>
 
@@ -178,7 +169,6 @@ export const BusinessTab = () => {
                   id="business_hours"
                   value={formData.business_hours}
                   onChange={(e) => handleInputChange("business_hours", e.target.value)}
-                  placeholder="Mon-Fri 9AM-6PM"
                 />
               </div>
 
@@ -188,7 +178,6 @@ export const BusinessTab = () => {
                   id="facebook"
                   value={formData.facebook}
                   onChange={(e) => handleInputChange("facebook", e.target.value)}
-                  placeholder="facebook.com/yourbusiness"
                 />
               </div>
 
@@ -198,7 +187,6 @@ export const BusinessTab = () => {
                   id="invoice_prefix"
                   value={formData.invoice_prefix}
                   onChange={(e) => handleInputChange("invoice_prefix", e.target.value)}
-                  placeholder="INV"
                 />
               </div>
 
@@ -208,7 +196,6 @@ export const BusinessTab = () => {
                   id="invoice_footer_message"
                   value={formData.invoice_footer_message}
                   onChange={(e) => handleInputChange("invoice_footer_message", e.target.value)}
-                  placeholder="Thank you for your business!"
                   rows={3}
                 />
               </div>

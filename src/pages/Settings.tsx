@@ -25,7 +25,7 @@ const Settings = () => {
     facebook: '',
     address: '',
     invoice_prefix: 'INV',
-    invoice_footer_message: 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+    invoice_footer_message: '',
     brand_color: '#2c7be5',
     primary_email: '',
     secondary_email: '',
@@ -46,7 +46,7 @@ const Settings = () => {
         facebook: businessSettings.facebook || '',
         address: businessSettings.address || '',
         invoice_prefix: businessSettings.invoice_prefix || 'INV',
-        invoice_footer_message: businessSettings.invoice_footer_message || 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+        invoice_footer_message: businessSettings.invoice_footer_message || '',
         brand_color: businessSettings.brand_color || '#2c7be5',
         primary_email: businessSettings.primary_email || '',
         secondary_email: businessSettings.secondary_email || '',
@@ -100,7 +100,6 @@ const Settings = () => {
                     id="businessName" 
                     value={businessForm.business_name}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, business_name: e.target.value }))}
-                    placeholder="Enter your business name" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -109,7 +108,6 @@ const Settings = () => {
                     value={businessForm.logo_url}
                     onChange={(url) => setBusinessForm(prev => ({ ...prev, logo_url: url }))}
                     onRemove={() => setBusinessForm(prev => ({ ...prev, logo_url: '' }))}
-                    placeholder="Select a business logo"
                   />
                 </div>
                 <div className="space-y-2">
@@ -118,7 +116,6 @@ const Settings = () => {
                     id="phone" 
                     value={businessForm.phone}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Enter phone number" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -127,7 +124,6 @@ const Settings = () => {
                     id="whatsapp" 
                     value={businessForm.whatsapp}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                    placeholder="Enter WhatsApp number" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -137,7 +133,6 @@ const Settings = () => {
                     type="email"
                     value={businessForm.primary_email}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, primary_email: e.target.value }))}
-                    placeholder="Enter primary email address" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -147,7 +142,6 @@ const Settings = () => {
                     type="email"
                     value={businessForm.secondary_email}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, secondary_email: e.target.value }))}
-                    placeholder="Enter secondary email address" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -156,7 +150,6 @@ const Settings = () => {
                     id="facebook" 
                     value={businessForm.facebook}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, facebook: e.target.value }))}
-                    placeholder="Enter Facebook page" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -165,7 +158,6 @@ const Settings = () => {
                     id="invoicePrefix" 
                     value={businessForm.invoice_prefix}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, invoice_prefix: e.target.value }))}
-                    placeholder="INV" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -174,7 +166,6 @@ const Settings = () => {
                     id="businessHours" 
                     value={businessForm.business_hours}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, business_hours: e.target.value }))}
-                    placeholder="Mon-Fri 9AM-6PM" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -185,7 +176,6 @@ const Settings = () => {
                     min="1"
                     value={businessForm.low_stock_alert_quantity}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, low_stock_alert_quantity: parseInt(e.target.value) || 10 }))}
-                    placeholder="10" 
                   />
                   <p className="text-xs text-muted-foreground">
                     Items with stock at or below this quantity will be flagged as low stock
@@ -204,7 +194,6 @@ const Settings = () => {
                     <Input 
                       value={businessForm.brand_color}
                       onChange={(e) => setBusinessForm(prev => ({ ...prev, brand_color: e.target.value }))}
-                      placeholder="#2c7be5"
                       className="flex-1"
                     />
                   </div>
@@ -217,7 +206,6 @@ const Settings = () => {
                     id="addressLine1" 
                     value={businessForm.address_line1}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, address_line1: e.target.value }))}
-                    placeholder="Street address" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -226,7 +214,6 @@ const Settings = () => {
                     id="addressLine2" 
                     value={businessForm.address_line2}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, address_line2: e.target.value }))}
-                    placeholder="City, State, ZIP" 
                   />
                 </div>
               </div>
@@ -236,7 +223,6 @@ const Settings = () => {
                   id="address" 
                   value={businessForm.address}
                   onChange={(e) => setBusinessForm(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="Complete business address" 
                 />
               </div>
               <div className="space-y-2">
@@ -245,7 +231,6 @@ const Settings = () => {
                   id="footerMessage" 
                   value={businessForm.invoice_footer_message}
                   onChange={(e) => setBusinessForm(prev => ({ ...prev, invoice_footer_message: e.target.value }))}
-                  placeholder="Thank you message for invoices" 
                 />
               </div>
               <Button onClick={handleBusinessSubmit} disabled={isUpdating}>

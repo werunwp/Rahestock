@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { Loader2, Package, Shield } from "lucide-react";
 
 const Auth = () => {
   const { user, loading, signIn, signUp } = useAuth();
+  const { businessSettings } = useBusinessSettings();
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect if already authenticated
@@ -67,7 +69,9 @@ const Auth = () => {
               <Package className="h-6 w-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Rahedeen Productions</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            {businessSettings?.business_name || "Rahedeen Productions"}
+          </CardTitle>
           <CardDescription>
             Wholesale clothing inventory management system
           </CardDescription>

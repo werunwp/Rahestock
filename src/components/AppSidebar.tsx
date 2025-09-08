@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { PanelLeft } from "lucide-react";
 
 const menuItems = [
@@ -48,6 +49,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
   const { isAdmin, hasPermission, isLoading } = useUserRole();
+  const { businessSettings } = useBusinessSettings();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
 
@@ -68,6 +70,16 @@ export function AppSidebar() {
     <Sidebar className={isCollapsed ? "w-14" : "w-48"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
+          {/* Business Logo */}
+          {businessSettings?.logo_url && !isCollapsed && (
+            <div className="flex justify-center mb-4 px-2">
+              <img 
+                src={businessSettings.logo_url} 
+                alt="Business Logo" 
+                className="h-12 w-auto object-contain"
+              />
+            </div>
+          )}
           <SidebarGroupLabel className="text-sm font-medium">
             {!isCollapsed && "Main Navigation"}
           </SidebarGroupLabel>

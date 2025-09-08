@@ -96,16 +96,32 @@ const handleReusableAttributeRemove = (attributeId: string) => {
 // Function to save custom attributes to the database
 const saveCustomAttributeToDatabase = async (attribute: AttributeDefinition) => {
   try {
+    // Check if attribute already exists before creating
+    const normalizedName = attribute.name.toLowerCase().replace(/\s+/g, '_');
+    const existingAttribute = reusableAttributes.find(attr => 
+      attr.name === normalizedName || attr.display_name === attribute.name
+    );
+    
+    if (existingAttribute) {
+      console.log(`Custom attribute '${attribute.name}' already exists, skipping creation`);
+      return;
+    }
+    
     await createAttribute.mutateAsync({
-      name: attribute.name.toLowerCase().replace(/\s+/g, '_'),
+      name: normalizedName,
       display_name: attribute.name,
       type: 'select', // Default to select for custom attributes
       options: attribute.values,
       is_required: false,
       sort_order: 0
     });
-  } catch (error) {
-    console.error('Failed to save custom attribute:', error);
+  } catch (error: any) {
+    // Check if it's a duplicate key error - if so, just log and continue
+    if (error?.code === '23505') {
+      console.log(`Custom attribute '${attribute.name}' already exists, skipping creation`);
+    } else {
+      console.error('Failed to save custom attribute:', error);
+    }
   }
 };
 
@@ -154,7 +170,7 @@ const combos = useMemo(() => {
   const lists = attributes.map(a => a.values.filter(v => v?.trim()).map(v => ({ [a.name]: v.trim() })));
   if (lists.some(l => l.length === 0)) return [] as Array<Record<string,string>>;
   // cartesian product of list of objects where we merge keys
-  return lists.reduce((acc, list) => {
+  const allCombos = lists.reduce((acc, list) => {
     const out: Array<Record<string,string>> = [];
     for (const a of acc) {
       for (const b of list) {
@@ -163,6 +179,13 @@ const combos = useMemo(() => {
     }
     return out;
   }, [{} as Record<string,string>]);
+  
+  // Deduplicate combinations by converting to JSON strings and back
+  const uniqueCombos = Array.from(
+    new Map(allCombos.map(combo => [JSON.stringify(combo), combo])).values()
+  );
+  
+  return uniqueCombos;
 }, [attributes]);
 
 const totalVariantQty = useMemo(() => {

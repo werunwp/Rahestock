@@ -122,13 +122,16 @@ Deno.serve(async (req) => {
       'product_variants',
       'product_attribute_values',
       'product_attributes',
+      'reusable_attributes',
       'products',
       'customers',
       'woocommerce_import_logs',
       'woocommerce_connections',
       'dismissed_alerts',
       'business_settings',
-      'system_settings'
+      'system_settings',
+      'courier_webhook_settings',
+      'custom_settings'
     ]
 
     let deletedCounts: Record<string, number> = { users: deletedUsersCount }
@@ -210,6 +213,42 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Clean up storage files
+    console.log('Starting storage cleanup...')
+    let storageFilesDeleted = 0
+    
+    try {
+      // Clean up product images bucket
+      const { data: productImages, error: listError } = await supabase.storage
+        .from('product-images')
+        .list('', { limit: 1000, offset: 0 })
+
+      if (listError) {
+        console.error('Error listing product images:', listError)
+      } else if (productImages && productImages.length > 0) {
+        const filePaths = productImages.map(file => file.name)
+        const { error: deleteError } = await supabase.storage
+          .from('product-images')
+          .remove(filePaths)
+
+        if (deleteError) {
+          console.error('Error deleting product images:', deleteError)
+        } else {
+          storageFilesDeleted += productImages.length
+          console.log(`Deleted ${productImages.length} product images from storage`)
+        }
+      }
+
+      // Add cleanup for other storage buckets if they exist
+      // You can add more buckets here as needed
+      
+    } catch (error) {
+      console.error('Storage cleanup error:', error)
+    }
+
+    deletedCounts['storage_files'] = storageFilesDeleted
+    totalDeleted += storageFilesDeleted
+
     // Ensure admin user has essential records restored
     try {
       // Restore admin profile if it was deleted
@@ -254,14 +293,18 @@ Deno.serve(async (req) => {
       await supabase
         .from('business_settings')
         .upsert({
-          business_name: 'Your Business Name',
+          business_name: '',
           invoice_prefix: 'INV',
-          invoice_footer_message: 'ধন্যবাদ আপনার সাথে ব্যবসা করার জন্য',
+          invoice_footer_message: '',
           brand_color: '#2c7be5',
           created_by: primaryAdminId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
+
+      // Don't restore default reusable attributes - leave them empty for fresh start
+
+      // Don't restore courier webhook settings - leave them empty for fresh start
 
       console.log('Admin user records restored successfully')
     } catch (error) {

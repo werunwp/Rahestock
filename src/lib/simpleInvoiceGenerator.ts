@@ -297,7 +297,7 @@ export const generateInvoiceHTML = (
     <div class="invoice-page">
         <div class="header-section">
             <div class="business-info">
-                <div class="business-name">${businessSettings.business_name || 'Your Business Name'}</div>
+                <div class="business-name">${businessSettings.business_name || ''}</div>
                 <div class="business-details">
                     ${businessSettings.address ? `<div>${businessSettings.address}</div>` : ''}
                     ${businessSettings.address_line1 ? `<div>${businessSettings.address_line1}</div>` : ''}
