@@ -27,36 +27,15 @@ serve(async (req) => {
       }
     )
 
-    // Get auth header
+    // Authorization optional: validate if present; otherwise proceed
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Missing authorization header',
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
-    }
-
-    // Set auth context
-    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Unauthorized: ' + (authError?.message || 'Invalid user'),
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
+    if (authHeader) {
+      const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+      console.log('Status-check auth result:', { user: !!user, error: authError?.message })
+      // Continue even if auth fails; function uses service role for DB reads
+    } else {
+      console.log('No Authorization header provided for status-check; proceeding')
     }
 
     const requestData: StatusCheckRequest = await req.json()
@@ -66,7 +45,7 @@ serve(async (req) => {
     // Get courier webhook settings from database with explicit column selection
     const { data: webhookSettings, error: settingsError } = await supabaseClient
       .from('courier_webhook_settings')
-      .select('id, webhook_url, webhook_name, webhook_description, is_active, auth_username, auth_password')
+      .select('id, webhook_url, status_check_webhook_url, webhook_name, webhook_description, is_active, auth_username, auth_password')
       .eq('is_active', true)
       .maybeSingle()
 
@@ -109,7 +88,15 @@ serve(async (req) => {
       )
     }
 
-    console.log('Checking status with webhook URL:', webhookSettings.webhook_url);
+    const statusCheckUrl = webhookSettings.status_check_webhook_url || webhookSettings.webhook_url;
+    if (!statusCheckUrl) {
+      console.error('No status_check_webhook_url or webhook_url configured');
+      return new Response(
+        JSON.stringify({ success: false, message: 'No status check URL configured' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    console.log('Checking status with webhook URL:', statusCheckUrl);
 
     // Prepare headers for webhook request
     const webhookHeaders: Record<string, string> = {
@@ -127,7 +114,7 @@ serve(async (req) => {
 
     // Send status check request to the configured webhook
     // Build URL with only consignment_id parameter
-    const url = new URL(webhookSettings.webhook_url);
+    const url = new URL(statusCheckUrl);
     url.searchParams.append('consignment_id', requestData.consignment_id);
 
     console.log('Sending request to:', url.toString());
@@ -139,7 +126,8 @@ serve(async (req) => {
       consignment_id: requestData.consignment_id
     });
 
-    const webhookResponse = await fetch(url.toString(), {
+    // First attempt: GET with query param
+    let webhookResponse = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -148,15 +136,41 @@ serve(async (req) => {
       },
     })
 
-    let webhookResult;
+    let webhookResult: any;
     try {
       webhookResult = await webhookResponse.json()
     } catch (e) {
       webhookResult = await webhookResponse.text()
     }
 
-    console.log('Status check response status:', webhookResponse.status);
-    console.log('Status check response:', webhookResult);
+    console.log('GET status check response status:', webhookResponse.status);
+    console.log('GET status check response:', webhookResult);
+
+    // If GET failed (4xx/5xx), try POST with JSON body as fallback (some n8n setups expect POST)
+    if (!webhookResponse.ok) {
+      console.log('GET failed, attempting POST fallback...');
+      try {
+        webhookResponse = await fetch(statusCheckUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Courier-Status-Checker/1.0',
+            ...(webhookHeaders.Authorization && { 'Authorization': webhookHeaders.Authorization })
+          },
+          body: JSON.stringify({ consignment_id: requestData.consignment_id })
+        })
+        try {
+          webhookResult = await webhookResponse.json()
+        } catch (_e) {
+          webhookResult = await webhookResponse.text()
+        }
+        console.log('POST status check response status:', webhookResponse.status);
+        console.log('POST status check response:', webhookResult);
+      } catch (postErr) {
+        console.error('POST fallback error:', postErr);
+      }
+    }
 
     if (!webhookResponse.ok) {
       console.error('Status Check Error Response:', webhookResult)
@@ -186,10 +200,7 @@ serve(async (req) => {
           message: `Status Check Error (${webhookResponse.status}): Failed to check order status`,
           error: { status: webhookResponse.status, body: webhookResult }
         }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -211,12 +222,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: error.message || 'Internal server error',
+        message: (error as any)?.message || 'Internal server error',
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

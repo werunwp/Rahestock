@@ -211,47 +211,19 @@ export default function Sales() {
       });
       }
 
-      // Call n8n webhook for status check
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add Basic Auth if credentials are configured
+      // Revert to direct webhook status check (previous working behavior for admin)
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
       if (webhookSettings.auth_username && webhookSettings.auth_password &&
           webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
         const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
         headers['Authorization'] = `Basic ${credentials}`;
-        console.log('Basic auth configured:', {
-          username: webhookSettings.auth_username,
-          password_length: webhookSettings.auth_password.length,
-          auth_header: `Basic ${credentials}`
-        });
-      } else {
-        console.log('No basic auth configured:', {
-          has_username: !!webhookSettings.auth_username,
-          has_password: !!webhookSettings.auth_password,
-          username_trimmed: webhookSettings.auth_username?.trim(),
-          password_trimmed: webhookSettings.auth_password?.trim()
-        });
       }
-
-      // Send status check request to n8n (using Status Check Webhook URL)
-      // Build URL with only consignment_id parameter
       const url = new URL(webhookSettings.status_check_webhook_url);
       url.searchParams.append('consignment_id', consignmentId);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          ...(headers.Authorization && { 'Authorization': headers.Authorization })
-        }
-      });
-
+      const response = await fetch(url.toString(), { method: 'GET', headers });
       if (!response.ok) {
         throw new Error(`Status check failed: ${response.status}`);
       }
-
       const result = await response.json();
       console.log('Status check response:', result);
       
@@ -350,8 +322,9 @@ export default function Sales() {
         }
       
       
-    } catch (error) {
-      if (showToast) toast.error("Failed to refresh order status");
+    } catch (error: any) {
+      const msg = error?.message || 'Failed to refresh order status';
+      if (showToast) toast.error(msg);
       console.error("Error refreshing status:", error);
       return false;
     } finally {

@@ -137,20 +137,14 @@ export const CourierOrderDialog = ({ open, onOpenChange, saleId }: CourierOrderD
         // Sending order directly to webhook URL
       }
       
-      // For n8n webhooks, we typically don't need Basic Authentication
-      // Only add auth headers if both username and password are provided AND not empty
+      // Revert to direct webhook call (previous working behavior for admin)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      
-      // Only add Basic Auth if both credentials are provided and not empty
       if (webhookSettings.auth_username && webhookSettings.auth_password && 
           webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
         const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
         headers['Authorization'] = `Basic ${credentials}`;
-        console.log("Added Basic Authentication headers");
-      } else {
-        console.log("No Basic Authentication - sending without auth headers");
       }
 
       const webhookResponse = await fetch(webhookSettings.webhook_url, {
