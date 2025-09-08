@@ -45,7 +45,8 @@ export const useBusinessSettings = () => {
       if (error) throw error;
       return data as BusinessSettings;
     },
-    enabled: !!user,
+    // Fetch even when logged out so public pages (e.g., login) can read logo/name
+    enabled: true,
   });
 
   const updateBusinessSettings = useMutation({
