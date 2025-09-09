@@ -6,15 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProducts, Product, CreateProductData } from "@/hooks/useProducts";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
-import { useAttributes, ReusableAttribute } from "@/hooks/useAttributes";
 import { Loader2, X, Plus } from "lucide-react";
 import { ImagePicker } from "./ImagePicker";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useProductVariants, AttributeDefinition } from "@/hooks/useProductVariants";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+
 interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,7 +23,6 @@ interface ProductDialogProps {
 export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProps) => {
   const { createProduct, updateProduct } = useProducts();
   const { businessSettings } = useBusinessSettings();
-  const { attributes: reusableAttributes, createAttribute, updateAttribute, getSelectAttributes, getTextAttributes, getNumberAttributes, getColorAttributes, getSizeAttributes } = useAttributes();
   const [formData, setFormData] = useState<CreateProductData>({
     name: "",
     sku: "",
@@ -35,297 +33,183 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
     image_url: "",
   });
 
-const isEditing = !!product;
+  const isEditing = !!product;
 
-// Variations state
-const [hasVariants, setHasVariants] = useState<boolean>(product?.has_variants ?? false);
-const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
-const [selectedReusableAttributes, setSelectedReusableAttributes] = useState<ReusableAttribute[]>([]);
-const [selectValue, setSelectValue] = useState<string>("");
-type VariantFormRow = { sku?: string; rate?: number | null; cost?: number | null; quantity: number; low_stock_threshold?: number | null; image_url?: string };
-const [variantState, setVariantState] = useState<Record<string, VariantFormRow>>({});
-const [bulkRate, setBulkRate] = useState<string>("");
-const [bulkCost, setBulkCost] = useState<string>("");
-const [bulkLow, setBulkLow] = useState<string>("");
-const [bulkQty, setBulkQty] = useState<string>("");
+  // Variations state
+  const [hasVariants, setHasVariants] = useState<boolean>(product?.has_variants ?? false);
+  const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
+  type VariantFormRow = { sku?: string; rate?: number | null; cost?: number | null; quantity: number; low_stock_threshold?: number | null; image_url?: string };
+  const [variantState, setVariantState] = useState<Record<string, VariantFormRow>>({});
+  const [bulkRate, setBulkRate] = useState<string>("");
+  const [bulkCost, setBulkCost] = useState<string>("");
+  const [bulkLow, setBulkLow] = useState<string>("");
+  const [bulkQty, setBulkQty] = useState<string>("");
 
-const setVariant = (key: string, patch: Partial<VariantFormRow>) => {
-  setVariantState((prev) => ({
-    ...prev,
-    [key]: { quantity: 0, ...prev[key], ...patch },
-  }));
-};
-
-// Handle reusable attribute selection
-const handleReusableAttributeSelect = (attribute: ReusableAttribute) => {
-  setSelectedReusableAttributes(prev => {
-    const exists = prev.find(attr => attr.id === attribute.id);
-    if (exists) return prev;
-    return [...prev, attribute];
-  });
-  
-  // Convert reusable attribute to AttributeDefinition
-  const attributeDef: AttributeDefinition = {
-    name: attribute.name,
-    values: attribute.options || []
-  };
-  
-  setAttributes(prev => {
-    const exists = prev.find(attr => attr.name === attribute.name);
-    if (exists) return prev;
-    return [...prev, attributeDef];
-  });
-  
-  // Clear the select value after selection
-  setSelectValue("");
-};
-
-const handleReusableAttributeRemove = (attributeId: string) => {
-  setSelectedReusableAttributes(prev => prev.filter(attr => attr.id !== attributeId));
-  
-  // Also remove from attributes
-  const attribute = selectedReusableAttributes.find(attr => attr.id === attributeId);
-  if (attribute) {
-    setAttributes(prev => prev.filter(attr => attr.name !== attribute.name));
-  }
-  
-  // Clear the select value
-  setSelectValue("");
-};
-
-// Function to save custom attributes to the database
-const saveCustomAttributeToDatabase = async (attribute: AttributeDefinition) => {
-  try {
-    // Check if attribute already exists before creating
-    const normalizedName = attribute.name.toLowerCase().replace(/\s+/g, '_');
-    const existingAttribute = reusableAttributes.find(attr => 
-      attr.name === normalizedName || attr.display_name === attribute.name
-    );
-    
-    if (existingAttribute) {
-      console.log(`Custom attribute '${attribute.name}' already exists, skipping creation`);
-      return;
-    }
-    
-    await createAttribute.mutateAsync({
-      name: normalizedName,
-      display_name: attribute.name,
-      type: 'select', // Default to select for custom attributes
-      options: attribute.values,
-      is_required: false,
-      sort_order: 0
-    });
-  } catch (error: any) {
-    // Check if it's a duplicate key error - if so, just log and continue
-    if (error?.code === '23505') {
-      console.log(`Custom attribute '${attribute.name}' already exists, skipping creation`);
-    } else {
-      console.error('Failed to save custom attribute:', error);
-    }
-  }
-};
-
-// Function to update existing reusable attribute with new values
-const updateReusableAttributeValues = async (attributeId: string, newValues: string[]) => {
-  try {
-    const existingAttribute = reusableAttributes.find(attr => attr.id === attributeId);
-    if (existingAttribute) {
-      const currentOptions = existingAttribute.options || [];
-      const mergedOptions = [...new Set([...currentOptions, ...newValues])]; // Merge and remove duplicates
-      
-      await updateAttribute.mutateAsync({
-        id: attributeId,
-        options: mergedOptions
-      });
-    }
-  } catch (error) {
-    console.error('Failed to update reusable attribute:', error);
-  }
-};
-
-const applyBulk = () => {
-  const r = bulkRate ? parseFloat(bulkRate) : undefined;
-  const c = bulkCost ? parseFloat(bulkCost) : undefined;
-  const l = bulkLow ? parseInt(bulkLow) : undefined;
-  const q = bulkQty ? parseInt(bulkQty) : undefined;
-  const next: Record<string, VariantFormRow> = {};
-  combos.forEach((attrs) => {
-    const key = JSON.stringify(attrs);
-    const cur = variantState[key] || { quantity: 0 };
-    next[key] = {
-      ...cur,
-      rate: r ?? cur.rate ?? formData.rate,
-      cost: c ?? cur.cost ?? (formData.cost || null),
-      low_stock_threshold: l ?? cur.low_stock_threshold ?? (businessSettings?.low_stock_alert_quantity || formData.low_stock_threshold),
-      quantity: q ?? cur.quantity,
-    };
-  });
-  setVariantState(next);
-};
-
-const { variants: existingVariants, isLoading: variantsLoading, bulkUpsert, clearVariants } = useProductVariants(product?.id);
-
-const combos = useMemo(() => {
-  if (!attributes.length) return [] as Array<Record<string,string>>;
-  const lists = attributes.map(a => a.values.filter(v => v?.trim()).map(v => ({ [a.name]: v.trim() })));
-  if (lists.some(l => l.length === 0)) return [] as Array<Record<string,string>>;
-  // cartesian product of list of objects where we merge keys
-  const allCombos = lists.reduce((acc, list) => {
-    const out: Array<Record<string,string>> = [];
-    for (const a of acc) {
-      for (const b of list) {
-        out.push({ ...a, ...b });
-      }
-    }
-    return out;
-  }, [{} as Record<string,string>]);
-  
-  // Deduplicate combinations by converting to JSON strings and back
-  const uniqueCombos = Array.from(
-    new Map(allCombos.map(combo => [JSON.stringify(combo), combo])).values()
-  );
-  
-  return uniqueCombos;
-}, [attributes]);
-
-const totalVariantQty = useMemo(() => {
-  return combos.reduce((sum, attrs) => sum + (variantState[JSON.stringify(attrs)]?.quantity || 0), 0);
-}, [combos, variantState]);
-
-const lowWarnings = useMemo(() => {
-  return combos.reduce((acc, attrs) => {
-    const key = JSON.stringify(attrs);
-    const v = variantState[key];
-    const threshold = (v?.low_stock_threshold ?? formData.low_stock_threshold) || 0;
-    const qty = v?.quantity || 0;
-    return acc + (qty <= threshold ? 1 : 0);
-  }, 0);
-}, [combos, variantState, formData.low_stock_threshold]);
-
-useEffect(() => {
-  if (product) {
-    setFormData({
-      name: product.name,
-      sku: product.sku || "",
-      rate: product.rate,
-      cost: product.cost || 0,
-      stock_quantity: product.stock_quantity,
-      low_stock_threshold: product.low_stock_threshold,
-      image_url: product.image_url || "",
-      has_variants: product.has_variants,
-    });
-    setHasVariants(!!product.has_variants);
-  } else {
-    setFormData({
-      name: "",
-      sku: "",
-      rate: 0,
-      cost: 0,
-      stock_quantity: 0,
-      low_stock_threshold: businessSettings?.low_stock_alert_quantity || 10,
-      image_url: "",
-      has_variants: false,
-    });
-    setHasVariants(false);
-  }
-}, [product]);
-
-// Update form data when business settings change (for new products)
-useEffect(() => {
-  if (!product && businessSettings?.low_stock_alert_quantity) {
-    setFormData(prev => ({
+  const setVariant = (key: string, patch: Partial<VariantFormRow>) => {
+    setVariantState((prev) => ({
       ...prev,
-      low_stock_threshold: businessSettings.low_stock_alert_quantity
+      [key]: { quantity: 0, ...prev[key], ...patch },
     }));
-  }
-}, [businessSettings?.low_stock_alert_quantity, product]);
+  };
 
-useEffect(() => {
-  if (isEditing && product?.id && hasVariants) {
-    (async () => {
-      const { data, error } = await supabase
-        .from('product_attributes')
-        .select('id,name, product_attribute_values ( value )')
-        .eq('product_id', product.id);
-      if (!error && data) {
-        const defs: AttributeDefinition[] = (data as any[]).map((row: any) => ({
-          name: row.name,
-          values: (row.product_attribute_values || []).map((v: any) => v.value),
-        }));
-        if (defs.length) setAttributes(defs);
-      }
-    })();
-  }
-}, [isEditing, product?.id, hasVariants]);
-
-useEffect(() => {
-  if (hasVariants && existingVariants && existingVariants.length) {
-    const vs: Record<string, VariantFormRow> = {};
-    existingVariants.forEach((v) => {
-      const key = JSON.stringify(v.attributes);
-      vs[key] = {
-        sku: v.sku ?? undefined,
-        rate: v.rate,
-        cost: v.cost,
-        quantity: v.stock_quantity,
-        low_stock_threshold: v.low_stock_threshold ?? undefined,
-        image_url: v.image_url ?? undefined,
+  const applyBulk = () => {
+    const r = bulkRate ? parseFloat(bulkRate) : undefined;
+    const c = bulkCost ? parseFloat(bulkCost) : undefined;
+    const l = bulkLow ? parseInt(bulkLow) : undefined;
+    const q = bulkQty ? parseInt(bulkQty) : undefined;
+    const next: Record<string, VariantFormRow> = {};
+    combos.forEach((attrs) => {
+      const key = JSON.stringify(attrs);
+      const cur = variantState[key] || { quantity: 0 };
+      next[key] = {
+        ...cur,
+        rate: r ?? cur.rate ?? formData.rate,
+        cost: c ?? cur.cost ?? (formData.cost || null),
+        low_stock_threshold: l ?? cur.low_stock_threshold ?? (businessSettings?.low_stock_alert_quantity || formData.low_stock_threshold),
+        quantity: q ?? cur.quantity,
       };
     });
-    setVariantState(vs);
+    setVariantState(next);
+  };
 
-    if (!attributes.length) {
-      const nameSet = new Set<string>();
-      existingVariants.forEach((v) => {
-        Object.keys(v.attributes || {}).forEach((k) => nameSet.add(k));
+  const { variants: existingVariants, isLoading: variantsLoading, bulkUpsert, clearVariants } = useProductVariants(product?.id);
+
+  const combos = useMemo(() => {
+    if (!attributes.length) return [] as Array<Record<string,string>>;
+    const lists = attributes.map(a => a.values.filter(v => v?.trim()).map(v => ({ [a.name]: v.trim() })));
+    if (lists.some(l => l.length === 0)) return [] as Array<Record<string,string>>;
+    // cartesian product of list of objects where we merge keys
+    const allCombos = lists.reduce((acc, list) => {
+      const out: Array<Record<string,string>> = [];
+      for (const a of acc) {
+        for (const b of list) {
+          out.push({ ...a, ...b });
+        }
+      }
+      return out;
+    }, [{} as Record<string,string>]);
+    
+    // Deduplicate combinations by converting to JSON strings and back
+    const uniqueCombos = Array.from(
+      new Map(allCombos.map(combo => [JSON.stringify(combo), combo])).values()
+    );
+    
+    return uniqueCombos;
+  }, [attributes]);
+
+  const totalVariantQty = useMemo(() => {
+    return combos.reduce((sum, attrs) => sum + (variantState[JSON.stringify(attrs)]?.quantity || 0), 0);
+  }, [combos, variantState]);
+
+  const lowWarnings = useMemo(() => {
+    return combos.reduce((acc, attrs) => {
+      const key = JSON.stringify(attrs);
+      const v = variantState[key];
+      const threshold = (v?.low_stock_threshold ?? formData.low_stock_threshold) || 0;
+      const qty = v?.quantity || 0;
+      return acc + (qty <= threshold ? 1 : 0);
+    }, 0);
+  }, [combos, variantState, formData.low_stock_threshold]);
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name,
+        sku: product.sku || "",
+        rate: product.rate,
+        cost: product.cost || 0,
+        stock_quantity: product.stock_quantity,
+        low_stock_threshold: product.low_stock_threshold,
+        image_url: product.image_url || "",
+        has_variants: product.has_variants,
       });
-      const attrDefs: AttributeDefinition[] = Array.from(nameSet).map((name) => ({
-        name,
-        values: Array.from(new Set(existingVariants.map((v) => v.attributes[name]).filter(Boolean))),
-      }));
-      if (attrDefs.length) setAttributes(attrDefs);
+      setHasVariants(!!product.has_variants);
+    } else {
+      setFormData({
+        name: "",
+        sku: "",
+        rate: 0,
+        cost: 0,
+        stock_quantity: 0,
+        low_stock_threshold: businessSettings?.low_stock_alert_quantity || 10,
+        image_url: "",
+        has_variants: false,
+      });
+      setHasVariants(false);
     }
-  }
-}, [existingVariants, hasVariants]);
+  }, [product]);
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    if (hasVariants) {
-      if (isEditing && product) {
-        // Update product base fields, mark has_variants
-        await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: true } });
-        // Prepare variants payload
-        const variantPayload = combos.map((attrs) => {
-          const key = JSON.stringify(attrs);
-          const v = variantState[key] || { quantity: 0 };
-          return {
-            product_id: product.id,
-            attributes: attrs,
-            sku: v.sku || null,
-            rate: v.rate ?? null,
-            cost: v.cost ?? null,
-            stock_quantity: v.quantity || 0,
-            low_stock_threshold: v.low_stock_threshold ?? null,
-            image_url: v.image_url || null,
-          };
+  // Update form data when business settings change (for new products)
+  useEffect(() => {
+    if (!product && businessSettings?.low_stock_alert_quantity) {
+      setFormData(prev => ({
+        ...prev,
+        low_stock_threshold: businessSettings.low_stock_alert_quantity
+      }));
+    }
+  }, [businessSettings?.low_stock_alert_quantity, product]);
+
+  useEffect(() => {
+    if (isEditing && product?.id && hasVariants) {
+      (async () => {
+        const { data, error } = await supabase
+          .from('product_attributes')
+          .select('id,name, product_attribute_values ( value )')
+          .eq('product_id', product.id);
+        if (!error && data) {
+          const defs: AttributeDefinition[] = (data as any[]).map((row: any) => ({
+            name: row.name,
+            values: (row.product_attribute_values || []).map((v: any) => v.value),
+          }));
+          if (defs.length) setAttributes(defs);
+        }
+      })();
+    }
+  }, [isEditing, product?.id, hasVariants]);
+
+  useEffect(() => {
+    if (hasVariants && existingVariants && existingVariants.length) {
+      const vs: Record<string, VariantFormRow> = {};
+      existingVariants.forEach((v) => {
+        const key = JSON.stringify(v.attributes);
+        vs[key] = {
+          sku: v.sku ?? undefined,
+          rate: v.rate,
+          cost: v.cost,
+          quantity: v.stock_quantity,
+          low_stock_threshold: v.low_stock_threshold ?? undefined,
+          image_url: v.image_url ?? undefined,
+        };
+      });
+      setVariantState(vs);
+
+      if (!attributes.length) {
+        const nameSet = new Set<string>();
+        existingVariants.forEach((v) => {
+          Object.keys(v.attributes || {}).forEach((k) => nameSet.add(k));
         });
-        await bulkUpsert.mutateAsync({
-          productId: product.id,
-          hasVariants: true,
-          attributes,
-          variants: variantPayload as any,
-        });
-      } else {
-        // Create base product first
-        const created = await createProduct.mutateAsync({ ...formData, has_variants: true, stock_quantity: 0 });
-        const productId = (created as any)?.id;
-        if (productId) {
+        const attrDefs: AttributeDefinition[] = Array.from(nameSet).map((name) => ({
+          name,
+          values: Array.from(new Set(existingVariants.map((v) => v.attributes[name]).filter(Boolean))),
+        }));
+        if (attrDefs.length) setAttributes(attrDefs);
+      }
+    }
+  }, [existingVariants, hasVariants]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (hasVariants) {
+        if (isEditing && product) {
+          // Update product base fields, mark has_variants
+          await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: true } });
+          // Prepare variants payload
           const variantPayload = combos.map((attrs) => {
             const key = JSON.stringify(attrs);
             const v = variantState[key] || { quantity: 0 };
             return {
-              product_id: productId,
+              product_id: product.id,
               attributes: attrs,
               sku: v.sku || null,
               rate: v.rate ?? null,
@@ -335,58 +219,51 @@ const handleSubmit = async (e: React.FormEvent) => {
               image_url: v.image_url || null,
             };
           });
-          await bulkUpsert.mutateAsync({ productId, hasVariants: true, attributes, variants: variantPayload as any });
-        }
-      }
-    } else {
-      // No variants path
-      if (isEditing && product) {
-        await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: false } });
-        if (product.has_variants) {
-          await clearVariants.mutateAsync(product.id);
+          await bulkUpsert.mutateAsync({
+            productId: product.id,
+            hasVariants: true,
+            attributes,
+            variants: variantPayload as any,
+          });
+        } else {
+          // Create base product first
+          const created = await createProduct.mutateAsync({ ...formData, has_variants: true, stock_quantity: 0 });
+          const productId = (created as any)?.id;
+          if (productId) {
+            const variantPayload = combos.map((attrs) => {
+              const key = JSON.stringify(attrs);
+              const v = variantState[key] || { quantity: 0 };
+              return {
+                product_id: productId,
+                attributes: attrs,
+                sku: v.sku || null,
+                rate: v.rate ?? null,
+                cost: v.cost ?? null,
+                stock_quantity: v.quantity || 0,
+                low_stock_threshold: v.low_stock_threshold ?? null,
+                image_url: v.image_url || null,
+              };
+            });
+            await bulkUpsert.mutateAsync({ productId, hasVariants: true, attributes, variants: variantPayload as any });
+          }
         }
       } else {
-        await createProduct.mutateAsync({ ...formData, has_variants: false });
+        // No variants path
+        if (isEditing && product) {
+          await updateProduct.mutateAsync({ id: product.id, data: { ...formData, has_variants: false } });
+          if (product.has_variants) {
+            await clearVariants.mutateAsync(product.id);
+          }
+        } else {
+          await createProduct.mutateAsync({ ...formData, has_variants: false });
+        }
       }
-    }
-    
-    // Save custom attributes and update reusable attributes (non-blocking)
-    if (hasVariants) {
-      // Save custom attributes (non-reusable ones) to the database
-      const customAttributes = attributes.filter(attr => 
-        !selectedReusableAttributes.some(selected => selected.name === attr.name)
-      );
-      
-      // Run attribute saving in background
-      Promise.all([
-        ...customAttributes.map(customAttr => {
-          if (customAttr.name && customAttr.values.length > 0) {
-            return saveCustomAttributeToDatabase(customAttr);
-          }
-          return Promise.resolve();
-        }),
-        ...selectedReusableAttributes.map(selectedAttr => {
-          const localAttr = attributes.find(attr => attr.name === selectedAttr.name);
-          if (localAttr && localAttr.values.length > 0) {
-            const newValues = localAttr.values.filter(value => 
-              !selectedAttr.options?.includes(value)
-            );
-            if (newValues.length > 0) {
-              return updateReusableAttributeValues(selectedAttr.id, newValues);
-            }
-          }
-          return Promise.resolve();
-        })
-      ]).catch(error => {
-        console.error('Error saving attributes:', error);
-      });
+    } catch (error) {
+      // handled in hooks
     }
     
     onOpenChange(false);
-  } catch (error) {
-    // handled in hooks
-  }
-};
+  };
 
   const handleChange = (field: keyof CreateProductData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -500,57 +377,11 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="rounded-lg border p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Attributes</span>
-                  <div className="flex gap-2">
-                    <Select 
-                      value={selectValue}
-                      onValueChange={(value) => {
-                        setSelectValue(value);
-                        const attribute = reusableAttributes.find(attr => attr.id === value);
-                        if (attribute) handleReusableAttributeSelect(attribute);
-                      }}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select reusable attribute" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {reusableAttributes
-                          .filter(attr => !selectedReusableAttributes.find(selected => selected.id === attr.id))
-                          .map((attribute) => (
-                            <SelectItem key={attribute.id} value={attribute.id}>
-                              {attribute.display_name} ({attribute.type})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setAttributes([...attributes, { name: "", values: [] }])}>
-                      <Plus className="h-4 w-4 mr-1" />
-                      Custom
-                    </Button>
-                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAttributes([...attributes, { name: "", values: [] }])}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Attribute
+                  </Button>
                 </div>
-                
-                {/* Selected Reusable Attributes */}
-                {selectedReusableAttributes.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Selected Attributes</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedReusableAttributes.map((attr) => (
-                        <Badge key={attr.id} variant="secondary" className="flex items-center gap-1">
-                          {attr.display_name} ({attr.type})
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => handleReusableAttributeRemove(attr.id)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Custom Attributes */}
                 <div className="space-y-3">
@@ -570,20 +401,33 @@ const handleSubmit = async (e: React.FormEvent) => {
                       </div>
                       <div className="space-y-1">
                         <Label>Values (comma separated)</Label>
-                        <Input
-                          value={attr.values.join(", ")}
-                          onChange={(e) => {
-                            const vals = e.target.value.split(",").map((v) => v.trim());
-                            const copy = [...attributes];
-                            copy[idx] = { ...copy[idx], values: vals };
-                            setAttributes(copy);
-                          }}
-                          placeholder="e.g., 0-6 years, 6-12 years"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            value={attr.values.join(", ")}
+                            onChange={(e) => {
+                              const vals = e.target.value.split(",").map((v) => v.trim());
+                              const copy = [...attributes];
+                              copy[idx] = { ...copy[idx], values: vals };
+                              setAttributes(copy);
+                            }}
+                            placeholder="e.g., Small, Medium, Large"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const copy = attributes.filter((_, i) => i !== idx);
+                              setAttributes(copy);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
-                  {!attributes.length && !selectedReusableAttributes.length && (
+                  {!attributes.length && (
                     <p className="text-xs text-muted-foreground">No attributes yet. Add one to start creating variants.</p>
                   )}
                 </div>
@@ -651,17 +495,17 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <TableCell>
                                   <Input type="number" min={0} value={v.low_stock_threshold ?? ""} onChange={(e) => setVariant(key, { low_stock_threshold: e.target.value ? parseInt(e.target.value) : null })} placeholder={`${formData.low_stock_threshold}`} />
                                 </TableCell>
-                                  <TableCell>
-                                    <div className="min-w-[120px]">
-                                      <ImagePicker
-                                        value={v.image_url || ""}
-                                        onChange={(url) => setVariant(key, { image_url: url })}
-                                        onRemove={() => setVariant(key, { image_url: "" })}
-                                        placeholder="Select variant image"
-                                        iconOnly={true}
-                                      />
-                                    </div>
-                                  </TableCell>
+                                <TableCell>
+                                  <div className="min-w-[120px]">
+                                    <ImagePicker
+                                      value={v.image_url || ""}
+                                      onChange={(url) => setVariant(key, { image_url: url })}
+                                      onRemove={() => setVariant(key, { image_url: "" })}
+                                      placeholder="Select variant image"
+                                      iconOnly={true}
+                                    />
+                                  </div>
+                                </TableCell>
                               </TableRow>
                             );
                           })}

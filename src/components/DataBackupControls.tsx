@@ -19,7 +19,6 @@ const AVAILABLE_TABLES = [
   { id: 'product_variants', name: 'Product Variants', critical: false },
   { id: 'product_attributes', name: 'Product Attributes', critical: false },
   { id: 'product_attribute_values', name: 'Product Attribute Values', critical: false },
-  { id: 'reusable_attributes', name: 'Reusable Attributes', critical: false },
   { id: 'customers', name: 'Customers', critical: false },
   { id: 'sales', name: 'Sales', critical: false },
   { id: 'sales_items', name: 'Sale Items', critical: false },

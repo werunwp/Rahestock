@@ -41,7 +41,6 @@ const menuItems = [
   { title: "Reports", url: "/reports", icon: BarChart3, permissionKey: 'reports.view' },
   { title: "Invoices", url: "/invoices", icon: FileText, permissionKey: 'invoices.view' },
   { title: "Alerts", url: "/alerts", icon: Bell, permissionKey: 'access.alerts' },
-  { title: "Attributes", url: "/attributes", icon: Tag, permissionKey: 'products.view' },
 ];
 
 export function AppSidebar() {

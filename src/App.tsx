@@ -21,7 +21,6 @@ import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
 import Invoices from "./pages/Invoices";
 import Alerts from "./pages/Alerts";
-import Attributes from "./pages/Attributes";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
@@ -93,13 +92,6 @@ const AppRoutes = () => {
         <ProtectedRoute>
           <Layout>
             <Alerts />
-          </Layout>
-        </ProtectedRoute>
-      } />
-      <Route path="/attributes" element={
-        <ProtectedRoute>
-          <Layout>
-            <Attributes />
           </Layout>
         </ProtectedRoute>
       } />
