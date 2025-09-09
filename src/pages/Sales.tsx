@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Truck } from "lucide-react";
+import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Truck, Trash2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSales } from "@/hooks/useSales";
 import { SaleDialog } from "@/components/SaleDialog";
 import { EditSaleDialog } from "@/components/EditSaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
@@ -17,6 +18,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useStatusAutoRefresh } from "@/hooks/useStatusAutoRefresh";
 import { useWebhookSettings } from "@/hooks/useWebhookSettings";
 import { useCourierStatusRealtime } from "@/hooks/useCourierStatusRealtime";
+import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -155,6 +157,8 @@ export default function Sales() {
   
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
+  const { deleteSale } = useSales();
+  const { isAdmin } = useUserRole();
   
   // Enable auto-refresh for courier statuses
   useStatusAutoRefresh();
@@ -425,6 +429,12 @@ export default function Sales() {
     setShowCourierDialog(true);
   };
 
+  const handleDeleteSale = (saleId: string) => {
+    if (confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+      deleteSale.mutate(saleId);
+    }
+  };
+
   const handleCloseEditDialog = () => {
     setShowEditDialog(false);
     setEditingSaleId(null);
@@ -632,6 +642,18 @@ export default function Sales() {
                               title="Send to courier"
                             >
                               <Truck className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteSale(sale.id)}
+                              disabled={deleteSale.isPending}
+                              title="Delete sale"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>

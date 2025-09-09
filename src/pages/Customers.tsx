@@ -21,7 +21,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 const Customers = () => {
   const { customers, isLoading, deleteCustomer, updateCustomer, createCustomer, updateCustomerStats, isUpdatingStats } = useCustomers();
   const { formatAmount } = useCurrency();
-  const { hasPermission } = useUserRole();
+  const { hasPermission, isAdmin } = useUserRole();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -569,7 +569,7 @@ const Customers = () => {
                               <Edit className="h-4 w-4" />
                             </Button>
                           )}
-                          {hasPermission('customers.delete') && (
+                          {isAdmin && (
                             <Button 
                               variant="ghost" 
                               size="sm" 

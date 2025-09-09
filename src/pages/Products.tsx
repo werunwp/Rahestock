@@ -334,16 +334,45 @@ const Products = () => {
       'Updated At': new Date(product.updated_at).toLocaleDateString()
     }));
 
-    // Create workbook and worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    // Create workbook and worksheet using ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Products");
+    
+    // Add headers
+    const headers = Object.keys(exportData[0] || {});
+    worksheet.addRow(headers);
+    
+    // Style headers
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Add data rows
+    exportData.forEach(row => {
+      worksheet.addRow(Object.values(row));
+    });
+    
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 15;
+    });
 
     // Generate filename with current date
     const filename = `products_${new Date().toISOString().split('T')[0]}.xlsx`;
     
     // Download file
-    XLSX.writeFile(wb, filename);
+    workbook.xlsx.writeBuffer().then(buffer => {
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    });
   };
 
   return (

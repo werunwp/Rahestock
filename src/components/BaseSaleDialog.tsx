@@ -606,17 +606,24 @@ export const BaseSaleDialog = ({
                           No products found
                         </div>
                       ) : (
-                        filteredProducts.map(product => (
-                          <div
-                            key={product.id}
-                            className="p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 flex items-center gap-3"
-                            onClick={() => {
-                              setSelectedProductId(product.id);
-                              setProductSearchTerm(product.name);
-                              setProductComboOpen(false);
-                              setSelectedVariantId(null);
-                            }}
-                          >
+                        filteredProducts.map(product => {
+                          const isSelected = formData.items.some(item => 
+                            (item.productId || item.product_id) === product.id
+                          );
+                          
+                          return (
+                            <div
+                              key={product.id}
+                              className={`p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 flex items-center gap-3 ${
+                                isSelected ? 'bg-gray-100 dark:bg-gray-800' : ''
+                              }`}
+                              onClick={() => {
+                                setSelectedProductId(product.id);
+                                setProductSearchTerm(product.name);
+                                setProductComboOpen(false);
+                                setSelectedVariantId(null);
+                              }}
+                            >
                             <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
                               {product.image_url ? (
                                 <img 
@@ -637,7 +644,8 @@ export const BaseSaleDialog = ({
                               </div>
                             </div>
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   )}

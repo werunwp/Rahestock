@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useUserRole } from "./useUserRole";
 import { toast } from "sonner";
 
 export interface Sale {
@@ -104,6 +105,7 @@ export interface UpdateSaleData {
 
 export const useSales = () => {
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
 
   // Function to update customer status after sale changes
@@ -112,6 +114,7 @@ export const useSales = () => {
     
     try {
       // Get customer's purchase history to calculate new status
+      // Since we're using hard delete, just fetch all sales for this customer
       const { data: sales, error } = await supabase
         .from('sales')
         .select('created_at, payment_status, courier_status')
@@ -163,6 +166,7 @@ export const useSales = () => {
   } = useQuery({
     queryKey: ["sales"],
     queryFn: async () => {
+      // Since we're using hard delete, just fetch all sales
       const { data, error } = await supabase
         .from("sales")
         .select("*")
@@ -551,12 +555,48 @@ export const useSales = () => {
     }
   };
 
+  const deleteSale = useMutation({
+    mutationFn: async (id: string) => {
+      // Check if user is admin
+      if (!isAdmin) {
+        throw new Error("Only administrators can delete sales");
+      }
+      
+      // Use hard delete since we're not using soft delete
+      const { error } = await supabase
+        .from("sales")
+        .delete()
+        .eq("id", id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      // Remove and refetch all related queries to ensure fresh data
+      queryClient.removeQueries({ queryKey: ["sales"] });
+      queryClient.removeQueries({ queryKey: ["customers"] });
+      queryClient.removeQueries({ queryKey: ["dashboard"] });
+      queryClient.removeQueries({ queryKey: ["reports"] });
+      
+      // Small delay to ensure database has processed the deletion
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["sales"] });
+        queryClient.refetchQueries({ queryKey: ["customers"] });
+      }, 100);
+      
+      toast.success("Sale deleted successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to delete sale: " + error.message);
+    },
+  });
+
   return {
     sales,
     isLoading,
     error,
     createSale,
     updateSale,
+    deleteSale,
     getSaleWithItems,
   };
 };

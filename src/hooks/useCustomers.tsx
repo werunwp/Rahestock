@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useUserRole } from "./useUserRole";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
@@ -33,6 +34,7 @@ export interface CreateCustomerData {
 
 export const useCustomers = () => {
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
 
   // Set up real-time subscriptions for customers and sales
@@ -138,24 +140,39 @@ export const useCustomers = () => {
 
   const deleteCustomer = useMutation({
     mutationFn: async (id: string) => {
-      // Check if customer has sales records
-      const { data: salesRecords, error: salesError } = await supabase
-        .from("sales")
-        .select("id")
-        .eq("customer_id", id)
-        .limit(1);
-      
-      if (salesError) throw salesError;
-      
-      if (salesRecords && salesRecords.length > 0) {
-        throw new Error("Cannot delete customer as they have associated sales records. Consider archiving the customer instead.");
+      // Check if user is admin
+      if (!isAdmin) {
+        throw new Error("Only administrators can delete customers");
       }
       
+      // First, delete all associated sales records
+      const { error: salesError } = await supabase
+        .from("sales")
+        .delete()
+        .eq("customer_id", id);
+      
+      if (salesError) {
+        console.warn("Error deleting associated sales:", salesError);
+        // Continue with customer deletion even if sales deletion fails
+      }
+      
+      // Then delete the customer
       const { error } = await supabase.from("customers").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      // Remove and refetch all related queries to ensure fresh data
+      queryClient.removeQueries({ queryKey: ["customers"] });
+      queryClient.removeQueries({ queryKey: ["sales"] });
+      queryClient.removeQueries({ queryKey: ["dashboard"] });
+      queryClient.removeQueries({ queryKey: ["reports"] });
+      
+      // Small delay to ensure database has processed the deletion
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["customers"] });
+        queryClient.refetchQueries({ queryKey: ["sales"] });
+      }, 100);
+      
       toast.success("Customer deleted successfully");
     },
     onError: (error) => {
