@@ -23,7 +23,6 @@ const Customers = () => {
   const { formatAmount } = useCurrency();
   const { hasPermission, isAdmin } = useUserRole();
   const [searchTerm, setSearchTerm] = useState("");
-  const [additionalInfoFilter, setAdditionalInfoFilter] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -44,14 +43,11 @@ const Customers = () => {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
-      // Search filter
+      // Search filter (includes name, phone, whatsapp, and additional info)
       const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (customer.phone && customer.phone.includes(searchTerm)) ||
-        (customer.whatsapp && customer.whatsapp.includes(searchTerm));
-
-      // Additional info filter
-      const matchesAdditionalInfo = !additionalInfoFilter || 
-        (customer.additional_info && customer.additional_info.toLowerCase().includes(additionalInfoFilter.toLowerCase()));
+        (customer.whatsapp && customer.whatsapp.includes(searchTerm)) ||
+        (customer.additional_info && customer.additional_info.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Date filter
       const matchesDate = !startDate || !endDate || isWithinInterval(parseISO(customer.created_at), {
@@ -59,9 +55,9 @@ const Customers = () => {
         end: endDate,
       });
 
-      return matchesSearch && matchesAdditionalInfo && matchesDate;
+      return matchesSearch && matchesDate;
     });
-  }, [customers, searchTerm, additionalInfoFilter, startDate, endDate]);
+  }, [customers, searchTerm, startDate, endDate]);
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
@@ -515,17 +511,10 @@ const Customers = () => {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Search customers..." 
+            placeholder="Search customers by name, phone, WhatsApp, or additional info..." 
             className="pl-9" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="relative flex-1 max-w-sm">
-          <Input 
-            placeholder="Filter by additional info..." 
-            value={additionalInfoFilter}
-            onChange={(e) => setAdditionalInfoFilter(e.target.value)}
           />
         </div>
       </div>
