@@ -43,11 +43,12 @@ const Customers = () => {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
-      // Search filter (includes name, phone, whatsapp, and additional info)
+      // Search filter (includes name, phone, whatsapp, additional info, and total spent)
       const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (customer.phone && customer.phone.includes(searchTerm)) ||
         (customer.whatsapp && customer.whatsapp.includes(searchTerm)) ||
-        (customer.additional_info && customer.additional_info.toLowerCase().includes(searchTerm.toLowerCase()));
+        (customer.additional_info && customer.additional_info.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        customer.total_spent.toString().includes(searchTerm);
 
       // Date filter
       const matchesDate = !startDate || !endDate || isWithinInterval(parseISO(customer.created_at), {
@@ -511,7 +512,7 @@ const Customers = () => {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Search customers by name, phone, WhatsApp, or additional info..." 
+            placeholder="Search customers by name, phone, WhatsApp, additional info, or total spent..." 
             className="pl-9" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
