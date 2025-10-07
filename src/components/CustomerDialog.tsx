@@ -25,7 +25,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
     address: "",
     tags: [],
     status: "inactive",
-    customer_size: "",
+    additional_info: "",
   });
 
   const isEditing = !!customer;
@@ -42,7 +42,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: customer.address || "",
         tags: customer.tags || [],
         status: customer.status || "inactive",
-        customer_size: customer.customer_size || "",
+        additional_info: customer.additional_info || "",
       });
     } else {
       setFormData({
@@ -52,7 +52,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: "",
         tags: [],
         status: "inactive",
-        customer_size: "",
+        additional_info: "",
       });
     }
   }, [customer]);
@@ -152,16 +152,16 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="customer_size">Customer Size</Label>
+            <Label htmlFor="additional_info">Additional Info</Label>
             <Input
-              id="customer_size"
-              value={formData.customer_size || ""}
-              onChange={(e) => handleChange("customer_size", e.target.value)}
-              placeholder="Enter customer size or type (e.g., Small, Wholesale, VIP, etc.)"
+              id="additional_info"
+              value={formData.additional_info || ""}
+              onChange={(e) => handleChange("additional_info", e.target.value)}
+              placeholder="Enter any additional information (e.g., VIP, Wholesale, Notes, etc.)"
               disabled={!canSave}
             />
             <p className="text-xs text-muted-foreground">
-              Enter any custom size, type, or category for this customer
+              Enter any additional information or notes for this customer
             </p>
           </div>
 

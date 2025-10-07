@@ -23,7 +23,7 @@ const Customers = () => {
   const { formatAmount } = useCurrency();
   const { hasPermission, isAdmin } = useUserRole();
   const [searchTerm, setSearchTerm] = useState("");
-  const [customerSizeFilter, setCustomerSizeFilter] = useState("");
+  const [additionalInfoFilter, setAdditionalInfoFilter] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -49,9 +49,9 @@ const Customers = () => {
         (customer.phone && customer.phone.includes(searchTerm)) ||
         (customer.whatsapp && customer.whatsapp.includes(searchTerm));
 
-      // Customer size filter
-      const matchesSize = !customerSizeFilter || 
-        (customer.customer_size && customer.customer_size.toLowerCase().includes(customerSizeFilter.toLowerCase()));
+      // Additional info filter
+      const matchesAdditionalInfo = !additionalInfoFilter || 
+        (customer.additional_info && customer.additional_info.toLowerCase().includes(additionalInfoFilter.toLowerCase()));
 
       // Date filter
       const matchesDate = !startDate || !endDate || isWithinInterval(parseISO(customer.created_at), {
@@ -59,9 +59,9 @@ const Customers = () => {
         end: endDate,
       });
 
-      return matchesSearch && matchesSize && matchesDate;
+      return matchesSearch && matchesAdditionalInfo && matchesDate;
     });
-  }, [customers, searchTerm, customerSizeFilter, startDate, endDate]);
+  }, [customers, searchTerm, additionalInfoFilter, startDate, endDate]);
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
@@ -327,7 +327,7 @@ const Customers = () => {
     try {
       const exportData = filteredCustomers.map(customer => ({
         Name: customer.name,
-        'Customer Size': customer.customer_size || '',
+        'Additional Info': customer.additional_info || '',
         Phone: customer.phone || '',
         WhatsApp: customer.whatsapp || '',
         Address: customer.address || '',
@@ -523,9 +523,9 @@ const Customers = () => {
         </div>
         <div className="relative flex-1 max-w-sm">
           <Input 
-            placeholder="Filter by customer size..." 
-            value={customerSizeFilter}
-            onChange={(e) => setCustomerSizeFilter(e.target.value)}
+            placeholder="Filter by additional info..." 
+            value={additionalInfoFilter}
+            onChange={(e) => setAdditionalInfoFilter(e.target.value)}
           />
         </div>
       </div>
@@ -540,7 +540,7 @@ const Customers = () => {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Size</TableHead>
+            <TableHead>Additional Info</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>WhatsApp</TableHead>
             <TableHead>Orders</TableHead>
@@ -571,9 +571,9 @@ const Customers = () => {
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell>
-                        {customer.customer_size ? (
+                        {customer.additional_info ? (
                           <Badge variant="secondary" className="capitalize">
-                            {customer.customer_size}
+                            {customer.additional_info}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
