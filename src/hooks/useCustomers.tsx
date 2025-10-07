@@ -17,6 +17,7 @@ export interface Customer {
   cancelled_count: number;
   total_spent: number;
   status: string;
+  customer_size: string | null;
   last_purchase_date: string | null;
   created_at: string;
   updated_at: string;
@@ -30,6 +31,7 @@ export interface CreateCustomerData {
   address?: string;
   tags?: string[];
   status?: string;
+  customer_size?: string;
 }
 
 export const useCustomers = () => {

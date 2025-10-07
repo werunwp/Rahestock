@@ -501,6 +501,7 @@ const Customers = () => {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Size</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>WhatsApp</TableHead>
             <TableHead>Orders</TableHead>
@@ -522,6 +523,7 @@ const Customers = () => {
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                     <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 bg-muted rounded animate-pulse" /></TableCell>
                   </TableRow>
                 ))
               ) : (
@@ -529,6 +531,11 @@ const Customers = () => {
                   return (
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {customer.customer_size || 'medium'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         {customer.phone ? (
                           <div className="flex items-center gap-2">

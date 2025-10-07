@@ -25,6 +25,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
     address: "",
     tags: [],
     status: "inactive",
+    customer_size: "medium",
   });
 
   const isEditing = !!customer;
@@ -41,6 +42,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: customer.address || "",
         tags: customer.tags || [],
         status: customer.status || "inactive",
+        customer_size: customer.customer_size || "medium",
       });
     } else {
       setFormData({
@@ -50,6 +52,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: "",
         tags: [],
         status: "inactive",
+        customer_size: "medium",
       });
     }
   }, [customer]);
@@ -146,6 +149,26 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="customer_size">Customer Size</Label>
+            <Select value={formData.customer_size} onValueChange={(value) => handleChange("customer_size", value)} disabled={!canSave}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select customer size" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Small</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="large">Large</SelectItem>
+                <SelectItem value="enterprise">Enterprise</SelectItem>
+                <SelectItem value="wholesale">Wholesale</SelectItem>
+                <SelectItem value="retail">Retail</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Use this to categorize customers by size, type, or business model
+            </p>
           </div>
 
           <DialogFooter>
