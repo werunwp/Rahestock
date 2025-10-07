@@ -1,5 +1,5 @@
 -- Update customer statistics logic to match new requirements
--- Run this in your Supabase SQL editor at https://supabase.akhiyanbd.com/project/default/sql/new?skip=true
+-- Run this in your Supabase SQL editor at YOUR_SUPABASE_URL_HERE/project/default/sql/new?skip=true
 
 -- Update the customer stats function with new logic:
 -- Orders: Total orders count (all orders)

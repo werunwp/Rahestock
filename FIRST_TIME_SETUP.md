@@ -5,7 +5,7 @@ This guide will help you set up your application for the first time with a blank
 ## 🚀 Quick Start
 
 ### Step 1: Run the Complete Setup Script
-1. Go to your Supabase dashboard at `https://supabase.akhiyanbd.com/`
+1. Go to your Supabase dashboard at `YOUR_SUPABASE_URL_HERE/`
 2. Navigate to **SQL Editor**
 3. Copy and paste the contents of `complete_setup.sql`
 4. Click **Run** to execute the script

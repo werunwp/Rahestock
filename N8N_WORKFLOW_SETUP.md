@@ -2,7 +2,7 @@
 
 ## 🎯 **Overview**
 
-Your n8n workflow at `https://n8n.pronirob.com/workflow/8tSkjSCaVqem433L` needs to handle two types of requests:
+Your n8n workflow at `YOUR_N8N_URL_HERE/workflow/YOUR_WORKFLOW_ID` needs to handle two types of requests:
 
 1. **Order Creation** - When "Send to Courier" is clicked
 2. **Status Checking** - When "Refresh order status" is clicked
@@ -136,7 +136,7 @@ return { status: status };
 
 ### **Test Order Creation**
 ```bash
-curl -X POST https://n8n.pronirob.com/webhook/courier-orders \
+curl -X POST YOUR_N8N_URL_HERE/webhook/courier-orders \
   -H "Content-Type: application/json" \
   -d '{
     "customer_name": "Test Customer",
@@ -148,7 +148,7 @@ curl -X POST https://n8n.pronirob.com/webhook/courier-orders \
 
 ### **Test Status Check**
 ```bash
-curl -X POST https://n8n.pronirob.com/webhook/courier-orders \
+curl -X POST YOUR_N8N_URL_HERE/webhook/courier-orders \
   -H "Content-Type: application/json" \
   -d '{
     "action": "check_status",

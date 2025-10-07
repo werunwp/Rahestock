@@ -31,7 +31,7 @@ Deploy your React + Vite inventory management app to Coolify on your VPS.
 ### Environment Variables
 Add these in Coolify dashboard:
 ```
-VITE_SUPABASE_URL=https://supabase.akhiyanbd.com
+VITE_SUPABASE_URL=YOUR_SUPABASE_URL_HERE
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 NODE_ENV=production
 ```

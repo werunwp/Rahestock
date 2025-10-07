@@ -14,7 +14,7 @@ BEGIN
   -- In production, this should come from a secure key management system
   encryption_key := COALESCE(
     current_setting('app.encryption_key', true),
-    'default_encryption_key_change_in_production'
+    'CHANGE_THIS_ENCRYPTION_KEY_IN_PRODUCTION'
   );
   
   -- Return encrypted data using AES encryption
@@ -42,7 +42,7 @@ BEGIN
   -- Use the same encryption key
   encryption_key := COALESCE(
     current_setting('app.encryption_key', true),
-    'default_encryption_key_change_in_production'
+    'CHANGE_THIS_ENCRYPTION_KEY_IN_PRODUCTION'
   );
   
   -- Return decrypted data

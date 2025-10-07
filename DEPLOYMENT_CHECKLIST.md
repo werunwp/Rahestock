@@ -3,8 +3,8 @@
 ## Before Deployment
 
 ### 1. Environment Variables
-- [ ] Get your Supabase anon key from: https://supabase.akhiyanbd.com/project/default/settings/api
-- [ ] Note your Supabase URL: `https://supabase.akhiyanbd.com`
+- [ ] Get your Supabase anon key from: YOUR_SUPABASE_URL_HERE/project/default/settings/api
+- [ ] Note your Supabase URL: `YOUR_SUPABASE_URL_HERE`
 - [ ] These will be needed in your hosting platform
 
 ### 2. Test Build
@@ -24,7 +24,7 @@
 2. [ ] Go to vercel.com and sign up
 3. [ ] Import your GitHub repository
 4. [ ] Add environment variables:
-   - `VITE_SUPABASE_URL`: `https://supabase.akhiyanbd.com`
+   - `VITE_SUPABASE_URL`: `YOUR_SUPABASE_URL_HERE`
    - `VITE_SUPABASE_ANON_KEY`: Your actual anon key
 5. [ ] Deploy and test
 

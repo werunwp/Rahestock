@@ -31,7 +31,7 @@ COMMENT ON COLUMN public.sales.deleted_at IS 'Timestamp when the sale was soft d
 ## How to Run the Migration
 
 ### Option 1: Supabase SQL Editor (Recommended)
-1. Go to https://supabase.akhiyanbd.com/project/default/sql/new?skip=true
+1. Go to YOUR_SUPABASE_URL_HERE/project/default/sql/new?skip=true
 2. Paste the SQL above
 3. Click "Run" to execute the migration
 

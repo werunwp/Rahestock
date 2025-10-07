@@ -47,7 +47,7 @@ WHERE auth_password IS NOT NULL AND auth_password != '';
 
 -- Ensure webhook_url is set correctly for n8n
 UPDATE courier_webhook_settings 
-SET webhook_url = 'https://n8n.pronirob.com/webhook/courier-orders'
+SET webhook_url = 'YOUR_N8N_URL_HERE/webhook/courier-orders'
 WHERE webhook_url IS NULL OR webhook_url = '';
 
 -- Ensure status_check_webhook_url is set correctly for Pathao API
@@ -85,7 +85,7 @@ FROM courier_webhook_settings;
 
 1. Go to **Settings → Courier Webhook Settings**
 2. Ensure these fields are set correctly:
-   - **Webhook URL**: `https://n8n.pronirob.com/webhook/courier-orders`
+   - **Webhook URL**: `YOUR_N8N_URL_HERE/webhook/courier-orders`
    - **Status Check Webhook URL**: `https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info`
    - **Pathao Access Token**: Your actual Pathao access token
    - **n8n Webhook Password**: Leave this **EMPTY** (n8n doesn't need it)

@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     // Test the exact webhook with your credentials
-    const webhookUrl = 'https://n8n.pronirob.com/webhook/send-order-to-pathao';
+    const webhookUrl = 'YOUR_N8N_URL_HERE/webhook/send-order-to-pathao';
     const username = 'Nirob';
     const password = '8tSkjSCaVqem433L/077bd7';
     

@@ -60,7 +60,7 @@ Edit `src/integrations/supabase/client.ts`:
 
 ```typescript
 // Replace the environment variables with your actual values
-const SUPABASE_URL = "https://supabase.akhiyanbd.com";
+const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
 const SUPABASE_PUBLISHABLE_KEY = "your_actual_anon_key_here";
 ```
 
@@ -69,14 +69,14 @@ Create a `config.js` file in your `public/` folder:
 
 ```javascript
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://supabase.akhiyanbd.com",
+  SUPABASE_URL: "YOUR_SUPABASE_URL_HERE",
   SUPABASE_ANON_KEY: "your_actual_anon_key_here"
 };
 ```
 
 Then update your client.ts to use:
 ```typescript
-const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || "https://supabase.akhiyanbd.com";
+const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || "YOUR_SUPABASE_URL_HERE";
 const SUPABASE_PUBLISHABLE_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || "";
 ```
 

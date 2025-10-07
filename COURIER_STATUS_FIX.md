@@ -44,7 +44,7 @@ WHERE auth_password IS NOT NULL AND auth_password != '';
 
 -- Ensure webhook_url is set correctly for n8n
 UPDATE courier_webhook_settings 
-SET webhook_url = 'https://n8n.pronirob.com/webhook/courier-orders'
+SET webhook_url = 'YOUR_N8N_URL_HERE/webhook/courier-orders'
 WHERE webhook_url IS NULL OR webhook_url = '';
 
 -- Ensure status_check_webhook_url is set correctly for Pathao API
@@ -78,7 +78,7 @@ INSERT INTO courier_webhook_settings (
 )
 SELECT 
     gen_random_uuid(),
-    'https://n8n.pronirob.com/webhook/courier-orders',
+    'YOUR_N8N_URL_HERE/webhook/courier-orders',
     'Courier Order Webhook',
     'Webhook for sending orders to courier (n8n workflow)',
     'https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info',

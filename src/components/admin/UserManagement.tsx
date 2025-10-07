@@ -424,7 +424,7 @@ export function UserManagement() {
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    onClick={() => window.open('https://supabase.akhiyanbd.com/project/default/auth/users', '_blank')}
+                    onClick={() => window.open('YOUR_SUPABASE_URL_HERE/project/default/auth/users', '_blank')}
                     variant="outline"
                     className="flex-1"
                   >

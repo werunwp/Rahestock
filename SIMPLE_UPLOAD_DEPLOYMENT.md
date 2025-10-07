@@ -72,7 +72,7 @@ User's Browser → Your Website → Supabase Database
 ```
 
 ### What's Built Into Your App:
-- **Supabase URL**: `https://supabase.akhiyanbd.com`
+- **Supabase URL**: `YOUR_SUPABASE_URL_HERE`
 - **API Key**: Your anon key (public, safe to include)
 - **All database queries** and **authentication logic**
 
@@ -81,7 +81,7 @@ User's Browser → Your Website → Supabase Database
 ### If you need to change settings:
 Edit `src/integrations/supabase/client.ts`:
 ```typescript
-const SUPABASE_URL = "https://supabase.akhiyanbd.com";
+const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
 const SUPABASE_PUBLISHABLE_KEY = "your_actual_key_here";
 ```
 

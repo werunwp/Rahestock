@@ -30,7 +30,7 @@ WHERE status_check_webhook_url IS NULL OR status_check_webhook_url = '';
 -- Ensure the webhook_url is set for order creation (this should be your n8n webhook)
 -- Update this with your actual n8n webhook URL
 UPDATE courier_webhook_settings 
-SET webhook_url = 'https://n8n.pronirob.com/webhook/courier-orders'
+SET webhook_url = 'YOUR_N8N_URL_HERE/webhook/courier-orders'
 WHERE webhook_url IS NULL OR webhook_url = '';
 
 -- Set proper descriptions
@@ -65,7 +65,7 @@ INSERT INTO courier_webhook_settings (
 )
 SELECT 
     gen_random_uuid(),
-    'https://n8n.pronirob.com/webhook/courier-orders',
+    'YOUR_N8N_URL_HERE/webhook/courier-orders',
     'Courier Order Webhook',
     'Webhook for sending orders to courier (n8n workflow)',
     'https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info',
@@ -102,7 +102,7 @@ FROM courier_webhook_settings;
 
 Ensure these URLs are correctly set:
 
-- **Order Creation Webhook** (`webhook_url`): `https://n8n.pronirob.com/webhook/courier-orders`
+- **Order Creation Webhook** (`webhook_url`): `YOUR_N8N_URL_HERE/webhook/courier-orders`
 - **Status Check Webhook** (`status_check_webhook_url`): `https://api-hermes.pathao.com/aladdin/api/v1/orders/{consignment_id}/info`
 
 ### Step 4: Test the Fix
