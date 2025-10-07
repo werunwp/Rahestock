@@ -5,7 +5,7 @@ This is a React + Vite + Supabase inventory management application ready for dep
 
 ## Prerequisites
 - ✅ App builds successfully (`npm run build`)
-- ✅ Supabase backend is already hosted at `YOUR_SUPABASE_URL_HERE`
+- ✅ Supabase backend is already hosted at `https://supabase.akhiyanbd.com`
 - ✅ Environment variables are configured
 
 ## 🎯 Recommended Hosting Options
@@ -30,7 +30,7 @@ This is a React + Vite + Supabase inventory management application ready for dep
 3. **Configure Environment Variables**:
    - In Vercel dashboard → Project Settings → Environment Variables
    - Add:
-     - `VITE_SUPABASE_URL`: `YOUR_SUPABASE_URL_HERE`
+     - `VITE_SUPABASE_URL`: `https://supabase.akhiyanbd.com`
      - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
 
 4. **Deploy**: Click "Deploy" and you're done!
