@@ -2,9 +2,13 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Use environment variables for VPS Supabase configuration
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "YOUR_SUPABASE_URL_HERE";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+// Use environment variables or config file for Supabase configuration
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 
+  (typeof window !== 'undefined' && (window as any).APP_CONFIG?.SUPABASE_URL) || 
+  "YOUR_SUPABASE_URL_HERE";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 
+  (typeof window !== 'undefined' && (window as any).APP_CONFIG?.SUPABASE_ANON_KEY) || 
+  "";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -17,4 +21,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Security: No configuration logging to prevent data exposure
+// Debug configuration (remove in production)
+if (typeof window !== 'undefined') {
+  console.log('Supabase Configuration:', {
+    url: SUPABASE_URL,
+    key: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...',
+    hasConfig: !!(window as any).APP_CONFIG
+  });
+}
