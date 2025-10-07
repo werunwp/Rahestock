@@ -101,9 +101,11 @@ export const useCustomers = () => {
 
   const createCustomer = useMutation({
     mutationFn: async (customerData: CreateCustomerData) => {
+      // Remove additional_info if column doesn't exist yet
+      const { additional_info, ...dataToInsert } = customerData;
       const { data, error } = await supabase
         .from("customers")
-        .insert([{ ...customerData, created_by: user?.id }])
+        .insert([{ ...dataToInsert, created_by: user?.id }])
         .select()
         .single();
 
@@ -121,9 +123,11 @@ export const useCustomers = () => {
 
   const updateCustomer = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCustomerData> }) => {
+      // Remove additional_info if column doesn't exist yet
+      const { additional_info, ...dataToUpdate } = data;
       const { data: updated, error } = await supabase
         .from("customers")
-        .update(data)
+        .update(dataToUpdate)
         .eq("id", id)
         .select()
         .single();
