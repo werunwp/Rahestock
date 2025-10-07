@@ -90,9 +90,13 @@ export const useCustomers = () => {
 
       if (error) throw error;
 
-      // Since triggers now handle the automatic updates, we just return the data
-      // The database will keep order_count, total_spent, and last_purchase_date in sync
-      return customersData as Customer[];
+      // Add default additional_info if column doesn't exist yet
+      const customersWithDefaultInfo = customersData?.map(customer => ({
+        ...customer,
+        additional_info: customer.additional_info || null
+      })) || [];
+
+      return customersWithDefaultInfo as Customer[];
     },
     enabled: !!user,
     refetchOnWindowFocus: true,
@@ -101,9 +105,11 @@ export const useCustomers = () => {
 
   const createCustomer = useMutation({
     mutationFn: async (customerData: CreateCustomerData) => {
+      // Remove additional_info if column doesn't exist yet
+      const { additional_info, ...dataToInsert } = customerData;
       const { data, error } = await supabase
         .from("customers")
-        .insert([{ ...customerData, created_by: user?.id }])
+        .insert([{ ...dataToInsert, created_by: user?.id }])
         .select()
         .single();
 
@@ -121,9 +127,11 @@ export const useCustomers = () => {
 
   const updateCustomer = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCustomerData> }) => {
+      // Remove additional_info if column doesn't exist yet
+      const { additional_info, ...dataToUpdate } = data;
       const { data: updated, error } = await supabase
         .from("customers")
-        .update(data)
+        .update(dataToUpdate)
         .eq("id", id)
         .select()
         .single();
