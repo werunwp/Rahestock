@@ -83,21 +83,14 @@ export const useCustomers = () => {
   } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      // Select only existing columns to avoid schema errors
       const { data: customersData, error } = await supabase
         .from("customers")
-        .select("id, name, phone, whatsapp, address, tags, order_count, delivered_count, cancelled_count, total_spent, status, last_purchase_date, created_at, updated_at, created_by")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Add default additional_info for all customers
-      const customersWithDefaultInfo = customersData?.map(customer => ({
-        ...customer,
-        additional_info: null // Default to null until column exists
-      })) || [];
-
-      return customersWithDefaultInfo as Customer[];
+      return customersData as Customer[];
     },
     enabled: !!user,
     refetchOnWindowFocus: true,
@@ -106,11 +99,9 @@ export const useCustomers = () => {
 
   const createCustomer = useMutation({
     mutationFn: async (customerData: CreateCustomerData) => {
-      // Remove additional_info if column doesn't exist yet
-      const { additional_info, ...dataToInsert } = customerData;
       const { data, error } = await supabase
         .from("customers")
-        .insert([{ ...dataToInsert, created_by: user?.id }])
+        .insert([{ ...customerData, created_by: user?.id }])
         .select()
         .single();
 
@@ -128,11 +119,9 @@ export const useCustomers = () => {
 
   const updateCustomer = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCustomerData> }) => {
-      // Remove additional_info if column doesn't exist yet
-      const { additional_info, ...dataToUpdate } = data;
       const { data: updated, error } = await supabase
         .from("customers")
-        .update(dataToUpdate)
+        .update(data)
         .eq("id", id)
         .select()
         .single();
