@@ -23,6 +23,7 @@ const Customers = () => {
   const { formatAmount } = useCurrency();
   const { hasPermission, isAdmin } = useUserRole();
   const [searchTerm, setSearchTerm] = useState("");
+  const [customerSizeFilter, setCustomerSizeFilter] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -48,15 +49,19 @@ const Customers = () => {
         (customer.phone && customer.phone.includes(searchTerm)) ||
         (customer.whatsapp && customer.whatsapp.includes(searchTerm));
 
+      // Customer size filter
+      const matchesSize = !customerSizeFilter || 
+        (customer.customer_size && customer.customer_size.toLowerCase().includes(customerSizeFilter.toLowerCase()));
+
       // Date filter
       const matchesDate = !startDate || !endDate || isWithinInterval(parseISO(customer.created_at), {
         start: startDate,
         end: endDate,
       });
 
-      return matchesSearch && matchesDate;
+      return matchesSearch && matchesSize && matchesDate;
     });
-  }, [customers, searchTerm, startDate, endDate]);
+  }, [customers, searchTerm, customerSizeFilter, startDate, endDate]);
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
@@ -124,7 +129,7 @@ const Customers = () => {
           }
         } else {
           // Handle XLSX/XLS files using ExcelJS
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const data = e.target?.result as ArrayBuffer;
           const workbook = new ExcelJS.Workbook();
           await workbook.xlsx.load(data);
           const worksheet = workbook.worksheets[0];
@@ -318,10 +323,11 @@ const Customers = () => {
     event.target.value = '';
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       const exportData = filteredCustomers.map(customer => ({
         Name: customer.name,
+        'Customer Size': customer.customer_size || '',
         Phone: customer.phone || '',
         WhatsApp: customer.whatsapp || '',
         Address: customer.address || '',
@@ -332,15 +338,41 @@ const Customers = () => {
         'Created At': new Date(customer.created_at).toLocaleDateString(),
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Customers');
+
+      // Add headers
+      const headers = Object.keys(exportData[0] || {});
+      worksheet.addRow(headers);
+
+      // Style headers
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+
+      // Add data
+      exportData.forEach(row => {
+        worksheet.addRow(Object.values(row));
+      });
+
       // Auto-size columns
-      const cols = Object.keys(exportData[0] || {}).map(() => ({ wch: 15 }));
-      worksheet['!cols'] = cols;
-      
-      XLSX.writeFile(workbook, `customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+      worksheet.columns.forEach(column => {
+        column.width = 15;
+      });
+
+      // Generate buffer and download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `customers_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
       toast.success("Customer data exported successfully");
     } catch (error) {
       toast.error("Failed to export customer data");
@@ -489,6 +521,13 @@ const Customers = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <div className="relative flex-1 max-w-sm">
+          <Input 
+            placeholder="Filter by customer size..." 
+            value={customerSizeFilter}
+            onChange={(e) => setCustomerSizeFilter(e.target.value)}
+          />
+        </div>
       </div>
 
       <Card>
@@ -532,9 +571,13 @@ const Customers = () => {
                     <TableRow key={customer.id}>
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {customer.customer_size || 'medium'}
-                        </Badge>
+                        {customer.customer_size ? (
+                          <Badge variant="secondary" className="capitalize">
+                            {customer.customer_size}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {customer.phone ? (

@@ -25,7 +25,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
     address: "",
     tags: [],
     status: "inactive",
-    customer_size: "medium",
+    customer_size: "",
   });
 
   const isEditing = !!customer;
@@ -42,7 +42,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: customer.address || "",
         tags: customer.tags || [],
         status: customer.status || "inactive",
-        customer_size: customer.customer_size || "medium",
+        customer_size: customer.customer_size || "",
       });
     } else {
       setFormData({
@@ -52,7 +52,7 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
         address: "",
         tags: [],
         status: "inactive",
-        customer_size: "medium",
+        customer_size: "",
       });
     }
   }, [customer]);
@@ -153,21 +153,15 @@ export const CustomerDialog = ({ open, onOpenChange, customer }: CustomerDialogP
 
           <div className="space-y-2">
             <Label htmlFor="customer_size">Customer Size</Label>
-            <Select value={formData.customer_size} onValueChange={(value) => handleChange("customer_size", value)} disabled={!canSave}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select customer size" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="large">Large</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
-                <SelectItem value="wholesale">Wholesale</SelectItem>
-                <SelectItem value="retail">Retail</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              id="customer_size"
+              value={formData.customer_size || ""}
+              onChange={(e) => handleChange("customer_size", e.target.value)}
+              placeholder="Enter customer size or type (e.g., Small, Wholesale, VIP, etc.)"
+              disabled={!canSave}
+            />
             <p className="text-xs text-muted-foreground">
-              Use this to categorize customers by size, type, or business model
+              Enter any custom size, type, or category for this customer
             </p>
           </div>
 
