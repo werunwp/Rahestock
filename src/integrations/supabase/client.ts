@@ -21,11 +21,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// Debug configuration (remove in production)
-if (typeof window !== 'undefined') {
-  console.log('Supabase Configuration:', {
-    url: SUPABASE_URL,
-    key: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...',
-    hasConfig: !!(window as any).APP_CONFIG
-  });
-}
+// Security: No configuration logging to prevent data exposure
