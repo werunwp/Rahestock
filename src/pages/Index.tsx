@@ -9,14 +9,20 @@ import { useProfile } from "@/hooks/useProfile";
 import { formatDistanceToNow } from "date-fns";
 import { getTimeBasedGreeting } from "@/lib/time";
 import { useCurrency } from "@/hooks/useCurrency";
+import { DismissibleAlert } from "@/components/DismissibleAlert";
 
 const Index = () => {
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   
   const { dashboardStats, isLoading } = useDashboard(startDate, endDate);
   const { profile } = useProfile();
   const { formatAmount } = useCurrency();
+
+  const handleDismissAlert = (alertId: string) => {
+    setDismissedAlerts(prev => [...prev, alertId]);
+  };
 
   const handleDateRangeChange = (start?: Date, end?: Date) => {
     setStartDate(start);
@@ -29,7 +35,6 @@ const Index = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <div className="text-muted-foreground">
             {getTimeBasedGreeting()}, {isLoading ? <Skeleton className="inline-block h-4 w-16" /> : (profile?.full_name || "User")}
           </div>
@@ -130,19 +135,19 @@ const Index = () => {
             ) : dashboardStats?.lowStockProducts.length === 0 ? (
               <p className="text-sm text-muted-foreground">No low stock alerts</p>
             ) : (
-              dashboardStats?.lowStockProducts.map((product) => (
-                <div key={product.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {product.sku ? `SKU: ${product.sku}` : "No SKU"}
-                    </p>
-                  </div>
-                  <Badge variant={product.stock_quantity <= 5 ? "destructive" : "secondary"}>
-                    {product.stock_quantity} left
-                  </Badge>
-                </div>
-              ))
+              dashboardStats?.lowStockProducts
+                .filter(product => !dismissedAlerts.includes(`low-stock-${product.id}`))
+                .map((product) => (
+                  <DismissibleAlert
+                    key={product.id}
+                    id={`low-stock-${product.id}`}
+                    title={product.name}
+                    message={`${product.sku ? `SKU: ${product.sku} - ` : ""}Only ${product.stock_quantity} items left in stock`}
+                    type={product.stock_quantity <= 5 ? "error" : "warning"}
+                    onDismiss={handleDismissAlert}
+                    variant="inline"
+                  />
+                ))
             )}
           </CardContent>
         </Card>
@@ -173,17 +178,19 @@ const Index = () => {
             ) : dashboardStats?.pendingPayments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No pending payments</p>
             ) : (
-              dashboardStats?.pendingPayments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{payment.customer_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {payment.invoice_number} - {formatDistanceToNow(new Date(payment.created_at))} ago
-                    </p>
-                  </div>
-                  <Badge variant="destructive">{formatAmount(payment.amount_due)}</Badge>
-                </div>
-              ))
+              dashboardStats?.pendingPayments
+                .filter(payment => !dismissedAlerts.includes(`pending-payment-${payment.id}`))
+                .map((payment) => (
+                  <DismissibleAlert
+                    key={payment.id}
+                    id={`pending-payment-${payment.id}`}
+                    title={payment.customer_name}
+                    message={`Invoice ${payment.invoice_number} - ${formatAmount(payment.amount_due)} due ${formatDistanceToNow(new Date(payment.created_at))} ago`}
+                    type="warning"
+                    onDismiss={handleDismissAlert}
+                    variant="inline"
+                  />
+                ))
             )}
           </CardContent>
         </Card>

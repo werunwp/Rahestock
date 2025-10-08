@@ -6,7 +6,9 @@
     "directory": "dist"
   },
   "environment": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VITE_SUPABASE_URL": "https://supabase.rahedeen.com/",
+    "VITE_SUPABASE_ANON_KEY": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTgyMDIyMCwiZXhwIjo0OTE1NDkzODIwLCJyb2xlIjoiYW5vbiJ9.NA1kuiwboziBS4FhWxqv1k7N4G1D9HmFRNViuz5g78I"
   },
   "healthcheck": {
     "path": "/",

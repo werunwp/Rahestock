@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWebhookSettings } from "@/hooks/useWebhookSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { Truck, Package, User, MapPin } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 interface CourierOrderDialogProps {
   open: boolean;

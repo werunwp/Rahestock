@@ -3,9 +3,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Truck, MapPin, Calendar, MessageSquare, Phone, User, ExternalLink } from 'lucide-react';
+import { RefreshCw, Truck, MapPin, Calendar, MessageSquare, Phone, User, ExternalLink, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ManualCourierStatusSelector } from '@/components/ManualCourierStatusSelector';
 
 interface CourierStatusDetailsProps {
   sale: {
@@ -30,6 +31,7 @@ interface CourierStatusDetailsProps {
 
 export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = false }: CourierStatusDetailsProps) {
   const [isRefreshingIndividual, setIsRefreshingIndividual] = useState(false);
+  const [showManualSelector, setShowManualSelector] = useState(false);
 
   const handleRefresh = async () => {
     if (!sale.consignment_id) return;
@@ -40,6 +42,14 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
     } finally {
       setIsRefreshingIndividual(false);
     }
+  };
+
+  const handleManualStatusUpdate = (newStatus: string) => {
+    // The ManualCourierStatusSelector handles the database update
+    // We just need to close the selector and potentially refresh the parent
+    setShowManualSelector(false);
+    // Trigger a page refresh to update the UI
+    window.dispatchEvent(new CustomEvent('salesDataUpdated'));
   };
 
   const getStatusColor = (status?: string) => {
@@ -104,16 +114,27 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
         <CardTitle className="flex items-center gap-2">
           <Truck className="h-5 w-5" />
           Courier Status
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing || isRefreshingIndividual}
-            className="h-6 w-6 p-0 ml-auto"
-            title="Refresh status"
-          >
-            <RefreshCw className={cn("h-3 w-3", (isRefreshing || isRefreshingIndividual) && "animate-spin")} />
-          </Button>
+          <div className="flex items-center gap-1 ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowManualSelector(!showManualSelector)}
+              className="h-6 w-6 p-0"
+              title="Manual status update"
+            >
+              <Settings className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isRefreshingIndividual}
+              className="h-6 w-6 p-0"
+              title="Refresh status"
+            >
+              <RefreshCw className={cn("h-3 w-3", (isRefreshing || isRefreshingIndividual) && "animate-spin")} />
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -132,6 +153,26 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
              sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
           </Badge>
         </div>
+
+        {/* Manual Status Selector */}
+        {showManualSelector && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Manual Status Update</span>
+              </div>
+              <ManualCourierStatusSelector
+                saleId={sale.id}
+                currentStatus={sale.courier_status}
+                onStatusUpdate={handleManualStatusUpdate}
+                variant="dropdown"
+                size="sm"
+              />
+            </div>
+          </>
+        )}
 
         <Separator />
 

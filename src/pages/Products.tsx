@@ -8,7 +8,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useState, useMemo, useRef } from "react";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { ProductDialog } from "@/components/ProductDialog";
 import { ProductCard } from "@/components/ProductCard";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -38,7 +38,10 @@ const Products = () => {
 
   const totalStockValue = useMemo(() => {
     return products.reduce((total, product) => {
-      return total + (product.stock_quantity * (product.cost || product.rate));
+      // Use cost price for stock value calculation, fallback to rate if cost is not set
+      const unitCost = product.cost || product.rate || 0;
+      const stockQuantity = product.stock_quantity || 0;
+      return total + (stockQuantity * unitCost);
     }, 0);
   }, [products]);
 
@@ -97,7 +100,7 @@ const Products = () => {
           }
         } else {
           // Handle XLSX/XLS files using ExcelJS
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const data = e.target?.result as ArrayBuffer;
           const workbook = new ExcelJS.Workbook();
           await workbook.xlsx.load(data);
           const worksheet = workbook.worksheets[0];
@@ -379,7 +382,6 @@ const Products = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">
             Manage your product inventory and stock levels
           </p>
@@ -389,7 +391,8 @@ const Products = () => {
             </span>
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        {/* Desktop: Action buttons in header */}
+        <div className="hidden sm:flex flex-col gap-2 md:flex-row">
           <Button 
             variant="outline" 
             onClick={handleImport}
@@ -414,7 +417,57 @@ const Products = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+      {/* Mobile: Action buttons in one row */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleImport}
+            className="flex-1"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleExport}
+            disabled={!products.length}
+            className="flex-1"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button className="flex-1" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile: Search and filter in one row */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input 
+              placeholder="Search products..." 
+              className="pl-9" 
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <Button variant="outline" className="flex-shrink-0">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop: Search and filter in one row */}
+      <div className="hidden sm:flex flex-col gap-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
@@ -433,11 +486,11 @@ const Products = () => {
         </Button>
       </div>
 
-      <div className="grid gap-2 grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
         {isLoading ? (
           [...Array(10)].map((_, i) => (
             <Card key={i} className="overflow-hidden">
-              <div className="aspect-square w-full bg-muted animate-pulse" />
+              <div className="aspect-[4/3] w-full bg-muted animate-pulse" />
               <CardContent className="p-4">
                 <div className="space-y-2">
                   <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />

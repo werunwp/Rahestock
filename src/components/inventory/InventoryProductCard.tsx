@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, Archive } from "lucide-react";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { ProductIcon } from "@/components/ProductIcon";
 
 interface ProductVariant {
   id: string;
@@ -25,6 +26,7 @@ interface InventoryProductCardProps {
     stock_quantity: number | null;
     low_stock_threshold: number | null;
     image_url: string | null;
+    rate?: number | null;
     variants: ProductVariant[];
   };
   onImageClick: (imageUrl: string) => void;
@@ -47,37 +49,50 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
     const stockInfo = getStockStatus(product.stock_quantity || 0, product.low_stock_threshold);
     
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <div className="flex items-start gap-4">
+      <Card className="hover:shadow-lg transition-all duration-200 overflow-hidden">
+        <div className="relative">
+          <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
             {product.image_url ? (
               <img 
                 src={product.image_url} 
                 alt={product.name}
-                className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+                className="h-full w-full object-cover transition-transform duration-200 hover:scale-105 cursor-pointer"
                 onClick={() => onImageClick(product.image_url!)}
                 loading="lazy"
               />
             ) : (
-              <div className="w-16 h-16 bg-muted flex items-center justify-center rounded">
-                <Archive className="h-8 w-8 text-muted-foreground" />
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                <ProductIcon className="w-16 h-16 text-muted-foreground/50" />
               </div>
             )}
-            <div className="flex-1">
-              <CardTitle className="text-lg">{product.name}</CardTitle>
-              {product.sku && (
-                <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2">
+          </div>
+          <div className="absolute top-2 right-2 flex gap-2">
+            <Badge 
+              variant={stockInfo.variant}
+              className="shadow-md"
+            >
+              {stockInfo.status}
+            </Badge>
+          </div>
+        </div>
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-semibold text-lg leading-tight capitalize">{product.name}</h3>
+              {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xl font-bold text-primary">{formatAmount(product.rate || 0)}</span>
                 <span className="text-sm font-medium">Stock: {product.stock_quantity}</span>
-                <Badge variant={stockInfo.variant}>{stockInfo.status}</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Stock Value: <span className="font-medium text-foreground">{formatAmount((product.stock_quantity || 0) * (product.rate || 0))}</span>
               </div>
             </div>
-            <Button variant="ghost" size="sm">
-              <Eye className="h-4 w-4" />
-            </Button>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
     );
   }
@@ -91,70 +106,72 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
       product.variants.flatMap(variant => Object.keys(variant.attributes))
     )
   );
+
+  const getVariantLabel = (attributes: Record<string, string>) => {
+    // Get the first attribute value (usually Size, Color, etc.)
+    const values = Object.values(attributes);
+    return values.length > 0 ? values[0] : 'Variant';
+  };
   
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-start gap-4">
+    <Card className="hover:shadow-lg transition-all duration-200 overflow-hidden">
+      <div className="relative">
+        <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
           {product.image_url ? (
             <img 
               src={product.image_url} 
               alt={product.name}
-              className="w-16 h-16 object-cover rounded cursor-pointer hover:scale-105 transition-transform duration-200"
+              className="h-full w-full object-cover transition-transform duration-200 hover:scale-105 cursor-pointer"
               onClick={() => onImageClick(product.image_url!)}
               loading="lazy"
             />
           ) : (
-            <div className="w-16 h-16 bg-muted flex items-center justify-center rounded">
-              <Archive className="h-8 w-8 text-muted-foreground" />
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+              <Archive className="w-16 h-16 text-muted-foreground/50" />
             </div>
           )}
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">{product.name}</CardTitle>
-              <Badge variant="outline" className="text-xs">Variable Product</Badge>
-            </div>
-            {product.sku && (
-              <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
+        </div>
+        <div className="absolute top-2 right-2 flex gap-2">
+          <Badge variant="secondary" className="shadow-md">
+            Variable Product
+          </Badge>
+        </div>
+      </div>
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-semibold text-lg leading-tight capitalize">{product.name}</h3>
+            {product.sku && <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>}
+            
+            {/* Show variations in the format from the products page */}
+            {product.variants.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                  <span>Select {Object.keys(product.variants[0]?.attributes || {})[0] || 'Variant'}:</span>
+                  <span>Stock</span>
+                </div>
+                <div className="space-y-1">
+                  {product.variants.map((variant) => (
+                    <div key={variant.id} className="flex justify-between items-center text-sm py-1 px-2 bg-muted/50 rounded">
+                      <span>{getVariantLabel(variant.attributes)}</span>
+                      <span className={variant.stock_quantity < 0 ? "text-destructive" : ""}>{variant.stock_quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-            <div className="flex items-center gap-2 mt-2">
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xl font-bold text-primary">{formatAmount(product.rate || 0)}</span>
               <span className="text-sm font-medium">Total Stock: {totalStock}</span>
-              <span className="text-sm text-muted-foreground">{product.variants.length} variants</span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Stock Value: <span className="font-medium text-foreground">{formatAmount(totalStock * (product.rate || 0))}</span>
             </div>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {attributeKeys.map(key => (
-                <TableHead key={key}>{key}</TableHead>
-              ))}
-              <TableHead>Stock</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {product.variants.map((variant) => {
-              const stockInfo = getStockStatus(variant.stock_quantity, variant.low_stock_threshold);
-              
-              return (
-                <TableRow key={variant.id}>
-                  {attributeKeys.map(key => (
-                    <TableCell key={key}>
-                      <Badge variant="outline" className="text-xs">
-                        {variant.attributes[key] || '-'}
-                      </Badge>
-                    </TableCell>
-                  ))}
-                  <TableCell>
-                    <span className="font-medium">{variant.stock_quantity}</span>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
       </CardContent>
     </Card>
   );

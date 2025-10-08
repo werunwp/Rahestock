@@ -12,8 +12,9 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useProductVariants } from "@/hooks/useProductVariants";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import Fuse from "fuse.js";
+import { ProductIcon } from "@/components/ProductIcon";
 
 export interface SaleItem {
   id?: string;
@@ -377,10 +378,16 @@ export const BaseSaleDialog = ({
       }
     }
 
-    setSelectedProductId("");
-    setSelectedVariantId(null);
-    setProductSearchTerm("");
-    setProductComboOpen(false);
+    // For variable products, only reset variant selection, keep product selected
+    if (product.has_variants) {
+      setSelectedVariantId(null);
+    } else {
+      // For non-variable products, reset everything as before
+      setSelectedProductId("");
+      setSelectedVariantId(null);
+      setProductSearchTerm("");
+      setProductComboOpen(false);
+    }
   };
 
   const updateQuantity = (index: number, newQuantity: number) => {
@@ -611,17 +618,31 @@ export const BaseSaleDialog = ({
                             (item.productId || item.product_id) === product.id
                           );
                           
+                          // Check if product is already in cart (for non-variable products)
+                          const isInCart = !product.has_variants && formData.items.some(item => 
+                            (item.productId || item.product_id) === product.id
+                          );
+                          
                           return (
                             <div
                               key={product.id}
-                              className={`p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 flex items-center gap-3 ${
-                                isSelected ? 'bg-gray-100 dark:bg-gray-800' : ''
+                              className={`p-3 border-b last:border-b-0 flex items-center gap-3 ${
+                                isInCart 
+                                  ? 'bg-gray-100 dark:bg-gray-800 opacity-50 cursor-not-allowed' 
+                                  : isSelected 
+                                    ? 'bg-gray-100 dark:bg-gray-800' 
+                                    : 'hover:bg-accent cursor-pointer'
                               }`}
                               onClick={() => {
+                                if (isInCart) return; // Prevent selection if already in cart
+                                
+                                // Only reset variant selection if switching to a different product
+                                if (selectedProductId !== product.id) {
+                                  setSelectedVariantId(null);
+                                }
                                 setSelectedProductId(product.id);
                                 setProductSearchTerm(product.name);
                                 setProductComboOpen(false);
-                                setSelectedVariantId(null);
                               }}
                             >
                             <div className="w-10 h-10 rounded-md overflow-hidden bg-muted flex-shrink-0">
@@ -632,13 +653,20 @@ export const BaseSaleDialog = ({
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-muted flex items-center justify-center">
-                                  <span className="text-xs text-muted-foreground">No image</span>
+                                <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+                                  <ProductIcon className="w-6 h-6" />
                                 </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{product.name}</div>
+                              <div className="font-medium truncate flex items-center gap-2">
+                                {product.name}
+                                {isInCart && (
+                                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                    Added
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-sm text-muted-foreground">
                                 {currencySymbol}{product.rate}
                               </div>
@@ -665,11 +693,28 @@ export const BaseSaleDialog = ({
                     <SelectContent>
                       {currentVariants.map(v => {
                         const label = Object.entries(v.attributes || {}).map(([k, val]) => `${val}`).join(" / ");
-                        const disabled = (v.stock_quantity || 0) <= 0;
+                        const isOutOfStock = (v.stock_quantity || 0) <= 0;
+                        const isInCart = formData.items.some(item => 
+                          (item.productId || item.product_id) === selectedProductId && 
+                          (item.variantId || item.variant_id) === v.id
+                        );
+                        const disabled = isOutOfStock || isInCart;
+                        
                         return (
                           <SelectItem key={v.id} value={v.id} disabled={disabled}>
-                            {label} - {currencySymbol}{v.rate || selectedProduct.rate} 
-                            {disabled ? " (Out of stock)" : ` (${v.stock_quantity} in stock)`}
+                            <div className="flex items-center justify-between w-full">
+                              <span>
+                                {label} - {currencySymbol}{v.rate || selectedProduct.rate}
+                                {isInCart && (
+                                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
+                                    Added
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {isOutOfStock ? "Out of stock" : `${v.stock_quantity} in stock`}
+                              </span>
+                            </div>
                           </SelectItem>
                         );
                       })}
@@ -713,8 +758,8 @@ export const BaseSaleDialog = ({
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
-                                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                                      <span className="text-xs text-muted-foreground">No image</span>
+                                    <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
+                                      <ProductIcon className="w-6 h-6" />
                                     </div>
                                   )}
                                 </div>

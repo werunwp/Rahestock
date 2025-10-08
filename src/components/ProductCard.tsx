@@ -1,10 +1,11 @@
 import { Edit, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useProductVariants } from "@/hooks/useProductVariants";
 import { Product } from "@/hooks/useProducts";
+import { ProductIcon } from "@/components/ProductIcon";
 
 interface ProductCardProps {
   product: Product;
@@ -58,7 +59,7 @@ export const ProductCard = ({
   return (
     <Card className="hover:shadow-lg transition-all duration-200 overflow-hidden">
       <div className="relative">
-        <div className="aspect-square w-full overflow-hidden bg-muted">
+        <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
           {product.image_url ? (
             <img 
               src={product.image_url} 
@@ -70,9 +71,7 @@ export const ProductCard = ({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-              <span className="text-4xl font-bold text-muted-foreground/50">
-                {product.name.charAt(0).toUpperCase()}
-              </span>
+              <ProductIcon className="w-16 h-16 text-muted-foreground/50" />
             </div>
           )}
         </div>

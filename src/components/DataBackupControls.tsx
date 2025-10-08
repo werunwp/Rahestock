@@ -8,7 +8,7 @@ import { Download, Upload, Database, AlertTriangle } from "lucide-react";
 import { useDataBackup } from "@/hooks/useDataBackup";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 const AVAILABLE_TABLES = [
   { id: 'system_settings', name: 'System Settings', critical: true },

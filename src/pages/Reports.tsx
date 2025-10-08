@@ -14,7 +14,7 @@ import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, eachDayOfInterval, eachMonthOfInterval, startOfDay, endOfDay, subDays, subMonths } from "date-fns";
 import * as ExcelJS from "exceljs";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 const Reports = () => {
@@ -300,7 +300,6 @@ const Reports = () => {
     <div className="space-y-6 w-full max-w-none overflow-x-hidden">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
           <p className="text-muted-foreground">
             Comprehensive business insights and performance metrics
           </p>

@@ -79,6 +79,7 @@ export function AppSidebar() {
               />
             </div>
           )}
+          
           <SidebarGroupLabel className="text-sm font-medium">
             {!isCollapsed && "Main Navigation"}
           </SidebarGroupLabel>

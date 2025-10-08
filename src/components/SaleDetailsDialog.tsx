@@ -9,10 +9,11 @@ import { useSales } from "@/hooks/useSales";
 import { useCurrency } from "@/hooks/useCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CourierStatusDetails } from "./CourierStatusDetails";
+import { ProductIcon } from "@/components/ProductIcon";
 
 // Function to restore inventory when an order is cancelled
 const restoreInventoryForCancelledOrder = async (saleId: string) => {
@@ -474,8 +475,8 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-xs text-gray-500">No Image</span>
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
+                              <ProductIcon className="w-8 h-8" />
                             </div>
                           )}
                         </div>

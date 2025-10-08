@@ -16,6 +16,8 @@ import { CustomCodeSettings } from "@/components/CustomCodeSettings";
 import { DataBackupControls } from "@/components/DataBackupControls";
 import { WooCommerceImport } from "@/components/WooCommerceImport";
 import { AppResetControls } from "@/components/AppResetControls";
+import { ensureStorageBucket, testStorageUpload, createStorageBucket } from "@/utils/storageSetup";
+import { supabase } from "@/integrations/supabase/client";
 
 export function SystemSettings() {
   const { systemSettings, updateSystemSettings, isUpdating: isSystemUpdating } = useSystemSettings();
@@ -30,6 +32,7 @@ export function SystemSettings() {
   // State for managing collapsed sections
   const [collapsedSections, setCollapsedSections] = useState({
     systemSettings: false,
+    storageManagement: true,
     courierWebhook: true,
     customCode: true,
     dataBackup: true,
@@ -288,6 +291,16 @@ export function SystemSettings() {
           </Button>
         </div>
       </CollapsibleCard>
+
+      {/* Storage Management */}
+      <CollapsibleCard
+        title="Storage Management"
+        description="Manage file storage and image upload settings"
+        icon={Database}
+        sectionKey="storageManagement"
+      >
+        <StorageManagementSection />
+      </CollapsibleCard>
       
       {/* Courier Webhook Settings */}
       <CollapsibleCard
@@ -338,6 +351,116 @@ export function SystemSettings() {
       >
         <AppResetControls />
       </CollapsibleCard>
+    </div>
+  );
+}
+
+// Storage Management Section Component
+function StorageManagementSection() {
+  const [isChecking, setIsChecking] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [bucketStatus, setBucketStatus] = useState<'unknown' | 'exists' | 'missing'>('unknown');
+  const [testResult, setTestResult] = useState<string>('');
+
+  const checkStorageBucket = async () => {
+    setIsChecking(true);
+    try {
+      const exists = await ensureStorageBucket();
+      setBucketStatus(exists ? 'exists' : 'missing');
+      setTestResult(exists ? 'Storage bucket is available and accessible.' : 'Storage bucket is missing or not accessible.');
+    } catch (error) {
+      console.error('Error checking storage bucket:', error);
+      setBucketStatus('missing');
+      setTestResult('Error checking storage bucket: ' + (error as Error).message);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const testStorageConnection = async () => {
+    setIsTesting(true);
+    try {
+      const success = await testStorageUpload();
+      setTestResult(success ? 'Storage upload test successful!' : 'Storage upload test failed.');
+    } catch (error) {
+      console.error('Error testing storage:', error);
+      setTestResult('Storage test error: ' + (error as Error).message);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleCreateStorageBucket = async () => {
+    try {
+      const success = await createStorageBucket();
+      if (success) {
+        setBucketStatus('exists');
+        setTestResult('Storage bucket created successfully!');
+      } else {
+        setBucketStatus('missing');
+        setTestResult('Failed to create storage bucket. Please try again or contact support.');
+      }
+    } catch (error) {
+      console.error('Error creating storage bucket:', error);
+      setBucketStatus('missing');
+      setTestResult('Failed to create storage bucket: ' + (error as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Storage Bucket Status</Label>
+          <div className="flex items-center gap-2">
+            <Badge variant={bucketStatus === 'exists' ? 'default' : bucketStatus === 'missing' ? 'destructive' : 'secondary'}>
+              {bucketStatus === 'exists' ? 'Available' : bucketStatus === 'missing' ? 'Missing' : 'Unknown'}
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={checkStorageBucket}
+              disabled={isChecking}
+            >
+              {isChecking ? 'Checking...' : 'Check Status'}
+            </Button>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Actions</Label>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCreateStorageBucket}
+              disabled={bucketStatus === 'exists'}
+            >
+              Create Bucket
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={testStorageConnection}
+              disabled={isTesting || bucketStatus === 'missing'}
+            >
+              {isTesting ? 'Testing...' : 'Test Upload'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {testResult && (
+        <div className="p-3 rounded-lg border bg-muted/50">
+          <p className="text-sm">{testResult}</p>
+        </div>
+      )}
+
+      <div className="text-sm text-muted-foreground">
+        <p><strong>Storage Bucket:</strong> product-images</p>
+        <p><strong>Purpose:</strong> Store product images and other media files</p>
+        <p><strong>Access:</strong> Public read, authenticated write</p>
+      </div>
     </div>
   );
 }

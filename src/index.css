@@ -124,7 +124,7 @@ All colors MUST be HSL.
   }
   
   .compact-view .p-6 {
-    padding: 1rem !important;
+    padding: 5px 10px !important;
   }
   
   .compact-view .py-4 {

@@ -7,7 +7,7 @@ import { AlertCircle, UserPlus, Shield, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useFirstTimeSetup } from "@/hooks/useFirstTimeSetup";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 interface SetupFormData {
   fullName: string;

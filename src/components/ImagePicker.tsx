@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageUpload } from './ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from "@/utils/toast";
+import { ensureStorageBucket } from '@/utils/storageSetup';
 import { 
   Image, 
   Upload, 
@@ -124,6 +125,13 @@ export const ImagePicker = ({
 
     setIsUploading(true);
     try {
+      // First, ensure the storage bucket exists
+      const bucketExists = await ensureStorageBucket();
+      if (!bucketExists) {
+        toast.error('Storage bucket not available. Please contact administrator.');
+        return;
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
@@ -131,7 +139,19 @@ export const ImagePicker = ({
         .from('product-images')
         .upload(fileName, file);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Storage upload error:', error);
+        
+        // Provide more specific error messages
+        if (error.message.includes('Bucket not found')) {
+          toast.error('Storage bucket not found. Please contact administrator to set up image storage.');
+        } else if (error.message.includes('permission')) {
+          toast.error('Permission denied. Please check your account permissions.');
+        } else {
+          toast.error(`Upload failed: ${error.message}`);
+        }
+        return;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('product-images')

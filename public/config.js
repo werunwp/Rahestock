@@ -2,8 +2,8 @@
 // Update these values with your actual Supabase credentials
 
 window.APP_CONFIG = {
-  SUPABASE_URL: "YOUR_SUPABASE_URL_HERE", // Replace with your Supabase URL
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY_HERE", // Replace with your actual key
+  SUPABASE_URL: "https://supabase.rahedeen.com/", // Updated Supabase URL
+  SUPABASE_ANON_KEY: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NTc3OTgyMCwiZXhwIjo0OTExNDUzNDIwLCJyb2xlIjoiYW5vbiJ9.5CgjASpcB28n4UP1nrKmAP6_ODBJwpjgKy7_yhQZBxc", // Updated anon key
   APP_ENV: "production"
 };
 

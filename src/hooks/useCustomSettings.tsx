@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 export interface CustomSetting {
   id: string;
@@ -25,19 +25,37 @@ export const useCustomSettings = () => {
     queryKey: ["customSettings"],
     queryFn: async () => {
       console.log('Fetching custom settings...');
-      const { data, error } = await supabase
-        .from("custom_settings")
-        .select("*")
-        .order('setting_type');
+      try {
+        const { data, error } = await supabase
+          .from("custom_settings")
+          .select("*")
+          .order('setting_type');
 
-      if (error) {
-        console.error('Error fetching custom settings:', error);
-        throw error;
+        if (error) {
+          console.error('Error fetching custom settings:', error);
+          throw error;
+        }
+        
+        console.log('Custom settings fetched:', data);
+        return data as CustomSetting[];
+      } catch (err) {
+        console.error('Network error fetching custom settings:', err);
+        // Try to get from localStorage as fallback
+        try {
+          const stored = localStorage.getItem('custom_settings_fallback');
+          if (stored) {
+            console.log('Using fallback custom settings from localStorage');
+            return JSON.parse(stored);
+          }
+        } catch (localErr) {
+          console.error('Error reading from localStorage:', localErr);
+        }
+        // Return empty array as final fallback
+        return [];
       }
-      
-      console.log('Custom settings fetched:', data);
-      return data as CustomSetting[];
     },
+    retry: 3,
+    retryDelay: 1000,
     enabled: !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,

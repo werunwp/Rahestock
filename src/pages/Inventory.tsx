@@ -328,7 +328,6 @@ const Inventory = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
           <p className="text-muted-foreground">
             Track stock movements and manage inventory levels
           </p>
@@ -342,72 +341,82 @@ const Inventory = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 grid-cols-3 md:grid-cols-5">
         {isLoading ? (
           [...Array(5)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-3 w-32" />
-              </CardContent>
-            </Card>
-          ))
+            <Card 
+              key={i}
+              className="md:col-span-1"
+            >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-3 w-32" />
+                </CardContent>
+              </Card>
+            ))
         ) : (
           <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                <Archive className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalProducts}</div>
-                <p className="text-xs text-muted-foreground">Combined stock quantity</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-                <Archive className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{activeProducts.length}</div>
-                <p className="text-xs text-muted-foreground">Parent products only</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-                <TrendingDown className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-destructive">{lowStockProducts}</div>
-                <p className="text-xs text-muted-foreground">Needs restocking</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
-                <TrendingDown className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-destructive">{outOfStockProducts}</div>
-                <p className="text-xs text-muted-foreground">Urgent restocking</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatAmount(totalValue)}</div>
-                <p className="text-xs text-muted-foreground">Current inventory value</p>
-              </CardContent>
-            </Card>
+            {[
+              {
+                title: "Total Products",
+                value: totalProducts,
+                description: "Combined stock quantity",
+                icon: Archive,
+                color: "text-muted-foreground"
+              },
+              {
+                title: "Total Items",
+                value: activeProducts.length,
+                description: "Parent products only",
+                icon: Archive,
+                color: "text-muted-foreground"
+              },
+              {
+                title: "Low Stock Items",
+                value: lowStockProducts,
+                description: "Needs restocking",
+                icon: TrendingDown,
+                color: "text-destructive"
+              },
+              {
+                title: "Out of Stock",
+                value: outOfStockProducts,
+                description: "Urgent restocking",
+                icon: TrendingDown,
+                color: "text-destructive"
+              },
+              {
+                title: "Total Value",
+                value: formatAmount(totalValue),
+                description: "Current inventory value",
+                icon: TrendingUp,
+                color: "text-muted-foreground"
+              }
+            ].map((card, index) => {
+              const IconComponent = card.icon;
+              
+              return (
+                <Card 
+                  key={index}
+                  className="md:col-span-1"
+                >
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                    <IconComponent className={`h-4 w-4 ${card.color}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-2xl font-bold ${card.color === 'text-destructive' ? 'text-destructive' : ''}`}>
+                      {card.value}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{card.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </>
         )}
       </div>
@@ -449,7 +458,7 @@ const Inventory = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             {paginatedParentProducts.map((product) => (
               <InventoryProductCard
                 key={product.id}

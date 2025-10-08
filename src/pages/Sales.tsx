@@ -19,8 +19,9 @@ import { useStatusAutoRefresh } from "@/hooks/useStatusAutoRefresh";
 import { useWebhookSettings } from "@/hooks/useWebhookSettings";
 import { useCourierStatusRealtime } from "@/hooks/useCourierStatusRealtime";
 import { useUserRole } from "@/hooks/useUserRole";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { cn } from "@/lib/utils";
+import { ManualCourierStatusSelector } from "@/components/ManualCourierStatusSelector";
 
 // Function to restore inventory when an order is cancelled
 const restoreInventoryForCancelledOrder = async (saleId: string) => {
@@ -190,6 +191,11 @@ export default function Sales() {
   }, [refetch]);
 
   const { webhookSettings } = useWebhookSettings();
+
+  const handleManualStatusUpdate = (saleId: string, newStatus: string) => {
+    // Trigger a page refresh to update the UI
+    refetch();
+  };
 
   const handleStatusRefresh = async (saleId: string, consignmentId: string, showToast = true) => {
     setRefreshingIndividual(saleId);
@@ -456,7 +462,6 @@ export default function Sales() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales</h1>
           <p className="text-muted-foreground">
             Track your sales transactions and invoices
           </p>
@@ -581,29 +586,33 @@ export default function Sales() {
                       <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                       <TableCell>{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
-                        <div className="space-y-1">
-                          <Badge variant={
-                            sale.courier_status === 'delivered' ? 'default' : 
-                            sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
-                            sale.courier_status === 'not_sent' ? 'outline' :
-                            sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
-                            'secondary'
-                          }>
-                            {sale.courier_status === 'not_sent' ? 'Not Sent' : 
-                             sale.courier_status === 'in_transit' ? 'In Transit' :
-                             sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                             sale.courier_status === 'returned' ? 'Returned' :
-                             sale.courier_status === 'lost' ? 'Lost' :
-                             sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                          </Badge>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={
+                              sale.courier_status === 'delivered' ? 'default' : 
+                              sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
+                              sale.courier_status === 'not_sent' ? 'outline' :
+                              sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
+                              'secondary'
+                            }>
+                              {sale.courier_status === 'not_sent' ? 'Not Sent' : 
+                               sale.courier_status === 'in_transit' ? 'In Transit' :
+                               sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
+                               sale.courier_status === 'returned' ? 'Returned' :
+                               sale.courier_status === 'lost' ? 'Lost' :
+                               sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                            </Badge>
+                          </div>
+                          <ManualCourierStatusSelector
+                            saleId={sale.id}
+                            currentStatus={sale.courier_status}
+                            onStatusUpdate={(newStatus) => handleManualStatusUpdate(sale.id, newStatus)}
+                            variant="inline"
+                            size="sm"
+                          />
                           {sale.last_status_check && (
                             <div className="text-xs text-muted-foreground">
                               Last updated: {format(new Date(sale.last_status_check), "MMM dd, HH:mm")}
-                            </div>
-                          )}
-                          {sale.estimated_delivery && sale.courier_status !== 'delivered' && (
-                            <div className="text-xs text-muted-foreground">
-                              ETA: {format(new Date(sale.estimated_delivery), "MMM dd")}
                             </div>
                           )}
                         </div>

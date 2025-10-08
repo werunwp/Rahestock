@@ -5,10 +5,42 @@ import type { Database } from './types';
 // Use environment variables or config file for Supabase configuration
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 
   (typeof window !== 'undefined' && (window as any).APP_CONFIG?.SUPABASE_URL) || 
-  "YOUR_SUPABASE_URL_HERE";
+  "https://supabase.rahedeen.com/";
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 
   (typeof window !== 'undefined' && (window as any).APP_CONFIG?.SUPABASE_ANON_KEY) || 
-  "";
+  "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NTc3OTgyMCwiZXhwIjo0OTExNDUzNDIwLCJyb2xlIjoiYW5vbiJ9.5CgjASpcB28n4UP1nrKmAP6_ODBJwpjgKy7_yhQZBxc";
+
+// Check if we're in development and add fallback
+const isDevelopment = import.meta.env.DEV;
+if (isDevelopment) {
+  console.warn('⚠️ Development mode: Using Supabase instance at:', SUPABASE_URL);
+  console.warn('⚠️ If you see connection errors, the Supabase instance may not be properly configured.');
+}
+
+// Debug logging to help identify connection issues
+console.log('Supabase Configuration:', {
+  url: SUPABASE_URL,
+  key: SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + '...',
+  envUrl: import.meta.env.VITE_SUPABASE_URL,
+  configUrl: typeof window !== 'undefined' ? (window as any).APP_CONFIG?.SUPABASE_URL : 'N/A'
+});
+
+// Test the URL directly with error handling
+console.log('Testing Supabase URL:', SUPABASE_URL);
+fetch(SUPABASE_URL + 'rest/v1/', {
+  headers: {
+    'apikey': SUPABASE_PUBLISHABLE_KEY
+  }
+}).then(response => {
+  console.log('Direct fetch test result:', response.status, response.statusText);
+  if (!response.ok) {
+    console.error('Supabase API not accessible:', response.status, response.statusText);
+  }
+}).catch(error => {
+  console.error('Direct fetch test error:', error);
+  console.error('This indicates the Supabase server is not accessible or not properly configured.');
+});
+
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +50,29 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
   }
 });
+
+// Test connection function for debugging
+export const testSupabaseConnection = async () => {
+  try {
+    console.log('Testing Supabase connection...');
+    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return false;
+    }
+    console.log('Supabase connection test successful:', data);
+    return true;
+  } catch (err) {
+    console.error('Supabase connection test error:', err);
+    return false;
+  }
+};
 
 // Security: No configuration logging to prevent data exposure

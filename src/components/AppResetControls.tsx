@@ -19,7 +19,7 @@ import { useDataBackup } from "@/hooks/useDataBackup";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { useMutation } from "@tanstack/react-query";
 
 export const AppResetControls = () => {

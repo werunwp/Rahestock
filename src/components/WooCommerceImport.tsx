@@ -12,7 +12,7 @@ import { WooCommerceLiveSync } from "@/components/WooCommerceLiveSync";
 import { useStopImport } from "@/hooks/useStopImport";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,

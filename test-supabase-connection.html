@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Connection Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="result"></div>
+    <button onclick="testConnection()">Test Connection</button>
+    
+    <script>
+        // Test with your current Supabase instance
+        const SUPABASE_URL = "https://supabase.rahedeen.com/";
+        const SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTgyMDIyMCwiZXhwIjo0OTE1NDkzODIwLCJyb2xlIjoiYW5vbiJ9.NA1kuiwboziBS4FhWxqv1k7N4G1D9HmFRNViuz5g78I";
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                console.log('Testing Supabase connection to:', SUPABASE_URL);
+                
+                // Test 1: Direct fetch
+                const response = await fetch(SUPABASE_URL + 'rest/v1/', {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY
+                    }
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML += '<p style="color: green;">✅ Direct fetch successful!</p>';
+                } else {
+                    resultDiv.innerHTML += `<p style="color: orange;">⚠️ Direct fetch failed: ${response.status} ${response.statusText}</p>`;
+                }
+                
+                // Test 2: Supabase client
+                const { data, error } = await supabase.from('profiles').select('count').limit(1);
+                
+                if (error) {
+                    resultDiv.innerHTML += `<p style="color: red;">❌ Supabase client error: ${error.message}</p>`;
+                } else {
+                    resultDiv.innerHTML += '<p style="color: green;">✅ Supabase client successful!</p>';
+                }
+                
+            } catch (err) {
+                resultDiv.innerHTML += `<p style="color: red;">❌ Connection error: ${err.message}</p>`;
+                console.error('Connection error:', err);
+            }
+        }
+        
+        // Auto-test on page load
+        testConnection();
+    </script>
+</body>
+</html>
+

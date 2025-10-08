@@ -15,7 +15,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { isWithinInterval, parseISO } from "date-fns";
 import * as ExcelJS from "exceljs";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const Customers = () => {
@@ -380,33 +380,62 @@ const Customers = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
           <p className="text-muted-foreground">
             Manage your customer database and relationships
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {hasPermission('customers.import_export') && (
-            <Button variant="outline" onClick={handleImport} className="w-full sm:w-auto">
-              <Upload className="mr-2 h-4 w-4" />
-              Import
+          {/* Mobile: Import, Export, Refresh in one row */}
+          <div className="flex gap-2 sm:hidden">
+            {hasPermission('customers.import_export') && (
+              <Button variant="outline" onClick={handleImport} className="flex-1">
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            )}
+            {hasPermission('customers.import_export') && (
+              <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="flex-1">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            )}
+            <Button 
+              onClick={() => updateCustomerStats(true)} 
+              disabled={isUpdatingStats}
+              variant="outline"
+              className="flex-1"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
             </Button>
-          )}
-          {hasPermission('customers.import_export') && (
-            <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="w-full sm:w-auto">
-              <Download className="mr-2 h-4 w-4" />
-              Export
+          </div>
+          
+          {/* Desktop: Original layout */}
+          <div className="hidden sm:flex gap-2">
+            {hasPermission('customers.import_export') && (
+              <Button variant="outline" onClick={handleImport} className="w-auto">
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+            )}
+            {hasPermission('customers.import_export') && (
+              <Button variant="outline" onClick={handleExport} disabled={filteredCustomers.length === 0} className="w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            )}
+            <Button 
+              onClick={() => updateCustomerStats(true)} 
+              disabled={isUpdatingStats}
+              variant="outline"
+              className="w-auto"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
             </Button>
-          )}
-          <Button 
-            onClick={() => updateCustomerStats(true)} 
-            disabled={isUpdatingStats}
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
-          </Button>
+          </div>
+          
+          {/* Add Customer button - separate row on mobile, same row on desktop */}
           {hasPermission('customers.add') && (
             <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
@@ -416,9 +445,9 @@ const Customers = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {isLoading ? (
-          [...Array(5)].map((_, i) => (
+          [...Array(4)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -487,29 +516,17 @@ const Customers = () => {
                 </p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">VIP Customers</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {filteredCustomers.filter(c => c.total_spent > 5000).length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  High-value customers
-                </p>
-              </CardContent>
-            </Card>
           </>
         )}
       </div>
 
 
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} defaultPreset="all" />
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-row gap-6 items-center">
+        <div className="w-1/5 min-w-20">
+          <SimpleDateRangeFilter onDateRangeChange={handleDateRangeChange} defaultPreset="all" />
+        </div>
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
             placeholder="Search customers by name, phone, WhatsApp, additional info, or total spent..." 

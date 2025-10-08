@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { Plus, UserCheck, UserX, Shield, Users, Edit, Trash2, User, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -157,23 +157,55 @@ export function UserManagement() {
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_all_users_with_roles');
-      
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw new Error(error.message || 'Failed to fetch users');
+      try {
+        // First try the RPC function
+        const { data, error } = await supabase.rpc('get_all_users_with_roles');
+        
+        if (error) {
+          console.error('RPC function error:', error);
+          
+          // Fallback: try direct query approach
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select(`
+              user_id,
+              full_name,
+              phone,
+              created_at,
+              user_roles(role)
+            `);
+          
+          if (profilesError) {
+            console.error('Direct query error:', profilesError);
+            throw new Error(profilesError.message || 'Failed to fetch users');
+          }
+          
+          // Transform profiles data
+          return (profilesData || []).map((profile: any) => ({
+            id: profile.user_id,
+            full_name: profile.full_name || 'N/A',
+            email: 'N/A', // Email not available in profiles table
+            phone: profile.phone,
+            role: profile.user_roles?.role || 'staff',
+            created_at: profile.created_at,
+            last_sign_in_at: null
+          })) as UserProfile[];
+        }
+        
+        // Transform the RPC data to match UserProfile interface
+        return (data || []).map((user: any) => ({
+          id: user.id,
+          full_name: user.full_name || 'N/A',
+          email: user.email,
+          phone: user.phone,
+          role: user.role || 'staff',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at
+        })) as UserProfile[];
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        throw new Error(err instanceof Error ? err.message : 'Failed to fetch users');
       }
-      
-      // Transform the data to match UserProfile interface
-      return (data || []).map((user: any) => ({
-        id: user.id,
-        full_name: user.full_name || 'N/A',
-        email: user.email,
-        phone: user.phone,
-        role: user.role || 'user',
-        created_at: user.created_at,
-        last_sign_in_at: user.last_sign_in_at
-      })) as UserProfile[];
     },
     staleTime: 30000, // Cache for 30 seconds
     gcTime: 300000, // Keep in cache for 5 minutes
@@ -183,36 +215,21 @@ export function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      // For self-hosted Supabase, we'll create the user profile and role
-      // The actual auth user should be created through Supabase Dashboard first
-      
-      // First, check if user exists in auth.users
-      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userData.email);
-      
-      if (authError || !authUser) {
-        throw new Error('User must be created in Supabase Dashboard first. Please create the user in Authentication → Users, then come back here to assign their role.');
-      }
-      
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authUser.user.id,
+      // Use the Edge Function for user creation
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: userData.email,
+          password: userData.password,
           full_name: userData.full_name,
-          phone: userData.phone || null
-        });
-      
-      if (profileError) throw profileError;
-      
-      // Assign role
-      const { error: roleError } = await supabase.rpc('update_user_role', {
-        p_user_id: authUser.user.id,
-        p_new_role: userData.role
+          phone: userData.phone,
+          role: userData.role
+        }
       });
-      
-      if (roleError) throw roleError;
-      
-      return { success: true };
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      return data;
     },
     onSuccess: () => {
       toast.success("User profile created and role assigned successfully!");
@@ -244,8 +261,8 @@ export function UserManagement() {
       // Update user role if changed
       if (userData.role) {
         const { error: roleError } = await supabase.rpc('update_user_role', {
-          p_user_id: userId, // This should be the UUID, not email
-          p_new_role: userData.role
+          target_user_id: userId,
+          new_role: userData.role
         });
         
         if (roleError) throw roleError;
@@ -268,8 +285,8 @@ export function UserManagement() {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       // Use the database function to delete user
-      const { error } = await supabase.rpc('delete_user', {
-        p_user_id: userId
+      const { error } = await supabase.rpc('delete_user_account', {
+        target_user_id: userId
       });
       
       if (error) throw error;

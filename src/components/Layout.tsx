@@ -2,9 +2,11 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useCurrentPageTitle } from "@/hooks/useCurrentPageTitle";
 import { Loader2 } from "lucide-react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { GlobalAlertBanner } from "@/components/GlobalAlertBanner";
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,6 +15,7 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const { user, loading } = useAuth();
   const { businessSettings } = useBusinessSettings();
+  const currentPageTitle = useCurrentPageTitle();
 
   if (loading) {
     return (
@@ -28,6 +31,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
   return (
     <SidebarProvider>
+      <GlobalAlertBanner />
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
@@ -35,7 +39,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <SidebarTrigger className="md:hidden mr-2" />
             <div className="flex-1">
               <h1 className="font-semibold">
-                {businessSettings?.business_name || "Rahedeen Productions"}
+                {currentPageTitle}
               </h1>
             </div>
           </header>

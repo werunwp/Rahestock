@@ -12,7 +12,7 @@ import { SaleDialog } from "@/components/SaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { downloadInvoicePDF, downloadInvoiceHTML, generateInvoiceHTML, downloadInvoicePDFSimple } from "@/lib/simpleInvoiceGenerator";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
@@ -44,7 +44,6 @@ const Invoices = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
           <p className="text-muted-foreground">
             Manage and track all your invoices and billing
           </p>

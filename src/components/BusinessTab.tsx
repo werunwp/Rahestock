@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImagePicker } from "@/components/ImagePicker";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 export const BusinessTab = () => {
   const { businessSettings, updateBusinessSettings, isUpdating } = useBusinessSettings();

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useWebhookSettings } from "@/hooks/useWebhookSettings";
 import { Webhook, Save } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 
 export const CourierWebhookSettings = () => {
   const { webhookSettings, updateWebhookSettings, isUpdating } = useWebhookSettings();

@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { addDays, isAfter, format, differenceInDays, differenceInHours } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const Alerts = () => {
@@ -307,7 +307,6 @@ const Alerts = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alerts & Notifications</h1>
           <p className="text-muted-foreground">
             Manage system alerts and notification preferences
           </p>
