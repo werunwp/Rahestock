@@ -1,7 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
-
 App url: http://localhost:8080/
 
 self-hosted Supabase at https://supabase.rahedeen.com/  for this project

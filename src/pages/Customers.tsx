@@ -404,9 +404,9 @@ const Customers = () => {
               disabled={isUpdatingStats}
               variant="outline"
               className="flex-1"
+              title={isUpdatingStats ? 'Refreshing...' : 'Refresh'}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
+              <RefreshCw className={`h-4 w-4 ${isUpdatingStats ? 'animate-spin' : ''}`} />
             </Button>
           </div>
           
@@ -429,9 +429,9 @@ const Customers = () => {
               disabled={isUpdatingStats}
               variant="outline"
               className="w-auto"
+              title={isUpdatingStats ? 'Refreshing...' : 'Refresh'}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {isUpdatingStats ? 'Refreshing...' : 'Refresh'}
+              <RefreshCw className={`h-4 w-4 ${isUpdatingStats ? 'animate-spin' : ''}`} />
             </Button>
           </div>
           
@@ -543,20 +543,21 @@ const Customers = () => {
         </CardHeader>
         <CardContent>
           <TooltipProvider>
-            <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Additional Info</TableHead>
-            <TableHead>Phone</TableHead>
-            <TableHead>WhatsApp</TableHead>
-            <TableHead>Orders</TableHead>
-            <TableHead>Delivered</TableHead>
-            <TableHead>Cancelled</TableHead>
-            <TableHead>Total Spent</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Additional Info</TableHead>
+                    <TableHead className="whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="whitespace-nowrap">WhatsApp</TableHead>
+                    <TableHead className="whitespace-nowrap">Orders</TableHead>
+                    <TableHead className="whitespace-nowrap">Delivered</TableHead>
+                    <TableHead className="whitespace-nowrap">Cancelled</TableHead>
+                    <TableHead className="whitespace-nowrap">Total Spent</TableHead>
+                    <TableHead className="whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
             <TableBody>
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
@@ -576,8 +577,8 @@ const Customers = () => {
                 filteredCustomers.map((customer) => {
                   return (
                     <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium whitespace-nowrap max-w-[150px] truncate" title={customer.name}>{customer.name}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {customer.additional_info ? (
                           <Badge variant="secondary" className="capitalize">
                             {customer.additional_info}
@@ -586,7 +587,7 @@ const Customers = () => {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {customer.phone ? (
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4 text-muted-foreground" />
@@ -596,7 +597,7 @@ const Customers = () => {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {customer.whatsapp ? (
                           <a
                             href={`https://wa.me/${customer.whatsapp.replace(/[^\d]/g, '')}`}
@@ -610,12 +611,12 @@ const Customers = () => {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                    <TableCell>{customer.order_count}</TableCell>
-                    <TableCell>{customer.delivered_count ?? 0}</TableCell>
-                    <TableCell>{customer.cancelled_count ?? 0}</TableCell>
-                    <TableCell>{formatAmount(customer.total_spent)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                    <TableCell className="whitespace-nowrap">{customer.order_count}</TableCell>
+                    <TableCell className="whitespace-nowrap">{customer.delivered_count ?? 0}</TableCell>
+                    <TableCell className="whitespace-nowrap">{customer.cancelled_count ?? 0}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatAmount(customer.total_spent)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-1">
                           {hasPermission('customers.view_history') && (
                             <Button variant="ghost" size="sm" onClick={() => handleViewHistory(customer)}>
                               <Eye className="h-4 w-4" />
@@ -643,7 +644,8 @@ const Customers = () => {
                 })
               )}
             </TableBody>
-          </Table>
+              </Table>
+            </div>
           </TooltipProvider>
         </CardContent>
       </Card>

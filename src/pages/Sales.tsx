@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Truck, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Trash2, Search } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSales } from "@/hooks/useSales";
 import { SaleDialog } from "@/components/SaleDialog";
 import { EditSaleDialog } from "@/components/EditSaleDialog";
 import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
-import { CourierOrderDialog } from "@/components/CourierOrderDialog";
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -148,13 +148,12 @@ export default function Sales() {
   const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showCourierDialog, setShowCourierDialog] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [detailsSaleId, setDetailsSaleId] = useState<string | null>(null);
-  const [courierSaleId, setCourierSaleId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
   const [refreshingIndividual, setRefreshingIndividual] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
@@ -342,58 +341,45 @@ export default function Sales() {
     }
   };
 
-  const handleBulkStatusRefresh = async () => {
-    setIsRefreshingStatuses(true);
-    
-    const salesWithConsignmentId = filteredSales.filter(sale => sale.consignment_id);
-    
-    if (salesWithConsignmentId.length === 0) {
-      toast.info("No orders with tracking IDs found");
-      setIsRefreshingStatuses(false);
-      return;
-    }
-
-    let successCount = 0;
-    let failureCount = 0;
-
-    for (const sale of salesWithConsignmentId) {
-      const success = await handleStatusRefresh(sale.id, sale.consignment_id!, false);
-      if (success) {
-        successCount++;
-      } else {
-        failureCount++;
-      }
-      
-      // Add a small delay between requests to avoid overwhelming the webhook
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    setIsRefreshingStatuses(false);
-    
-    if (successCount > 0) {
-      toast.success(`Updated ${successCount} order statuses successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`);
-    } else if (failureCount > 0) {
-      toast.error(`Failed to update ${failureCount} order statuses`);
-    }
-  };
 
   const filteredSales = useMemo(() => {
-    if (!dateRange.from && !dateRange.to) return sales;
+    let filtered = sales;
 
-    return sales.filter((sale) => {
-      const saleDate = new Date(sale.created_at);
-      
-      if (dateRange.from && dateRange.to) {
-        return isWithinInterval(saleDate, { start: dateRange.from, end: dateRange.to });
-      } else if (dateRange.from) {
-        return saleDate >= dateRange.from;
-      } else if (dateRange.to) {
-        return saleDate <= dateRange.to;
-      }
-      
-      return true;
-    });
-  }, [sales, dateRange]);
+    // Apply date filter
+    if (dateRange.from || dateRange.to) {
+      filtered = filtered.filter((sale) => {
+        const saleDate = new Date(sale.created_at);
+        
+        if (dateRange.from && dateRange.to) {
+          return isWithinInterval(saleDate, { start: dateRange.from, end: dateRange.to });
+        } else if (dateRange.from) {
+          return saleDate >= dateRange.from;
+        } else if (dateRange.to) {
+          return saleDate <= dateRange.to;
+        }
+        
+        return true;
+      });
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter((sale) => {
+        return (
+          sale.invoice_number.toLowerCase().includes(searchLower) ||
+          sale.customer_name.toLowerCase().includes(searchLower) ||
+          (sale.customer_phone && sale.customer_phone.toLowerCase().includes(searchLower)) ||
+          (sale.customer_whatsapp && sale.customer_whatsapp.toLowerCase().includes(searchLower)) ||
+          sale.payment_status.toLowerCase().includes(searchLower) ||
+          (sale.courier_status && sale.courier_status.toLowerCase().includes(searchLower)) ||
+          (sale.consignment_id && sale.consignment_id.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+
+    return filtered;
+  }, [sales, dateRange, searchTerm]);
 
   const currentMonthSales = useMemo(() => {
     const now = new Date();
@@ -430,10 +416,6 @@ export default function Sales() {
     setShowDetailsDialog(true);
   };
 
-  const handleCourierOrder = (saleId: string) => {
-    setCourierSaleId(saleId);
-    setShowCourierDialog(true);
-  };
 
   const handleDeleteSale = (saleId: string) => {
     if (confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
@@ -462,13 +444,10 @@ export default function Sales() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-muted-foreground">
-            Track your sales transactions and invoices
-          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           <SimpleDateRangeFilter onDateRangeChange={(from, to) => setDateRange({ from, to })} />
-          <Button onClick={() => setShowSaleDialog(true)} className="w-fit">
+          <Button onClick={() => setShowSaleDialog(true)} className="w-full sm:w-fit">
             <Plus className="mr-2 h-4 w-4" />
             New Sale
           </Button>
@@ -531,6 +510,19 @@ export default function Sales() {
         )}
       </div>
 
+      {/* Search Field */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input 
+            placeholder="Search sales by invoice, customer, phone, status..." 
+            className="pl-9" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Sales History</CardTitle>
@@ -543,34 +535,18 @@ export default function Sales() {
               ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      Courier Status
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Real-time updates active"></div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleBulkStatusRefresh}
-                          disabled={isRefreshingStatuses}
-                          className="h-6 w-6 p-0"
-                          title="Refresh all order statuses"
-                        >
-                          <RefreshCw className={cn("h-3 w-3", isRefreshingStatuses && "animate-spin")} />
-                        </Button>
-                      </div>
-                    </div>
-                  </TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Invoice</TableHead>
+                    <TableHead className="whitespace-nowrap">Customer</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Amount</TableHead>
+                    <TableHead className="whitespace-nowrap">Courier Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {filteredSales.length === 0 ? (
                   <TableRow>
@@ -581,28 +557,12 @@ export default function Sales() {
                 ) : (
                   filteredSales.map((sale) => (
                     <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{sale.invoice_number}</TableCell>
-                      <TableCell>{sale.customer_name}</TableCell>
-                      <TableCell>{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{sale.invoice_number}</TableCell>
+                      <TableCell className="max-w-[150px] truncate" title={sale.customer_name}>{sale.customer_name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
                       <TableCell>
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={
-                              sale.courier_status === 'delivered' ? 'default' : 
-                              sale.courier_status === 'in_transit' || sale.courier_status === 'out_for_delivery' ? 'secondary' : 
-                              sale.courier_status === 'not_sent' ? 'outline' :
-                              sale.courier_status === 'returned' || sale.courier_status === 'lost' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {sale.courier_status === 'not_sent' ? 'Not Sent' : 
-                               sale.courier_status === 'in_transit' ? 'In Transit' :
-                               sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
-                               sale.courier_status === 'returned' ? 'Returned' :
-                               sale.courier_status === 'lost' ? 'Lost' :
-                               sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                            </Badge>
-                          </div>
                           <ManualCourierStatusSelector
                             saleId={sale.id}
                             currentStatus={sale.courier_status}
@@ -617,8 +577,8 @@ export default function Sales() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -633,7 +593,7 @@ export default function Sales() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                           {sale.consignment_id ? (
+                           {sale.consignment_id && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -642,15 +602,6 @@ export default function Sales() {
                               title="Refresh order status"
                             >
                               <RefreshCw className={cn("h-4 w-4", (isRefreshingStatuses || refreshingIndividual === sale.id) && "animate-spin")} />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCourierOrder(sale.id)}
-                              title="Send to courier"
-                            >
-                              <Truck className="h-4 w-4" />
                             </Button>
                           )}
                           {isAdmin && (
@@ -671,7 +622,8 @@ export default function Sales() {
                   ))
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -686,11 +638,6 @@ export default function Sales() {
         open={showDetailsDialog} 
         onOpenChange={setShowDetailsDialog}
         saleId={detailsSaleId}
-      />
-      <CourierOrderDialog 
-        open={showCourierDialog} 
-        onOpenChange={setShowCourierDialog}
-        saleId={courierSaleId}
       />
     </div>
   );

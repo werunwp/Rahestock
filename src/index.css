@@ -136,4 +136,8 @@ All colors MUST be HSL.
     padding-top: 0.25rem !important;
     padding-bottom: 0.25rem !important;
   }
+  
+  .min-w-\[200px\] {
+    min-width: 150px;
+  }
 }

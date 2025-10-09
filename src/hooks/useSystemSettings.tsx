@@ -11,6 +11,10 @@ export interface SystemSettings {
   timezone: string;
   date_format: string;
   time_format: string;
+  invoice_webhook_url?: string;
+  invoice_webhook_enabled?: boolean;
+  invoice_webhook_auth_token?: string;
+  invoice_webhook_timeout?: number;
   created_at: string;
   updated_at: string;
 }
@@ -51,18 +55,26 @@ export const useSystemSettings = () => {
 
   const updateSystemSettings = useMutation({
     mutationFn: async (updatedData: Partial<SystemSettings>) => {
+      console.log("Updating system settings with data:", updatedData);
+      
       // Auto-generate currency symbol if currency code is being updated
       if (updatedData.currency_code) {
         updatedData.currency_symbol = getCurrencySymbol(updatedData.currency_code);
       }
 
       // First try to update existing settings
-      const { data: existingData } = await supabase
+      const { data: existingData, error: checkError } = await supabase
         .from("system_settings")
         .select("id")
         .limit(1);
 
+      if (checkError) {
+        console.error("Error checking existing settings:", checkError);
+        throw checkError;
+      }
+
       if (existingData?.[0]?.id) {
+        console.log("Updating existing settings with ID:", existingData[0].id);
         // Update existing
         const { data, error } = await supabase
           .from("system_settings")
@@ -71,9 +83,14 @@ export const useSystemSettings = () => {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error updating system settings:", error);
+          throw error;
+        }
+        console.log("Successfully updated system settings:", data);
         return data;
       } else {
+        console.log("Creating new system settings");
         // Create new with auto-generated currency symbol
         const newSettings = { 
           ...DEFAULT_SYSTEM_SETTINGS, 
@@ -81,13 +98,19 @@ export const useSystemSettings = () => {
           currency_symbol: getCurrencySymbol(updatedData.currency_code || DEFAULT_SYSTEM_SETTINGS.currency_code)
         };
         
+        console.log("New settings to insert:", newSettings);
+        
         const { data, error } = await supabase
           .from("system_settings")
           .insert(newSettings)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error creating system settings:", error);
+          throw error;
+        }
+        console.log("Successfully created system settings:", data);
         return data;
       }
     },

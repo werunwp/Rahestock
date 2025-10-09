@@ -341,7 +341,7 @@ const Inventory = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-3 md:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
         {isLoading ? (
           [...Array(5)].map((_, i) => (
             <Card 

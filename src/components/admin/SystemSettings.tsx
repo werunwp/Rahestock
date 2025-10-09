@@ -12,6 +12,7 @@ import { Shield, Database, Users, FileText, Settings, AlertCircle, Database as D
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { currencyOptions, getCurrencySymbol } from "@/lib/currencySymbols";
 import { CourierWebhookSettings } from "@/components/CourierWebhookSettings";
+import { InvoiceWebhookSettings } from "@/components/InvoiceWebhookSettings";
 import { CustomCodeSettings } from "@/components/CustomCodeSettings";
 import { DataBackupControls } from "@/components/DataBackupControls";
 import { WooCommerceImport } from "@/components/WooCommerceImport";
@@ -34,6 +35,7 @@ export function SystemSettings() {
     systemSettings: false,
     storageManagement: true,
     courierWebhook: true,
+    invoiceWebhook: true,
     customCode: true,
     dataBackup: true,
     wooCommerce: true,
@@ -310,6 +312,16 @@ export function SystemSettings() {
         sectionKey="courierWebhook"
       >
         <CourierWebhookSettings />
+      </CollapsibleCard>
+      
+      {/* Invoice Webhook Settings */}
+      <CollapsibleCard
+        title="Invoice Webhook Settings"
+        description="Configure external invoice API webhook for sending sales data"
+        icon={FileText}
+        sectionKey="invoiceWebhook"
+      >
+        <InvoiceWebhookSettings />
       </CollapsibleCard>
       
       {/* Custom Code Settings */}

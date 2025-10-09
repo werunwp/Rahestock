@@ -1,4 +1,4 @@
-import { Plus, Search, Filter, Edit, Trash2, Download, Upload, Copy } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Download, Upload, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,8 +40,20 @@ const Products = () => {
     return products.reduce((total, product) => {
       // Use cost price for stock value calculation, fallback to rate if cost is not set
       const unitCost = product.cost || product.rate || 0;
-      const stockQuantity = product.stock_quantity || 0;
-      return total + (stockQuantity * unitCost);
+      
+      if (product.has_variants && product.product_variants && product.product_variants.length > 0) {
+        // For products with variants, calculate based on variant stock
+        const variantStockValue = product.product_variants.reduce((variantTotal, variant) => {
+          const variantCost = variant.cost || product.cost || product.rate || 0;
+          const variantStock = variant.stock_quantity || 0;
+          return variantTotal + (variantStock * variantCost);
+        }, 0);
+        return total + variantStockValue;
+      } else {
+        // For products without variants, use product stock
+        const stockQuantity = product.stock_quantity || 0;
+        return total + (stockQuantity * unitCost);
+      }
     }, 0);
   }, [products]);
 
@@ -382,9 +394,6 @@ const Products = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-muted-foreground">
-            Manage your product inventory and stock levels
-          </p>
           <p className="text-sm text-muted-foreground mt-1">
             Total Stock Value: <span className="font-semibold text-foreground">
               {isLoading ? <span className="inline-block w-16 h-4 bg-muted rounded animate-pulse" /> : formatAmount(totalStockValue)}
@@ -417,7 +426,7 @@ const Products = () => {
         </div>
       </div>
 
-      {/* Mobile: Action buttons in one row */}
+      {/* Mobile: Action buttons layout */}
       <div className="flex flex-col gap-2 sm:hidden">
         <div className="flex gap-2">
           <Button 
@@ -437,38 +446,16 @@ const Products = () => {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button className="flex-1" onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
-          </Button>
         </div>
+        <Button className="w-full" onClick={() => setIsDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Product
+        </Button>
       </div>
 
-      {/* Mobile: Search and filter in one row */}
-      <div className="flex flex-col gap-2 sm:hidden">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input 
-              placeholder="Search products..." 
-              className="pl-9" 
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-          <Button variant="outline" className="flex-shrink-0">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-        </div>
-      </div>
-
-      {/* Desktop: Search and filter in one row */}
-      <div className="hidden sm:flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1 max-w-sm">
+      {/* Mobile: Search field */}
+      <div className="sm:hidden">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
             placeholder="Search products..." 
@@ -480,10 +467,22 @@ const Products = () => {
             }}
           />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
-        </Button>
+      </div>
+
+      {/* Desktop: Search field */}
+      <div className="hidden sm:block">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input 
+            placeholder="Search products..." 
+            className="pl-9" 
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-6">

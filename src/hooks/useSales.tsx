@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useUserRole } from "./useUserRole";
 import { toast } from "@/utils/toast";
+import { sendInvoiceWebhook, prepareInvoiceData } from "@/utils/invoiceWebhook";
 
 export interface Sale {
   id: string;
@@ -12,9 +13,7 @@ export interface Sale {
   customer_phone: string | null;
   customer_whatsapp: string | null;
   customer_address: string | null;
-  city?: string | null;
-  zone?: string | null;
-  area?: string | null;
+  additional_info?: string | null;
   subtotal: number;
   discount_percent: number;
   discount_amount: number;
@@ -51,9 +50,7 @@ export interface CreateSaleData {
   customer_phone?: string;
   customer_whatsapp?: string;
   customer_address?: string;
-  city?: string;
-  zone?: string;
-  area?: string;
+  additional_info?: string;
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
@@ -318,7 +315,7 @@ export const useSales = () => {
 
       return sale;
     },
-    onSuccess: (sale) => {
+    onSuccess: async (sale) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -326,6 +323,21 @@ export const useSales = () => {
       // Update customer status automatically
       if (sale.customer_id) {
         updateCustomerStatus(sale.customer_id);
+      }
+      
+      // Send invoice webhook
+      try {
+        const invoiceData = await prepareInvoiceData(sale.id);
+        if (invoiceData) {
+          const webhookResult = await sendInvoiceWebhook(invoiceData);
+          if (!webhookResult.success) {
+            console.warn("Invoice webhook failed:", webhookResult.error);
+            // Don't show error to user as it's not critical
+          }
+        }
+      } catch (error) {
+        console.error("Error sending invoice webhook:", error);
+        // Don't show error to user as it's not critical
       }
       
       toast.success("Sale created successfully");

@@ -134,7 +134,7 @@ export function SimpleDateRangeFilter({ onDateRangeChange, defaultPreset = "toda
           variant="outline"
           className={cn(
             "w-full md:w-auto justify-start text-left font-normal",
-            "min-w-[200px]"
+            "min-w-[150px] sm:min-w-[200px]"
           )}
           onClick={() => setIsOpen(true)}
         >

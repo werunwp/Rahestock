@@ -1,6 +1,6 @@
 import { Edit, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useProductVariants } from "@/hooks/useProductVariants";

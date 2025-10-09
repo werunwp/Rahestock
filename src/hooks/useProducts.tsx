@@ -20,6 +20,12 @@ export interface Product {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  product_variants?: Array<{
+    id: string;
+    stock_quantity: number;
+    cost: number | null;
+    rate: number | null;
+  }>;
 }
 
 export interface CreateProductData {
@@ -48,7 +54,15 @@ export const useProducts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(`
+          *,
+          product_variants (
+            id,
+            stock_quantity,
+            cost,
+            rate
+          )
+        `)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 

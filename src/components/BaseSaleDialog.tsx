@@ -42,9 +42,7 @@ export interface SaleFormData {
   customer_whatsapp?: string;
   customerAddress?: string;
   customer_address?: string;
-  city?: string;
-  zone?: string;
-  area?: string;
+  additional_info?: string;
   paymentMethod: string;
   payment_method?: string;
   paymentStatus: string;
@@ -96,9 +94,7 @@ export const BaseSaleDialog = ({
     customerPhone: "",
     customerWhatsapp: "",
     customerAddress: "",
-    city: "",
-    zone: "",
-    area: "",
+    additional_info: "",
     paymentMethod: "cash",
     paymentStatus: "pending",
     amountPaid: 0,
@@ -125,9 +121,7 @@ export const BaseSaleDialog = ({
         customerPhone: "",
         customerWhatsapp: "",
         customerAddress: "",
-        city: "",
-        zone: "",
-        area: "",
+        additional_info: "",
         paymentMethod: "cash",
         paymentStatus: "pending",
         amountPaid: 0,
@@ -150,9 +144,7 @@ export const BaseSaleDialog = ({
         customerPhone: initialData.customerPhone || initialData.customer_phone || "",
         customerWhatsapp: initialData.customerWhatsapp || initialData.customer_whatsapp || "",
         customerAddress: initialData.customerAddress || initialData.customer_address || "",
-        city: initialData.city || "",
-        zone: initialData.zone || "",
-        area: initialData.area || "",
+        additional_info: initialData.additional_info || "",
         paymentMethod: initialData.paymentMethod || initialData.payment_method || "cash",
         paymentStatus: initialData.paymentStatus || initialData.payment_status || "pending",
         amountPaid: initialData.amountPaid || initialData.amount_paid || 0,
@@ -279,6 +271,7 @@ export const BaseSaleDialog = ({
       customerPhone: customer.phone || "",
       customerWhatsapp: customer.whatsapp || "",
       customerAddress: customer.address || "",
+      additional_info: customer.additional_info || "",
     }));
     setCustomerNameDropdownOpen(false);
   };
@@ -291,6 +284,7 @@ export const BaseSaleDialog = ({
       customerPhone: customer.phone || "",
       customerWhatsapp: customer.whatsapp || "",
       customerAddress: customer.address || "",
+      additional_info: customer.additional_info || "",
     }));
     setCustomerPhoneDropdownOpen(false);
   };
@@ -305,6 +299,7 @@ export const BaseSaleDialog = ({
         customerPhone: customer.phone || "",
         customerWhatsapp: customer.whatsapp || "",
         customerAddress: customer.address || "",
+        additional_info: customer.additional_info || "",
       }));
     }
   };
@@ -562,32 +557,14 @@ export const BaseSaleDialog = ({
                 />
               </div>
 
-              {/* Location Fields */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input
-                    value={formData.city || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                    placeholder="City"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Zone</Label>
-                  <Input
-                    value={formData.zone || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, zone: e.target.value }))}
-                    placeholder="Zone"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Area</Label>
-                  <Input
-                    value={formData.area || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
-                    placeholder="Area"
-                  />
-                </div>
+              {/* Additional Info Field */}
+              <div className="space-y-2">
+                <Label>Additional Info</Label>
+                <Input
+                  value={formData.additional_info || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
+                  placeholder="Additional customer information"
+                />
               </div>
             </CardContent>
           </Card>
