@@ -486,7 +486,7 @@ export const BaseSaleDialog = ({
                       }}
                       onFocus={() => setCustomerNameDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setCustomerNameDropdownOpen(false), 200)}
-                      placeholder="Enter customer name"
+                      placeholder="Customer name"
                       required
                     />
                     {customerNameDropdownOpen && filteredCustomersByName.length > 0 && (
@@ -519,7 +519,7 @@ export const BaseSaleDialog = ({
                       }}
                       onFocus={() => setCustomerPhoneDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setCustomerPhoneDropdownOpen(false), 200)}
-                      placeholder="Customer phone"
+                      placeholder="Phone"
                     />
                     {customerPhoneDropdownOpen && filteredCustomersByPhone.length > 0 && (
                       <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
@@ -543,7 +543,7 @@ export const BaseSaleDialog = ({
                   <Input
                     value={formData.customerWhatsapp || ""}
                     onChange={(e) => setFormData(prev => ({ ...prev, customerWhatsapp: e.target.value }))}
-                    placeholder="Customer WhatsApp"
+                    placeholder="WhatsApp"
                   />
                 </div>
               </div>
@@ -553,7 +553,7 @@ export const BaseSaleDialog = ({
                 <Input
                   value={formData.customerAddress || ""}
                   onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
-                  placeholder="Customer address"
+                  placeholder="Address"
                 />
               </div>
 
@@ -563,7 +563,7 @@ export const BaseSaleDialog = ({
                 <Input
                   value={formData.additional_info || ""}
                   onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
-                  placeholder="Additional customer information"
+                  placeholder="Additional info"
                 />
               </div>
             </CardContent>
@@ -574,11 +574,11 @@ export const BaseSaleDialog = ({
             <CardHeader className="bg-gradient-to-r from-green-100/30 to-emerald-100/30 border-b">
               <CardTitle className="text-lg text-green-900">Add Products</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <Input
-                    placeholder="Type to search products..."
+                    placeholder="Search products..."
                     value={productSearchTerm}
                     onChange={(e) => setProductSearchTerm(e.target.value)}
                     onFocus={() => setProductComboOpen(true)}

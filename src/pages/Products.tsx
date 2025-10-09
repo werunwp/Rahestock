@@ -13,6 +13,7 @@ import { ProductDialog } from "@/components/ProductDialog";
 import { ProductCard } from "@/components/ProductCard";
 import { useCurrency } from "@/hooks/useCurrency";
 import * as ExcelJS from "exceljs";
+import { supabase } from "@/integrations/supabase/client";
 
 const Products = () => {
   const { products, isLoading, deleteProduct, createProduct, updateProduct, duplicateProduct } = useProducts();
@@ -159,6 +160,10 @@ const Products = () => {
         let skippedCount = 0;
         let updatedCount = 0;
         let processedCount = 0;
+        let variantCount = 0;
+        
+        // Collect variants for processing after main products
+        const variantsToProcess: any[] = [];
 
         const processBatch = async (items: any[], batchIndex: number) => {
           const batchPromises = items.map(async (row: any, rowIndex: number) => {
@@ -173,6 +178,11 @@ const Products = () => {
                 return;
               }
 
+              // Check if this is a variant row
+              const isVariant = row['Product Type'] === 'Variant' || row['product_type'] === 'Variant';
+              const parentProduct = row['Parent Product'] || row['parent_product'];
+              const variantId = row['Variant ID'] || row['variant_id'];
+              
               // Map the data to product structure with flexible field matching
               const productData = {
                 name: String(row.Name || row.name || row.PRODUCT_NAME || row['Product Name'] || '').trim(),
@@ -184,6 +194,10 @@ const Products = () => {
                 size: row.Size || row.size || row.SIZE ? String(row.Size || row.size || row.SIZE).trim() : undefined,
                 color: row.Color || row.color || row.COLOR ? String(row.Color || row.color || row.COLOR).trim() : undefined,
                 image_url: row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL ? String(row['Image URL'] || row.image_url || row.image || row.Image || row.IMAGE_URL).trim() : undefined,
+                has_variants: row['Has Variants'] === 'Yes' || row['has_variants'] === 'Yes' || false,
+                is_variant: isVariant,
+                parent_product: parentProduct,
+                variant_id: variantId
               };
 
               // Clean up empty string values
@@ -194,7 +208,38 @@ const Products = () => {
 
               console.log(`Processing row ${rowIndex + 1}:`, productData);
 
-              // Validate required fields
+              // Handle variant imports differently
+              if (productData.is_variant && productData.parent_product) {
+                // This is a variant row - collect it for processing after main products
+                const parentProduct = products.find(p => 
+                  p.name.toLowerCase().trim() === productData.parent_product.toLowerCase().trim()
+                );
+                
+                if (!parentProduct) {
+                  console.log(`Row ${rowIndex + 1} failed: Parent product not found for variant: ${productData.parent_product}`);
+                  errorCount++;
+                  return;
+                }
+                
+                // Collect variant data for later processing
+                variantsToProcess.push({
+                  parentProduct,
+                  variantData: {
+                    rate: productData.rate,
+                    cost: productData.cost,
+                    stock_quantity: productData.stock_quantity,
+                    low_stock_threshold: productData.low_stock_threshold,
+                    image_url: productData.image_url
+                  },
+                  rowIndex: rowIndex + 1
+                });
+                
+                console.log(`Row ${rowIndex + 1} collected: Variant for ${productData.parent_product}`);
+                variantCount++;
+                return;
+              }
+
+              // Validate required fields for main products
               if (!productData.name || productData.name === '') {
                 console.log(`Row ${rowIndex + 1} failed: Missing product name`);
                 errorCount++;
@@ -224,7 +269,8 @@ const Products = () => {
                   existingProduct.low_stock_threshold !== productData.low_stock_threshold ||
                   existingProduct.size !== productData.size ||
                   existingProduct.color !== productData.color ||
-                  existingProduct.image_url !== productData.image_url;
+                  existingProduct.image_url !== productData.image_url ||
+                  existingProduct.has_variants !== productData.has_variants;
 
                 if (!hasChanges) {
                   console.log(`Row ${rowIndex + 1} skipped: No changes detected (${productData.name})`);
@@ -232,9 +278,22 @@ const Products = () => {
                   return;
                 }
 
-                // Update the existing product
+                // Update the existing product (remove variant-specific fields)
+                const updateData = {
+                  name: productData.name,
+                  sku: productData.sku,
+                  rate: productData.rate,
+                  cost: productData.cost,
+                  stock_quantity: productData.stock_quantity,
+                  low_stock_threshold: productData.low_stock_threshold,
+                  size: productData.size,
+                  color: productData.color,
+                  image_url: productData.image_url,
+                  has_variants: productData.has_variants
+                };
+                
                 return new Promise((resolve, reject) => {
-                  updateProduct.mutate({ id: existingProduct.id, data: productData }, {
+                  updateProduct.mutate({ id: existingProduct.id, data: updateData }, {
                     onSuccess: () => {
                       console.log(`Row ${rowIndex + 1} success: Updated product ${productData.name}`);
                       updatedCount++;
@@ -249,9 +308,22 @@ const Products = () => {
                 });
               }
 
-              // Create the product
+              // Create the product (remove variant-specific fields)
+              const createData = {
+                name: productData.name,
+                sku: productData.sku,
+                rate: productData.rate,
+                cost: productData.cost,
+                stock_quantity: productData.stock_quantity,
+                low_stock_threshold: productData.low_stock_threshold,
+                size: productData.size,
+                color: productData.color,
+                image_url: productData.image_url,
+                has_variants: productData.has_variants
+              };
+              
               return new Promise((resolve, reject) => {
-                createProduct.mutate(productData, {
+                createProduct.mutate(createData, {
                   onSuccess: () => {
                     console.log(`Row ${rowIndex + 1} success: Created product ${productData.name}`);
                     successCount++;
@@ -289,6 +361,61 @@ const Products = () => {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
+        // Process variants after main products are created/updated
+        if (variantsToProcess.length > 0) {
+          console.log(`Processing ${variantsToProcess.length} variants...`);
+          
+          // Group variants by parent product
+          const variantsByProduct = new Map();
+          variantsToProcess.forEach(variant => {
+            const productId = variant.parentProduct.id;
+            if (!variantsByProduct.has(productId)) {
+              variantsByProduct.set(productId, []);
+            }
+            variantsByProduct.get(productId).push(variant);
+          });
+
+          // Process each product's variants
+          for (const [productId, variants] of variantsByProduct) {
+            try {
+              const parentProduct = variants[0].parentProduct;
+              
+              // Prepare variant data for bulkUpsert
+              const variantData = variants.map(v => ({
+                product_id: productId,
+                attributes: {}, // Empty attributes for now
+                sku: null,
+                rate: v.variantData.rate,
+                cost: v.variantData.cost,
+                stock_quantity: v.variantData.stock_quantity,
+                low_stock_threshold: v.variantData.low_stock_threshold,
+                image_url: v.variantData.image_url
+              }));
+
+              // Create variants directly using supabase
+              const { data: createdVariants, error: variantError } = await supabase
+                .from("product_variants")
+                .insert(variantData)
+                .select();
+
+              if (variantError) {
+                throw variantError;
+              }
+
+              // Update product to mark it as having variants
+              await supabase
+                .from("products")
+                .update({ has_variants: true })
+                .eq("id", productId);
+
+              console.log(`Successfully created ${variants.length} variants for product: ${parentProduct.name}`);
+            } catch (error) {
+              console.error(`Failed to create variants for product ${productId}:`, error);
+              errorCount += variants.length;
+            }
+          }
+        }
+
         // Show summary toast after processing
         setTimeout(() => {
           let message = '';
@@ -297,6 +424,9 @@ const Products = () => {
           }
           if (updatedCount > 0) {
             message += `Updated ${updatedCount} existing products. `;
+          }
+          if (variantCount > 0) {
+            message += `Processed ${variantCount} variants. `;
           }
           if (skippedCount > 0) {
             message += `Skipped ${skippedCount} products (no changes). `;
@@ -331,23 +461,60 @@ const Products = () => {
   };
 
   const handleExport = () => {
-    // Prepare data for export
-    const exportData = products.map(product => ({
-      Name: product.name,
-      SKU: product.sku || '',
-      Rate: product.rate,
-      Cost: product.cost || '',
-      'Stock Quantity': product.stock_quantity,
-      'Low Stock Threshold': product.low_stock_threshold,
-      Size: product.size || '',
-      Color: product.color || '',
-      'Image URL': product.image_url || '',
-      'Stock Value': product.stock_quantity * (product.cost || product.rate),
-      Status: product.stock_quantity <= 0 ? 'Stock Out' : 
-              product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
-      'Created At': new Date(product.created_at).toLocaleDateString(),
-      'Updated At': new Date(product.updated_at).toLocaleDateString()
-    }));
+    // Prepare data for export including variations
+    const exportData: any[] = [];
+    
+    products.forEach(product => {
+      // Add main product row
+      const mainProductRow = {
+        Name: product.name,
+        SKU: product.sku || '',
+        Rate: product.rate,
+        Cost: product.cost || '',
+        'Stock Quantity': product.stock_quantity,
+        'Low Stock Threshold': product.low_stock_threshold,
+        Size: product.size || '',
+        Color: product.color || '',
+        'Image URL': product.image_url || '',
+        'Has Variants': product.has_variants ? 'Yes' : 'No',
+        'Variants Count': product.product_variants?.length || 0,
+        'Stock Value': product.stock_quantity * (product.cost || product.rate),
+        Status: product.stock_quantity <= 0 ? 'Stock Out' : 
+                product.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
+        'Created At': new Date(product.created_at).toLocaleDateString(),
+        'Updated At': new Date(product.updated_at).toLocaleDateString(),
+        'Product Type': 'Main Product'
+      };
+      exportData.push(mainProductRow);
+      
+      // Add variant rows if product has variants
+      if (product.has_variants && product.product_variants && product.product_variants.length > 0) {
+        product.product_variants.forEach((variant, index) => {
+          const variantRow = {
+            Name: `${product.name} - Variant ${index + 1}`,
+            SKU: `${product.sku || ''}-V${index + 1}`,
+            Rate: variant.rate || product.rate,
+            Cost: variant.cost || product.cost || '',
+            'Stock Quantity': variant.stock_quantity,
+            'Low Stock Threshold': product.low_stock_threshold,
+            Size: product.size || '',
+            Color: product.color || '',
+            'Image URL': product.image_url || '',
+            'Has Variants': 'No',
+            'Variants Count': 0,
+            'Stock Value': variant.stock_quantity * (variant.cost || product.cost || product.rate),
+            Status: variant.stock_quantity <= 0 ? 'Stock Out' : 
+                    variant.stock_quantity <= product.low_stock_threshold ? 'Low Stock' : 'In Stock',
+            'Created At': new Date(product.created_at).toLocaleDateString(),
+            'Updated At': new Date(product.updated_at).toLocaleDateString(),
+            'Product Type': 'Variant',
+            'Parent Product': product.name,
+            'Variant ID': variant.id
+          };
+          exportData.push(variantRow);
+        });
+      }
+    });
 
     // Create workbook and worksheet using ExcelJS
     const workbook = new ExcelJS.Workbook();
