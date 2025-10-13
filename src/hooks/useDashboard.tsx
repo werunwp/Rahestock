@@ -64,6 +64,15 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
       if (sales) {
         stats.totalRevenue = sales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
         stats.activeCustomers = new Set(sales.map(sale => sale.customer_id).filter(Boolean)).size;
+        
+        // Calculate paid amount based on payment status OR delivered courier status
+        stats.totalPaid = sales.reduce((sum, sale) => {
+          const isPaid = sale.payment_status === 'paid' || sale.courier_status === 'delivered';
+          return isPaid ? sum + (sale.grand_total || 0) : sum + (sale.amount_paid || 0);
+        }, 0);
+        
+        // Calculate due amount (total revenue - paid amount)
+        stats.totalDue = stats.totalRevenue - stats.totalPaid;
       }
 
       // Get units sold (exclude cancelled sales)

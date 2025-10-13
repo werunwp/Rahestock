@@ -70,13 +70,25 @@ export const useProducts = () => {
       return data as Product[];
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const createProduct = useMutation({
     mutationFn: async (productData: CreateProductData) => {
+      // Handle empty SKU by setting it to null
+      const processedData = {
+        ...productData,
+        sku: productData.sku && productData.sku.trim() !== '' ? productData.sku : null,
+        created_by: user?.id
+      };
+      
       const { data, error } = await supabase
         .from("products")
-        .insert([{ ...productData, created_by: user?.id }])
+        .insert([processedData])
         .select()
         .single();
 
@@ -94,9 +106,15 @@ export const useProducts = () => {
 
   const updateProduct = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateProductData> }) => {
+      // Handle empty SKU by setting it to null
+      const processedData = {
+        ...data,
+        sku: data.sku !== undefined ? (data.sku && data.sku.trim() !== '' ? data.sku : null) : undefined
+      };
+      
       const { data: updated, error } = await supabase
         .from("products")
-        .update(data)
+        .update(processedData)
         .eq("id", id)
         .select()
         .single();
@@ -175,16 +193,71 @@ export const useProducts = () => {
 
       if (productError) throw productError;
 
-      // Generate new SKU for the duplicated product
-      const base = (originalProduct.sku || '').toString().trim();
-      const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-      const newSku = `${base ? base : 'SKU'}-${suffix}`;
+      // Generate new name and SKU for the duplicated product
+      const generateUniqueName = async (originalName: string): Promise<string> => {
+        // Remove existing (number) suffix if present
+        const baseName = originalName.replace(/\s*\(\d+\)$/, '');
+        
+        // Find the next available number
+        let counter = 1;
+        let newName = `${baseName} (${counter})`;
+        
+        while (true) {
+          const { data: existing } = await supabase
+            .from("products")
+            .select("id")
+            .eq("name", newName)
+            .eq("is_deleted", false)
+            .single();
+          
+          if (!existing) {
+            break;
+          }
+          
+          counter++;
+          newName = `${baseName} (${counter})`;
+        }
+        
+        return newName;
+      };
+      
+      const generateUniqueSku = async (originalSku: string | null, newName: string): Promise<string | null> => {
+        if (!originalSku) return null;
+        
+        // Remove existing (number) suffix from SKU if present
+        const baseSku = originalSku.replace(/\s*\(\d+\)$/, '');
+        
+        // Find the next available SKU number
+        let counter = 1;
+        let newSku = `${baseSku} (${counter})`;
+        
+        while (true) {
+          const { data: existing } = await supabase
+            .from("products")
+            .select("id")
+            .eq("sku", newSku)
+            .eq("is_deleted", false)
+            .single();
+          
+          if (!existing) {
+            break;
+          }
+          
+          counter++;
+          newSku = `${baseSku} (${counter})`;
+        }
+        
+        return newSku;
+      };
+      
+      const newName = await generateUniqueName(originalProduct.name);
+      const newSku = await generateUniqueSku(originalProduct.sku, newName);
 
       // Create the new product
       const { data: newProduct, error: createError } = await supabase
         .from("products")
         .insert([{
-          name: `${originalProduct.name} (duplicated)`,
+          name: newName,
           sku: newSku,
           rate: originalProduct.rate,
           cost: originalProduct.cost,

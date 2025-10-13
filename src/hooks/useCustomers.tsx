@@ -93,8 +93,11 @@ export const useCustomers = () => {
       return customersData as Customer[];
     },
     enabled: !!user,
-    refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Refetch every 30 seconds as backup
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const createCustomer = useMutation({

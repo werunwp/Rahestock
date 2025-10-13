@@ -395,8 +395,15 @@ export default function Sales() {
   const stats = useMemo(() => {
     const validSales = filteredSales.filter(sale => sale.payment_status !== 'cancelled');
     const totalRevenue = validSales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
-    const totalPaid = validSales.reduce((sum, sale) => sum + (sale.amount_paid || 0), 0);
-    const totalDue = validSales.reduce((sum, sale) => sum + (sale.amount_due || 0), 0);
+    
+    // Calculate paid amount based on payment status OR delivered courier status
+    const totalPaid = validSales.reduce((sum, sale) => {
+      const isPaid = sale.payment_status === 'paid' || sale.courier_status === 'delivered';
+      return isPaid ? sum + (sale.grand_total || 0) : sum + (sale.amount_paid || 0);
+    }, 0);
+    
+    // Calculate due amount (total revenue - paid amount)
+    const totalDue = totalRevenue - totalPaid;
     
     return {
       totalRevenue,
