@@ -54,20 +54,29 @@ serve(async (req) => {
       throw new Error('User ID is required')
     }
 
-    // Prevent admin from deleting themselves
+    // Prevent self-deletion
     if (userId === user.id) {
       throw new Error('Cannot delete your own account')
     }
 
     console.log(`Admin ${user.email} deleting user ${userId}`)
 
-    // Delete the user from auth (this will cascade to profiles and user_roles due to FK constraints)
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+    // Step 1: Delete user-related data (handled by CASCADE in database)
+    // The database will automatically delete:
+    // - user_roles
+    // - profiles
+    // - user_preferences
+    // - dismissed_alerts
+    
+    // Step 2: Delete from Supabase Auth
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
-    if (deleteError) {
-      console.error('User deletion error:', deleteError)
-      throw new Error(`Failed to delete user: ${deleteError.message}`)
+    if (authDeleteError) {
+      console.error('Auth delete error:', authDeleteError)
+      throw new Error(`Failed to delete user from authentication: ${authDeleteError.message}`)
     }
+
+    console.log('User deleted successfully from auth and database')
 
     return new Response(
       JSON.stringify({ 

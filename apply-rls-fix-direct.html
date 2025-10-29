@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Apply RLS Fix - Direct</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        button { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 6px; }
+        .success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+        pre { background: #f3f4f6; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+        h1 { color: #1f2937; }
+        h3 { color: #374151; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Apply RLS Policy Fix (Direct Method)</h1>
+    <p><strong>Issue:</strong> "new row violates row-level security policy for table 'user_roles'"</p>
+    <p>This fix will update the RLS policies to allow users to access their own roles.</p>
+    
+    <button onclick="applyFix()" id="fixBtn">Apply RLS Fix Now</button>
+    
+    <div id="result"></div>
+
+    <h3>SQL Commands to Execute:</h3>
+    <pre>-- Drop existing restrictive policies
+DROP POLICY IF EXISTS "Admins can manage all user roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
+
+-- Create policy for users to insert their own role
+CREATE POLICY "Users can insert their own role" 
+ON public.user_roles 
+FOR INSERT 
+TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+-- Create policy for users to view their own role
+CREATE POLICY "Users can view their own role" 
+ON public.user_roles 
+FOR SELECT 
+TO authenticated
+USING (user_id = auth.uid());
+
+-- Create policy for admins to manage other user roles
+CREATE POLICY "Admins can manage other user roles" 
+ON public.user_roles 
+FOR ALL
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid());
+
+-- Allow admins to update their own role
+CREATE POLICY "Admins can update their own role" 
+ON public.user_roles 
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid());</pre>
+
+    <script>
+        const SUPABASE_URL = "https://supabase.rahedeen.com/";
+        const SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NTc3OTgyMCwiZXhwIjo0OTExNDUzNDIwLCJyb2xlIjoiYW5vbiJ9.5CgjASpcB28n4UP1nrKmAP6_ODBJwpjgKy7_yhQZBxc";
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function applyFix() {
+            const btn = document.getElementById('fixBtn');
+            const resultDiv = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = 'Applying fix...';
+            resultDiv.innerHTML = '<div class="result info">Applying RLS policy fix...</div>';
+            
+            // SQL commands to execute one by one
+            const commands = [
+                {
+                    name: "Drop old 'Admins can manage all user roles' policy",
+                    sql: 'DROP POLICY IF EXISTS "Admins can manage all user roles" ON public.user_roles;'
+                },
+                {
+                    name: "Drop old 'Users can view their own role' policy",
+                    sql: 'DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;'
+                },
+                {
+                    name: "Create 'Users can insert their own role' policy",
+                    sql: `CREATE POLICY "Users can insert their own role" 
+ON public.user_roles 
+FOR INSERT 
+TO authenticated
+WITH CHECK (user_id = auth.uid());`
+                },
+                {
+                    name: "Create 'Users can view their own role' policy",
+                    sql: `CREATE POLICY "Users can view their own role" 
+ON public.user_roles 
+FOR SELECT 
+TO authenticated
+USING (user_id = auth.uid());`
+                },
+                {
+                    name: "Create 'Admins can manage other user roles' policy",
+                    sql: `CREATE POLICY "Admins can manage other user roles" 
+ON public.user_roles 
+FOR ALL
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid());`
+                },
+                {
+                    name: "Create 'Admins can update their own role' policy",
+                    sql: `CREATE POLICY "Admins can update their own role" 
+ON public.user_roles 
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid());`
+                }
+            ];
+            
+            let successCount = 0;
+            let failCount = 0;
+            let output = '';
+            
+            for (const cmd of commands) {
+                try {
+                    console.log(`Executing: ${cmd.name}`);
+                    const { data, error } = await supabase.rpc('exec_sql', { query: cmd.sql });
+                    
+                    if (error) {
+                        console.error(`Failed: ${cmd.name}`, error);
+                        output += `<div class="result error">❌ ${cmd.name}: ${error.message}</div>`;
+                        failCount++;
+                    } else {
+                        console.log(`Success: ${cmd.name}`);
+                        output += `<div class="result success">✅ ${cmd.name}</div>`;
+                        successCount++;
+                    }
+                } catch (err) {
+                    console.error(`Error: ${cmd.name}`, err);
+                    output += `<div class="result error">❌ ${cmd.name}: ${err.message}</div>`;
+                    failCount++;
+                }
+            }
+            
+            resultDiv.innerHTML = output;
+            
+            if (failCount === 0) {
+                resultDiv.innerHTML += '<div class="result success"><strong>✅ All RLS policies applied successfully!</strong><br>You can now login and create users without RLS errors.</div>';
+            } else {
+                resultDiv.innerHTML += `<div class="result error"><strong>⚠️ Completed with ${failCount} errors and ${successCount} successes.</strong><br>Please check the Supabase dashboard SQL editor to run the commands manually.</div>`;
+            }
+            
+            btn.disabled = false;
+            btn.textContent = failCount > 0 ? 'Retry Fix' : 'Fix Applied';
+        }
+    </script>
+</body>
+</html>
+

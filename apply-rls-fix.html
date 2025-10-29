@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply RLS Policy Fix</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        pre {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Apply RLS Policy Fix</h1>
+        <p>This will fix the "new row violates row-level security policy" error for the user_roles table.</p>
+        
+        <div id="status" class="status info">
+            Ready to apply migration. Click "Apply Fix" to proceed.
+        </div>
+        
+        <button onclick="applyFix()" id="applyBtn">Apply Fix</button>
+        <button onclick="testConnection()" id="testBtn">Test Connection</button>
+        <button onclick="checkCurrentPolicies()" id="checkBtn">Check Current Policies</button>
+        
+        <h3>Migration SQL:</h3>
+        <pre id="sqlCode">
+-- Fix user_roles RLS policy to allow users to insert their own role
+-- This is needed for first-time setup when users don't have admin privileges yet
+
+-- Drop the existing restrictive policies
+DROP POLICY IF EXISTS "Admins can manage all user roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
+
+-- Create a new policy that allows users to insert their own role
+CREATE POLICY "Users can insert their own role" 
+ON public.user_roles 
+FOR INSERT 
+TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+-- Create a policy that allows users to view their own role
+CREATE POLICY "Users can view their own role" 
+ON public.user_roles 
+FOR SELECT 
+TO authenticated
+USING (user_id = auth.uid());
+
+-- Create a policy that allows admins to manage all user roles (except their own)
+CREATE POLICY "Admins can manage other user roles" 
+ON public.user_roles 
+FOR ALL
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid());
+
+-- Allow admins to update their own role (but not delete it)
+CREATE POLICY "Admins can update their own role" 
+ON public.user_roles 
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid())
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid());
+        </pre>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const SUPABASE_URL = "https://supabase.rahedeen.com/";
+        const SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NTc3OTgyMCwiZXhwIjo0OTExNDUzNDIwLCJyb2xlIjoiYW5vbiJ9.5CgjASpcB28n4UP1nrKmAP6_ODBJwpjgKy7_yhQZBxc";
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        function addResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            resultDiv.appendChild(div);
+        }
+        
+        async function testConnection() {
+            updateStatus('Testing connection...', 'info');
+            try {
+                const { data, error } = await supabase.from('profiles').select('count').limit(1);
+                if (error) {
+                    updateStatus(`Connection failed: ${error.message}`, 'error');
+                    addResult(`Error: ${error.message}`, 'error');
+                } else {
+                    updateStatus('✅ Connection successful!', 'success');
+                    addResult('✅ Supabase connection is working', 'success');
+                }
+            } catch (err) {
+                updateStatus(`Connection error: ${err.message}`, 'error');
+                addResult(`Error: ${err.message}`, 'error');
+            }
+        }
+        
+        async function checkCurrentPolicies() {
+            updateStatus('Checking current policies...', 'info');
+            try {
+                const { data, error } = await supabase.rpc('get_table_policies', { table_name: 'user_roles' });
+                if (error) {
+                    addResult(`Error checking policies: ${error.message}`, 'error');
+                } else {
+                    addResult(`Current policies: ${JSON.stringify(data, null, 2)}`, 'info');
+                }
+            } catch (err) {
+                addResult(`Error: ${err.message}`, 'error');
+            }
+        }
+        
+        async function applyFix() {
+            const applyBtn = document.getElementById('applyBtn');
+            const testBtn = document.getElementById('testBtn');
+            const checkBtn = document.getElementById('checkBtn');
+            
+            applyBtn.disabled = true;
+            testBtn.disabled = true;
+            checkBtn.disabled = true;
+            
+            updateStatus('Applying RLS policy fix...', 'info');
+            
+            try {
+                // Execute the migration SQL
+                const { data, error } = await supabase.rpc('exec_sql', {
+                    sql: `
+                        -- Drop the existing restrictive policies
+                        DROP POLICY IF EXISTS "Admins can manage all user roles" ON public.user_roles;
+                        DROP POLICY IF EXISTS "Users can view their own role" ON public.user_roles;
+
+                        -- Create a new policy that allows users to insert their own role
+                        CREATE POLICY "Users can insert their own role" 
+                        ON public.user_roles 
+                        FOR INSERT 
+                        TO authenticated
+                        WITH CHECK (user_id = auth.uid());
+
+                        -- Create a policy that allows users to view their own role
+                        CREATE POLICY "Users can view their own role" 
+                        ON public.user_roles 
+                        FOR SELECT 
+                        TO authenticated
+                        USING (user_id = auth.uid());
+
+                        -- Create a policy that allows admins to manage all user roles (except their own)
+                        CREATE POLICY "Admins can manage other user roles" 
+                        ON public.user_roles 
+                        FOR ALL
+                        TO authenticated
+                        USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid())
+                        WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id <> auth.uid());
+
+                        -- Allow admins to update their own role (but not delete it)
+                        CREATE POLICY "Admins can update their own role" 
+                        ON public.user_roles 
+                        FOR UPDATE
+                        TO authenticated
+                        USING (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid())
+                        WITH CHECK (public.has_role(auth.uid(), 'admin'::public.user_role) AND user_id = auth.uid());
+                    `
+                });
+                
+                if (error) {
+                    updateStatus(`❌ Migration failed: ${error.message}`, 'error');
+                    addResult(`Error: ${error.message}`, 'error');
+                } else {
+                    updateStatus('✅ RLS policy fix applied successfully!', 'success');
+                    addResult('✅ Migration completed successfully', 'success');
+                    addResult('The user_roles table RLS policies have been updated to allow users to insert their own roles.', 'info');
+                }
+            } catch (err) {
+                updateStatus(`❌ Migration error: ${err.message}`, 'error');
+                addResult(`Error: ${err.message}`, 'error');
+            } finally {
+                applyBtn.disabled = false;
+                testBtn.disabled = false;
+                checkBtn.disabled = false;
+            }
+        }
+        
+        // Initialize
+        updateStatus('Ready to apply migration. Click "Apply Fix" to proceed.', 'info');
+    </script>
+</body>
+</html>
+
+

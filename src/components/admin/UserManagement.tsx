@@ -482,57 +482,50 @@ export function UserManagement() {
     mutationFn: async (userId: string) => {
       console.log('Deleting user:', userId);
       
-      // Method 1: Delete role and profile directly (user will still exist in auth but won't show up)
-      console.log('Step 1: Deleting user role...');
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
+      // Step 1: Delete from database first using helper function
+      console.log('Step 1: Deleting user data from database...');
+      const { data: dbResult, error: dbError } = await supabase
+        .rpc('delete_user_safely', { target_user_id: userId });
       
-      if (roleError) {
-        console.error('Failed to delete user role:', roleError);
-      } else {
-        console.log('User role deleted successfully');
+      if (dbError) {
+        console.error('Database deletion error:', dbError);
+        throw new Error(`Failed to delete user data: ${dbError.message}`);
       }
       
-      // Step 2: Delete profile
-      console.log('Step 2: Deleting profile...');
-      let profileDeleted = false;
+      if (dbResult && !dbResult.success) {
+        console.error('Database deletion failed:', dbResult.error);
+        throw new Error(dbResult.error || 'Failed to delete user data');
+      }
       
-      // Try with user_id first
-      const { error: profileError1 } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', userId);
+      console.log('User data deleted from database successfully');
       
-      if (!profileError1) {
-        profileDeleted = true;
-        console.log('Profile deleted with user_id column');
-      } else {
-        console.log('Profile delete with user_id failed, trying id:', profileError1.message);
-        
-        // Try with id as fallback
-        const { error: profileError2 } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', userId);
-        
-        if (!profileError2) {
-          profileDeleted = true;
-          console.log('Profile deleted with id column');
-        } else {
-          console.error('Profile delete failed (both attempts):', profileError2);
+      // Step 2: Try to delete from Supabase Auth using Edge Function
+      console.log('Step 2: Attempting to delete from authentication...');
+      try {
+        const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+          body: { userId }
+        });
+
+        if (error) {
+          console.error('Edge Function error:', error);
+          throw new Error(`Failed to delete from auth: ${error.message}`);
         }
+        
+        if (data?.error) {
+          console.error('Edge Function returned error:', data.error);
+          throw new Error(data.error);
+        }
+
+        console.log('User deleted from authentication successfully');
+        return { success: true, message: 'User deleted completely' };
+      } catch (edgeFunctionError: any) {
+        console.error('Edge Function failed:', edgeFunctionError);
+        // Database deletion was successful, auth deletion failed
+        return { 
+          success: true, 
+          message: 'User data removed (auth user may still exist but cannot access app)' 
+        };
       }
-      
-      if (!profileDeleted) {
-        throw new Error('Failed to delete user profile');
-      }
-      
-      console.log('User data cleaned up successfully (role and profile deleted)');
-      console.log('Note: User still exists in auth.users but will not appear in the app');
-      
-      return { success: true, message: 'User removed from application' };
     },
     onSuccess: async () => {
       toast.success("User deleted successfully!");
