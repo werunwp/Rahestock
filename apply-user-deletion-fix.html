@@ -197,44 +197,63 @@
     </div>
 
     <script>
-        const migrationSQL = `-- Fix User Deletion Issues - Add CASCADE constraints and helper function
+        const migrationSQL = `-- Safe User Deletion Fix
 
--- Update foreign key constraints to CASCADE on user deletion
-ALTER TABLE public.user_roles 
-  DROP CONSTRAINT IF EXISTS user_roles_user_id_fkey;
-
-ALTER TABLE public.user_roles 
-  ADD CONSTRAINT user_roles_user_id_fkey 
-  FOREIGN KEY (user_id) 
-  REFERENCES auth.users(id) 
-  ON DELETE CASCADE;
-
-ALTER TABLE public.profiles 
-  DROP CONSTRAINT IF EXISTS profiles_user_id_fkey;
-
-ALTER TABLE public.profiles 
+-- Check and update profiles foreign key
+DO $$ 
+BEGIN
+  ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_user_id_fkey;
+  ALTER TABLE public.profiles 
   ADD CONSTRAINT profiles_user_id_fkey 
   FOREIGN KEY (user_id) 
   REFERENCES auth.users(id) 
   ON DELETE CASCADE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Profiles constraint: %', SQLERRM;
+END $$;
 
-ALTER TABLE public.user_preferences 
-  DROP CONSTRAINT IF EXISTS user_preferences_user_id_fkey;
+-- Check and update user_roles foreign key
+DO $$ 
+BEGIN
+  ALTER TABLE public.user_roles DROP CONSTRAINT IF EXISTS user_roles_user_id_fkey;
+  ALTER TABLE public.user_roles 
+  ADD CONSTRAINT user_roles_user_id_fkey 
+  FOREIGN KEY (user_id) 
+  REFERENCES auth.users(id) 
+  ON DELETE CASCADE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'User roles constraint: %', SQLERRM;
+END $$;
 
-ALTER TABLE public.user_preferences 
+-- Check and update user_preferences foreign key
+DO $$ 
+BEGIN
+  ALTER TABLE public.user_preferences DROP CONSTRAINT IF EXISTS user_preferences_user_id_fkey;
+  ALTER TABLE public.user_preferences 
   ADD CONSTRAINT user_preferences_user_id_fkey 
   FOREIGN KEY (user_id) 
   REFERENCES auth.users(id) 
   ON DELETE CASCADE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'User preferences constraint: %', SQLERRM;
+END $$;
 
-ALTER TABLE public.dismissed_alerts 
-  DROP CONSTRAINT IF EXISTS dismissed_alerts_user_id_fkey;
-
-ALTER TABLE public.dismissed_alerts 
+-- Check and update dismissed_alerts foreign key
+DO $$ 
+BEGIN
+  ALTER TABLE public.dismissed_alerts DROP CONSTRAINT IF EXISTS dismissed_alerts_user_id_fkey;
+  ALTER TABLE public.dismissed_alerts 
   ADD CONSTRAINT dismissed_alerts_user_id_fkey 
   FOREIGN KEY (user_id) 
   REFERENCES auth.users(id) 
   ON DELETE CASCADE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Dismissed alerts constraint: %', SQLERRM;
+END $$;
 
 -- Create a safe delete user function
 CREATE OR REPLACE FUNCTION public.delete_user_safely(target_user_id UUID)
