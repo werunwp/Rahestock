@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compress Existing Images - Rahestock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e1e8ed;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .log {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .log-entry.info {
+            background: #e7f3ff;
+        }
+
+        .log-entry.success {
+            background: #d4edda;
+        }
+
+        .log-entry.error {
+            background: #f8d7da;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Compress Existing Images</h1>
+        <p class="subtitle">Compress all existing images in your product storage to under 50KB</p>
+
+        <div class="warning">
+            ⚠️ <strong>Important:</strong> This will download all images, compress them, and re-upload. 
+            Make sure you have a stable internet connection. This process may take several minutes.
+        </div>
+
+        <div class="form-group">
+            <label for="supabaseUrl">Supabase URL</label>
+            <input 
+                type="text" 
+                id="supabaseUrl" 
+                placeholder="https://your-project.supabase.co"
+                value="https://default.supabase.rahedeen.com"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="serviceRoleKey">Service Role Key (from Supabase Settings → API)</label>
+            <input 
+                type="password" 
+                id="serviceRoleKey" 
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            >
+        </div>
+
+        <button class="btn" onclick="compressImages()">Start Compression</button>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalImages">0</div>
+                <div class="stat-label">Total Images</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="compressed">0</div>
+                <div class="stat-label">Compressed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="spacesSaved">0 KB</div>
+                <div class="stat-label">Space Saved</div>
+            </div>
+        </div>
+
+        <div class="result" id="result"></div>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let totalSpaceSaved = 0;
+        let compressedCount = 0;
+
+        function addLog(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            logDiv.style.display = 'block';
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+
+        function updateProgress(current, total) {
+            const progressFill = document.getElementById('progressFill');
+            const percentage = Math.round((current / total) * 100);
+            progressFill.style.width = `${percentage}%`;
+            progressFill.textContent = `${percentage}% (${current}/${total})`;
+        }
+
+        function updateStats(total, compressed, saved) {
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('totalImages').textContent = total;
+            document.getElementById('compressed').textContent = compressed;
+            document.getElementById('spacesSaved').textContent = Math.round(saved) + ' KB';
+        }
+
+        async function compressImageBlob(blob) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(blob);
+
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+
+                    // Calculate new dimensions
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDimension = 800;
+
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = (height / width) * maxDimension;
+                            width = maxDimension;
+                        } else {
+                            width = (width / height) * maxDimension;
+                            height = maxDimension;
+                        }
+                    }
+
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress iteratively
+                    let quality = 0.8;
+                    const tryCompress = () => {
+                        canvas.toBlob(
+                            (compressedBlob) => {
+                                if (!compressedBlob) {
+                                    reject(new Error('Failed to compress'));
+                                    return;
+                                }
+
+                                const sizeKB = compressedBlob.size / 1024;
+
+                                if (sizeKB <= 50 || quality <= 0.1) {
+                                    resolve(compressedBlob);
+                                } else {
+                                    quality *= 0.9;
+                                    tryCompress();
+                                }
+                            },
+                            'image/jpeg',
+                            quality
+                        );
+                    };
+
+                    tryCompress();
+                };
+
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error('Failed to load image'));
+                };
+
+                img.src = url;
+            });
+        }
+
+        async function compressImages() {
+            const supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+            const serviceRoleKey = document.getElementById('serviceRoleKey').value.trim();
+            const btn = document.querySelector('.btn');
+
+            if (!supabaseUrl || !serviceRoleKey) {
+                showResult('Please provide both Supabase URL and Service Role Key', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Compressing...';
+            document.getElementById('progress').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('log').innerHTML = '';
+            totalSpaceSaved = 0;
+            compressedCount = 0;
+
+            try {
+                addLog('Fetching list of images from storage...');
+
+                // List all images
+                const listResponse = await fetch(`${supabaseUrl}/storage/v1/object/list/product-images`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${serviceRoleKey}`,
+                        'Content-Type': 'application/json',
+                        'apikey': serviceRoleKey
+                    },
+                    body: JSON.stringify({
+                        limit: 1000,
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
+                });
+
+                if (!listResponse.ok) {
+                    throw new Error(`Failed to list images: ${listResponse.statusText}`);
+                }
+
+                const images = await listResponse.json();
+                addLog(`Found ${images.length} images`, 'success');
+
+                if (images.length === 0) {
+                    showResult('No images found in storage', 'info');
+                    btn.disabled = false;
+                    btn.textContent = 'Start Compression';
+                    return;
+                }
+
+                updateStats(images.length, 0, 0);
+
+                // Process each image
+                for (let i = 0; i < images.length; i++) {
+                    const image = images[i];
+                    const imageName = image.name;
+
+                    try {
+                        addLog(`Processing ${imageName}...`);
+
+                        // Download image
+                        const downloadResponse = await fetch(
+                            `${supabaseUrl}/storage/v1/object/product-images/${imageName}`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${serviceRoleKey}`,
+                                    'apikey': serviceRoleKey
+                                }
+                            }
+                        );
+
+                        if (!downloadResponse.ok) {
+                            throw new Error(`Failed to download ${imageName}`);
+                        }
+
+                        const originalBlob = await downloadResponse.blob();
+                        const originalSize = originalBlob.size / 1024; // KB
+
+                        // Check if already small enough
+                        if (originalSize <= 50) {
+                            addLog(`${imageName} is already under 50KB (${originalSize.toFixed(2)}KB), skipping`);
+                            updateProgress(i + 1, images.length);
+                            continue;
+                        }
+
+                        // Compress
+                        const compressedBlob = await compressImageBlob(originalBlob);
+                        const compressedSize = compressedBlob.size / 1024; // KB
+                        const saved = originalSize - compressedSize;
+
+                        // Upload compressed version
+                        const uploadResponse = await fetch(
+                            `${supabaseUrl}/storage/v1/object/product-images/${imageName}`,
+                            {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': `Bearer ${serviceRoleKey}`,
+                                    'apikey': serviceRoleKey,
+                                    'Content-Type': 'image/jpeg'
+                                },
+                                body: compressedBlob
+                            }
+                        );
+
+                        if (!uploadResponse.ok) {
+                            throw new Error(`Failed to upload compressed ${imageName}`);
+                        }
+
+                        compressedCount++;
+                        totalSpaceSaved += saved;
+
+                        addLog(
+                            `✓ ${imageName}: ${originalSize.toFixed(0)}KB → ${compressedSize.toFixed(0)}KB (saved ${saved.toFixed(0)}KB)`,
+                            'success'
+                        );
+
+                    } catch (error) {
+                        addLog(`✗ Error processing ${imageName}: ${error.message}`, 'error');
+                    }
+
+                    updateProgress(i + 1, images.length);
+                    updateStats(images.length, compressedCount, totalSpaceSaved);
+                }
+
+                showResult(
+                    `✅ Compression complete! Compressed ${compressedCount} out of ${images.length} images. Total space saved: ${Math.round(totalSpaceSaved)}KB`,
+                    'success'
+                );
+
+            } catch (error) {
+                console.error('Compression error:', error);
+                showResult(`Error: ${error.message}`, 'error');
+                addLog(`Fatal error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Start Compression';
+            }
+        }
+    </script>
+</body>
+</html>
+

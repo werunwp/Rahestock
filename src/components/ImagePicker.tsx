@@ -9,6 +9,7 @@ import { ImageUpload } from './ImageUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/utils/toast";
 import { ensureStorageBucket } from '@/utils/storageSetup';
+import { compressImageWithProgress, formatFileSize as formatSize } from '@/utils/imageCompression';
 import { 
   Image, 
   Upload, 
@@ -118,37 +119,62 @@ export const ImagePicker = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error('File size should be less than 5MB');
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit before compression
+      toast.error('File size should be less than 10MB');
       return;
     }
 
     setIsUploading(true);
+    const uploadToastId = toast.loading('Compressing image...');
+    
     try {
+      // Compress the image before upload
+      const originalSize = file.size / 1024; // KB
+      console.log(`Original image size: ${originalSize.toFixed(2)}KB`);
+      
+      const compressedFile = await compressImageWithProgress(
+        file,
+        { 
+          maxSizeKB: 50, // Target 50KB
+          maxWidth: 800,
+          maxHeight: 800,
+          quality: 0.8 
+        },
+        (progress) => {
+          if (progress === 100) {
+            toast.loading('Uploading compressed image...', { id: uploadToastId });
+          }
+        }
+      );
+      
+      const compressedSize = compressedFile.size / 1024; // KB
+      const reduction = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+      console.log(`Compressed to ${compressedSize.toFixed(2)}KB (${reduction}% reduction)`);
+      
       // First, ensure the storage bucket exists
       const bucketExists = await ensureStorageBucket();
       if (!bucketExists) {
-        toast.error('Storage bucket not available. Please contact administrator.');
+        toast.error('Storage bucket not available. Please contact administrator.', { id: uploadToastId });
         return;
       }
 
-      const fileExt = file.name.split('.').pop();
+      const fileExt = 'jpg'; // Always use jpg for compressed images
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       
       const { data, error } = await supabase.storage
         .from('product-images')
-        .upload(fileName, file);
+        .upload(fileName, compressedFile);
 
       if (error) {
         console.error('Storage upload error:', error);
         
         // Provide more specific error messages
         if (error.message.includes('Bucket not found')) {
-          toast.error('Storage bucket not found. Please contact administrator to set up image storage.');
+          toast.error('Storage bucket not found. Please contact administrator to set up image storage.', { id: uploadToastId });
         } else if (error.message.includes('permission')) {
-          toast.error('Permission denied. Please check your account permissions.');
+          toast.error('Permission denied. Please check your account permissions.', { id: uploadToastId });
         } else {
-          toast.error(`Upload failed: ${error.message}`);
+          toast.error(`Upload failed: ${error.message}`, { id: uploadToastId });
         }
         return;
       }
@@ -163,10 +189,13 @@ export const ImagePicker = ({
       // Select the newly uploaded image
       handleImageSelect(publicUrl);
       
-      toast.success('Image uploaded and selected successfully');
-    } catch (error) {
+      toast.success(
+        `Image uploaded! Compressed from ${originalSize.toFixed(0)}KB to ${compressedSize.toFixed(0)}KB`,
+        { id: uploadToastId }
+      );
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload image');
+      toast.error(error.message || 'Failed to upload image', { id: uploadToastId });
     } finally {
       setIsUploading(false);
     }

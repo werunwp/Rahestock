@@ -325,6 +325,7 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                               src={item.product_image_url}
                               alt={item.product_name}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                               onError={(e) => {
                                 // Fallback to placeholder if image fails to load
                                 e.currentTarget.src = '/placeholder.svg';

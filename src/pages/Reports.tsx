@@ -502,6 +502,7 @@ const Reports = () => {
                             src={item.imageUrl}
                             alt={item.productName}
                             className="h-16 w-16 rounded-md object-cover"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="h-16 w-16 rounded-md bg-muted flex items-center justify-center">
