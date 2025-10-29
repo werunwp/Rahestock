@@ -140,15 +140,31 @@ $$;
 GRANT EXECUTE ON FUNCTION public.delete_user_safely(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_user_safely(UUID) TO service_role;
 
--- Update RLS policies for user_roles to allow deletion
-DROP POLICY IF EXISTS "Users can delete their own role" ON public.user_roles;
-CREATE POLICY "Users can delete their own role"
-  ON public.user_roles
-  FOR DELETE
-  TO authenticated
-  USING (true);
+-- Step 3: Update RLS policies to allow admin operations
 
--- Update RLS policies for profiles to allow deletion
+-- Profiles table - Allow admins to update any profile
+DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
+CREATE POLICY "Admins can update any profile"
+  ON public.profiles
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_roles.user_id = auth.uid()
+      AND user_roles.role = 'admin'
+    )
+  );
+
+-- Profiles table - Allow users to update their own profile
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+  ON public.profiles
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id);
+
+-- Profiles table - Allow deletion
 DROP POLICY IF EXISTS "Users can delete their own profile" ON public.profiles;
 CREATE POLICY "Users can delete their own profile"
   ON public.profiles
@@ -156,7 +172,45 @@ CREATE POLICY "Users can delete their own profile"
   TO authenticated
   USING (true);
 
+-- User roles table - Allow admins to update any role
+DROP POLICY IF EXISTS "Admins can update any role" ON public.user_roles;
+CREATE POLICY "Admins can update any role"
+  ON public.user_roles
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      WHERE ur.user_id = auth.uid()
+      AND ur.role = 'admin'
+    )
+  );
+
+-- User roles table - Allow admins to insert any role
+DROP POLICY IF EXISTS "Admins can insert any role" ON public.user_roles;
+CREATE POLICY "Admins can insert any role"
+  ON public.user_roles
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_roles.user_id = auth.uid()
+      AND user_roles.role = 'admin'
+    )
+  );
+
+-- User roles table - Allow deletion
+DROP POLICY IF EXISTS "Users can delete their own role" ON public.user_roles;
+CREATE POLICY "Users can delete their own role"
+  ON public.user_roles
+  FOR DELETE
+  TO authenticated
+  USING (true);
+
 -- ============================================
--- DONE! You can now delete users safely
+-- DONE! You can now:
+-- - Delete users safely
+-- - Update user profiles and roles as admin
 -- ============================================
 
