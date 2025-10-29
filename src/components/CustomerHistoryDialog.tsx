@@ -109,9 +109,9 @@ export const CustomerHistoryDialog = ({ open, onOpenChange, customer }: Customer
 
   // Calculate totals for all orders and paid orders
   const totalOrders = sales.length;
-  const paidOrders = sales.filter(sale => sale.payment_status === 'paid');
-  const successfulOrders = paidOrders.length;
-  const totalSpent = paidOrders.reduce((sum, sale) => sum + sale.grand_total, 0);
+  const deliveredOrders = sales.filter((sale: any) => (sale as any).courier_status === 'delivered');
+  const successfulOrders = deliveredOrders.length;
+  const totalSpent = deliveredOrders.reduce((sum, sale) => sum + sale.grand_total, 0);
   const avgOrderValue = successfulOrders > 0 ? totalSpent / successfulOrders : 0;
 
   return (

@@ -10,9 +10,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/utils/toast";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CourierStatusDetails } from "./CourierStatusDetails";
 import { ProductIcon } from "@/components/ProductIcon";
 
 // Function to restore inventory when an order is cancelled
@@ -131,6 +130,9 @@ interface SaleWithItems {
   customer_phone?: string;
   customer_address?: string;
   customer_whatsapp?: string;
+  additional_info?: string;
+  cn_number?: string;
+  courier_name?: string;
   city?: string;
   zone?: string;
   area?: string;
@@ -164,7 +166,6 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
   const { getSaleWithItems } = useSales();
   const [sale, setSale] = useState<SaleWithItems | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const { formatAmount } = useCurrency();
 
   const fetchSaleDetails = async () => {
@@ -182,146 +183,6 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
     }
   };
 
-  const handleStatusRefresh = async (consignmentId: string) => {
-    setIsRefreshingStatus(true);
-    
-    try {
-      // Get webhook settings for status check (using same pattern as useWebhookSettings)
-      const { data: webhookData } = await supabase
-        .from('courier_webhook_settings')
-        .select('*')
-        .limit(1);
-      
-      const webhookSettings = webhookData?.[0];
-
-      if (!webhookSettings?.status_check_webhook_url) {
-        toast.error("No status check webhook URL configured");
-        return;
-      }
-
-      // Prepare headers for webhook request
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add Basic Auth if credentials are configured
-      if (webhookSettings.auth_username && webhookSettings.auth_password &&
-          webhookSettings.auth_username.trim() !== '' && webhookSettings.auth_password.trim() !== '') {
-        const credentials = btoa(`${webhookSettings.auth_username}:${webhookSettings.auth_password}`);
-        headers['Authorization'] = `Basic ${credentials}`;
-      }
-
-      // Send status check request to the webhook
-      // Build URL with only consignment_id parameter
-      const url = new URL(webhookSettings.status_check_webhook_url);
-      url.searchParams.append('consignment_id', consignmentId);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          ...(headers.Authorization && { 'Authorization': headers.Authorization })
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Status check response:', result);
-        
-        // Handle the specific response format from your webhook
-        let newCourierStatus = 'pending';
-        
-        if (Array.isArray(result) && result.length > 0) {
-          // Format: [{ "type": "success", "code": 200, "data": { "order_status": "..." } }]
-          const firstResponse = result[0];
-          if (firstResponse.type === 'success' && firstResponse.data) {
-            newCourierStatus = firstResponse.data.order_status || 'pending';
-          }
-        } else if (result.data && result.data.order_status) {
-          // Fallback format: { "data": { "order_status": "..." } }
-          newCourierStatus = result.data.order_status;
-        } else if (result.order_status) {
-          // Direct format: { "order_status": "..." }
-          newCourierStatus = result.order_status;
-        }
-        
-        console.log('Extracted courier status:', newCourierStatus);
-        
-        // Normalize status for consistent display
-        const normalizedStatus = newCourierStatus.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        let displayStatus = newCourierStatus;
-        
-        if (normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel')) {
-          displayStatus = 'cancelled';
-        } else if (normalizedStatus.includes('in_transit') || normalizedStatus.includes('picked_up')) {
-          displayStatus = 'in_transit';
-        } else if (normalizedStatus.includes('out_for_delivery')) {
-          displayStatus = 'out_for_delivery';
-        } else if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
-          displayStatus = 'delivered';
-        } else if (normalizedStatus.includes('returned')) {
-          displayStatus = 'returned';
-        }
-        
-        console.log('Normalized display status:', displayStatus);
-        
-        // Map courier status to payment status for business logic
-        let paymentStatusUpdate = {};
-        if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
-          paymentStatusUpdate = { payment_status: 'paid' };
-          console.log('SaleDetails: Setting payment status to: paid');
-        } else if (normalizedStatus.includes('returned') || normalizedStatus.includes('cancelled') || 
-                   normalizedStatus.includes('pickup_cancelled') || normalizedStatus.includes('pickup_cancel') || normalizedStatus.includes('lost')) {
-          paymentStatusUpdate = { payment_status: 'cancelled' };
-          console.log('SaleDetails: Setting payment status to: cancelled');
-        } else {
-          console.log('SaleDetails: No payment status update needed for status:', normalizedStatus);
-        }
-        
-        console.log('SaleDetails: Payment status update object:', paymentStatusUpdate);
-        
-        // Update the sale in database and local state
-        const { error: updateError } = await supabase
-          .from('sales')
-          .update({ 
-            courier_status: displayStatus,
-            order_status: displayStatus,
-            last_status_check: new Date().toISOString(),
-            ...paymentStatusUpdate
-          })
-          .eq('id', saleId);
-
-        // If order is cancelled, restore inventory
-        if (displayStatus === 'cancelled') {
-          console.log('Order cancelled via dialog, restoring inventory...');
-          await restoreInventoryForCancelledOrder(saleId);
-        }
-        
-        if (!updateError && sale) {
-          setSale({
-            ...sale,
-            courier_status: displayStatus,
-            order_status: displayStatus,
-            last_status_check: new Date().toISOString(),
-            ...paymentStatusUpdate
-          });
-          toast.success(`Status updated to: ${displayStatus}`);
-        } else if (updateError) {
-          console.error('Failed to update sale status:', updateError);
-          toast.error('Failed to update status in database');
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('Status check failed:', response.status, errorText);
-        toast.error(`Status check failed: ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error refreshing status:", error);
-      toast.error('Failed to check status');
-    } finally {
-      setIsRefreshingStatus(false);
-    }
-  };
 
   useEffect(() => {
     if (open && saleId) {
@@ -388,18 +249,24 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
                   <p className="text-sm font-medium">Address</p>
                   <p className="text-sm text-muted-foreground">{sale.customer_address}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">City</p>
-                  <p className="text-sm text-muted-foreground">{sale.city || "Not provided"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Zone</p>
-                  <p className="text-sm text-muted-foreground">{sale.zone || "Not provided"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Area</p>
-                  <p className="text-sm text-muted-foreground">{sale.area || "Not provided"}</p>
-                </div>
+                {sale.additional_info && (
+                  <div>
+                    <p className="text-sm font-medium">Additional Info</p>
+                    <p className="text-sm text-muted-foreground">{sale.additional_info}</p>
+                  </div>
+                )}
+                {sale.cn_number && (
+                  <div>
+                    <p className="text-sm font-medium">CN Number</p>
+                    <p className="text-sm text-muted-foreground font-mono bg-green-100 text-green-800 px-2 py-1 rounded inline-block">{sale.cn_number}</p>
+                  </div>
+                )}
+                {sale.courier_name && (
+                  <div>
+                    <p className="text-sm font-medium">Courier Name</p>
+                    <p className="text-sm text-muted-foreground font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block">{sale.courier_name}</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -429,17 +296,6 @@ export const SaleDetailsDialog = ({ open, onOpenChange, saleId }: SaleDetailsDia
             </CardContent>
           </Card>
 
-          {/* Courier Status Card - Full Width */}
-          <div className="col-span-full">
-            <CourierStatusDetails 
-              sale={sale}
-              onRefreshStatus={async (saleId, consignmentId) => {
-                await handleStatusRefresh(consignmentId);
-                return true;
-              }}
-              isRefreshing={isRefreshingStatus}
-            />
-          </div>
         </div>
 
         {/* Items Table */}

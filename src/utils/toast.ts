@@ -58,6 +58,13 @@ export const toast = {
     });
   },
 
+  // Loading toast
+  loading: (message: string, options?: any) => {
+    return sonnerToast.loading(message, {
+      ...options,
+    });
+  },
+
   // Dismiss functions
   dismiss: (id?: string) => {
     if (id) {

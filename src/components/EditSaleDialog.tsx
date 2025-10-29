@@ -13,6 +13,7 @@ interface EditSaleDialogProps {
 }
 
 export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogProps) => {
+  console.log("EditSaleDialog: Component rendered with open:", open, "saleId:", saleId);
   const [initialData, setInitialData] = useState<SaleFormData | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
     // Load data when dialog opens
     const loadSaleData = async () => {
       try {
+        console.log("EditSaleDialog: Loading sale data for ID:", saleId);
         setIsLoading(true);
         setError(null);
         
@@ -40,6 +42,12 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
         
         const dataPromise = getSaleWithItems(saleId);
         const saleWithItems = await Promise.race([dataPromise, timeoutPromise]) as any;
+        
+        console.log("EditSaleDialog: Sale data loaded:", saleWithItems);
+        
+        if (!saleWithItems) {
+          throw new Error("No sale data received");
+        }
 
         const baseItems = saleWithItems.items.map((item: any) => ({
           id: item.id,
@@ -95,9 +103,9 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
           customerPhone: saleWithItems.customer_phone || "",
           customerWhatsapp: saleWithItems.customer_whatsapp || "",
           customerAddress: saleWithItems.customer_address || "",
-          city: saleWithItems.city || "",
-          zone: saleWithItems.zone || "",
-          area: saleWithItems.area || "",
+          additional_info: saleWithItems.additional_info || "",
+          cn_number: saleWithItems.cn_number || "",
+          courier_name: saleWithItems.courier_name || "",
           paymentMethod: saleWithItems.payment_method,
           paymentStatus: saleWithItems.payment_status,
           amountPaid: saleWithItems.amount_paid,
@@ -107,15 +115,16 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
           items: enrichedItems,
         });
       } catch (error) {
-        console.error("Error loading sale data:", error);
+        console.error("EditSaleDialog: Error loading sale data:", error);
         setError(error instanceof Error ? error.message : "Failed to load sale data");
         toast.error("Failed to load sale data");
         
-        // Close dialog on error to prevent infinite loading
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 2000);
+        // Don't close dialog on error, let user retry
+        // setTimeout(() => {
+        //   onOpenChange(false);
+        // }, 2000);
       } finally {
+        console.log("EditSaleDialog: Loading completed");
         setIsLoading(false);
       }
     };
@@ -164,9 +173,9 @@ export const EditSaleDialog = ({ open, onOpenChange, saleId }: EditSaleDialogPro
         customer_phone: data.customerPhone,
         customer_whatsapp: data.customerWhatsapp,
         customer_address: data.customerAddress,
-        city: data.city,
-        zone: data.zone,
-        area: data.area,
+        additional_info: data.additional_info,
+        cn_number: data.cn_number,
+        courier_name: data.courier_name,
         subtotal: calculatedValues.subtotal,
         discount_percent: data.discountPercent,
         discount_amount: calculatedValues.discountAmount,

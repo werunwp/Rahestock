@@ -23,6 +23,8 @@ export const SaleDialog = ({ open, onOpenChange }: SaleDialogProps) => {
         customer_whatsapp: data.customerWhatsapp || null,
         customer_address: data.customerAddress || null,
         additional_info: data.additional_info || null,
+        cn_number: data.cn_number || null,
+        courier_name: data.courier_name || null,
         payment_method: data.paymentMethod,
         payment_status: data.paymentStatus,
         amount_paid: data.amountPaid,

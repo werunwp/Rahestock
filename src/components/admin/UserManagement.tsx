@@ -215,29 +215,131 @@ export function UserManagement() {
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      // Use the Edge Function for user creation
-      const { data, error } = await supabase.functions.invoke('admin-create-user', {
-        body: {
+      console.log('Creating user with data:', { ...userData, password: '***' });
+      
+      // Try Edge Function first
+      try {
+        const { data, error } = await supabase.functions.invoke('admin-create-user', {
+          body: {
+            email: userData.email,
+            password: userData.password,
+            full_name: userData.full_name,
+            phone: userData.phone,
+            role: userData.role
+          }
+        });
+
+        if (error) {
+          console.error('Edge Function invoke error:', error);
+          throw new Error(`Edge Function error: ${error.message || 'Unknown error'}`);
+        }
+        
+        if (data?.error) {
+          console.error('Edge Function returned error:', data.error);
+          throw new Error(data.error);
+        }
+
+        return data;
+      } catch (edgeFunctionError: any) {
+        console.error('Edge Function failed, trying alternative method:', edgeFunctionError);
+        
+        // Fallback: Use Supabase Auth signup
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: userData.email,
           password: userData.password,
-          full_name: userData.full_name,
-          phone: userData.phone,
-          role: userData.role
+          options: {
+            data: {
+              full_name: userData.full_name
+            },
+            emailRedirectTo: undefined // Don't send confirmation email
+          }
+        });
+
+        if (authError) {
+          console.error('Auth signup error:', authError);
+          throw new Error(`Failed to create user: ${authError.message}`);
         }
-      });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+        if (!authData.user) {
+          throw new Error('User creation failed - no user returned');
+        }
 
-      return data;
+        console.log('User created via signup:', authData.user.id);
+
+        // Wait a bit for the trigger to complete (profile creation)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Update the role - first delete the old one, then insert the new one
+        const { error: deleteError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', authData.user.id);
+
+        if (deleteError) {
+          console.error('Role delete error:', deleteError);
+        }
+
+        // Insert the new role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            role: userData.role
+          });
+
+        if (roleError) {
+          console.error('Role insert error:', roleError);
+          // Don't fail the whole operation if role insert fails
+        }
+
+        // Update the profile with full name and phone number
+        const profileUpdateData: any = {};
+        if (userData.full_name) profileUpdateData.full_name = userData.full_name;
+        if (userData.phone) profileUpdateData.phone = userData.phone;
+        
+        if (Object.keys(profileUpdateData).length > 0) {
+          console.log('Updating profile with:', profileUpdateData);
+          
+          // Try user_id first
+          const { error: profileError1 } = await supabase
+            .from('profiles')
+            .update(profileUpdateData)
+            .eq('user_id', authData.user.id)
+            .select();
+
+          if (profileError1) {
+            console.log('Profile update with user_id failed, trying id:', profileError1.message);
+            
+            // Try id as fallback
+            const { error: profileError2 } = await supabase
+              .from('profiles')
+              .update(profileUpdateData)
+              .eq('id', authData.user.id)
+              .select();
+
+            if (profileError2) {
+              console.error('Profile update error (both attempts):', profileError2);
+            } else {
+              console.log('Profile updated successfully with id column');
+            }
+          } else {
+            console.log('Profile updated successfully with user_id column');
+          }
+        }
+
+        return { success: true, user: authData.user };
+      }
     },
-    onSuccess: () => {
-      toast.success("User profile created and role assigned successfully!");
+    onSuccess: async () => {
+      toast.success("User created successfully!");
       setFormData(initialFormData);
       setIsAddDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      // Force refresh the users list
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: any) => {
+      console.error('Create user mutation error:', error);
       toast.error(`Failed to create user: ${error.message}`);
     }
   });
@@ -245,38 +347,132 @@ export function UserManagement() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, ...userData }: { userId: string } & Partial<UserFormData>) => {
-      // Update profile
-      if (userData.full_name || userData.phone) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: userData.full_name,
-            phone: userData.phone
-          })
-          .eq('id', userId);
+      console.log('Updating user:', userId, userData);
+      
+      // Try Edge Function first for complete updates (including password)
+      if (userData.password && userData.password.trim().length > 0) {
+        console.log('Using Edge Function for password update...');
         
-        if (profileError) throw profileError;
+        try {
+          const { data, error } = await supabase.functions.invoke('admin-update-user', {
+            body: {
+              userId,
+              full_name: userData.full_name,
+              email: userData.email,
+              phone: userData.phone,
+              role: userData.role,
+              password: userData.password
+            }
+          });
+
+          if (error) {
+            console.error('Edge Function error:', error);
+            throw new Error(`Failed via Edge Function: ${error.message}`);
+          }
+          
+          if (data?.error) {
+            console.error('Edge Function returned error:', data.error);
+            throw new Error(data.error);
+          }
+
+          console.log('User updated successfully via Edge Function');
+          return { success: true };
+        } catch (edgeFunctionError: any) {
+          console.error('Edge Function failed, falling back to direct update (password will not be updated):', edgeFunctionError);
+          toast.error('Password update failed. Updating other fields...');
+          // Fall through to direct update for other fields
+        }
+      }
+      
+      // Update profile
+      if (userData.full_name !== undefined || userData.phone !== undefined) {
+        const updateData: any = {};
+        if (userData.full_name !== undefined) updateData.full_name = userData.full_name;
+        if (userData.phone !== undefined) updateData.phone = userData.phone;
+        
+        console.log('Updating profile with data:', updateData, 'for userId:', userId);
+        
+        // Try updating with user_id first, if that fails try with id
+        let updateSuccess = false;
+        let lastError = null;
+        
+        // First attempt: user_id column
+        const { error: error1, count: count1 } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('user_id', userId)
+          .select();
+        
+        if (!error1) {
+          console.log('Profile updated successfully using user_id column');
+          updateSuccess = true;
+        } else {
+          console.log('First attempt (user_id) failed, trying with id column:', error1.message);
+          lastError = error1;
+          
+          // Second attempt: id column (some schemas use id as the foreign key)
+          const { error: error2, count: count2 } = await supabase
+            .from('profiles')
+            .update(updateData)
+            .eq('id', userId)
+            .select();
+          
+          if (!error2) {
+            console.log('Profile updated successfully using id column');
+            updateSuccess = true;
+          } else {
+            lastError = error2;
+          }
+        }
+        
+        if (!updateSuccess && lastError) {
+          console.error('Profile update error (both attempts failed):', lastError);
+          throw new Error(`Failed to update profile: ${lastError.message}`);
+        }
+        
+        console.log('Profile update completed successfully');
       }
       
       // Update user role if changed
       if (userData.role) {
-        const { error: roleError } = await supabase.rpc('update_user_role', {
-          target_user_id: userId,
-          new_role: userData.role
-        });
+        console.log('Updating role to:', userData.role);
         
-        if (roleError) throw roleError;
+        // Delete existing role first
+        const { error: deleteError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId);
+        
+        if (deleteError) {
+          console.error('Role delete error:', deleteError);
+        }
+        
+        // Insert new role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: userId,
+            role: userData.role
+          });
+        
+        if (roleError) {
+          console.error('Role insert error:', roleError);
+          throw new Error(`Failed to update role: ${roleError.message}`);
+        }
       }
       
       return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("User updated successfully!");
       setEditingUser(null);
       setIsEditDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      // Force refresh the users list
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: any) => {
+      console.error('Update user error:', error);
       toast.error(`Failed to update user: ${error.message}`);
     }
   });
@@ -284,22 +480,68 @@ export function UserManagement() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      // Use the database function to delete user
-      const { error } = await supabase.rpc('delete_user_account', {
-        target_user_id: userId
-      });
+      console.log('Deleting user:', userId);
       
-      if (error) throw error;
+      // Method 1: Delete role and profile directly (user will still exist in auth but won't show up)
+      console.log('Step 1: Deleting user role...');
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
       
-      // Note: auth.users deletion should be handled by the app using Supabase Auth admin functions
-      // For now, we'll just delete the profile and role data
-      return { success: true };
+      if (roleError) {
+        console.error('Failed to delete user role:', roleError);
+      } else {
+        console.log('User role deleted successfully');
+      }
+      
+      // Step 2: Delete profile
+      console.log('Step 2: Deleting profile...');
+      let profileDeleted = false;
+      
+      // Try with user_id first
+      const { error: profileError1 } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (!profileError1) {
+        profileDeleted = true;
+        console.log('Profile deleted with user_id column');
+      } else {
+        console.log('Profile delete with user_id failed, trying id:', profileError1.message);
+        
+        // Try with id as fallback
+        const { error: profileError2 } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+        
+        if (!profileError2) {
+          profileDeleted = true;
+          console.log('Profile deleted with id column');
+        } else {
+          console.error('Profile delete failed (both attempts):', profileError2);
+        }
+      }
+      
+      if (!profileDeleted) {
+        throw new Error('Failed to delete user profile');
+      }
+      
+      console.log('User data cleaned up successfully (role and profile deleted)');
+      console.log('Note: User still exists in auth.users but will not appear in the app');
+      
+      return { success: true, message: 'User removed from application' };
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("User deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      // Force refresh the users list
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"] });
     },
     onError: (error: any) => {
+      console.error('Delete user error:', error);
       toast.error(`Failed to delete user: ${error.message}`);
     }
   });
@@ -307,20 +549,49 @@ export function UserManagement() {
   // Permission save mutation
   const savePermissionsMutation = useMutation({
     mutationFn: async () => {
+      console.log('Saving permissions for role:', selectedRole);
       const payload = Object.entries(toggles).map(([permission_key, allowed]) => ({
         role: selectedRole,
         permission_key,
         allowed,
       }));
-      const { error } = await supabase.from('role_permissions').upsert(payload, { onConflict: 'role,permission_key' });
-      if (error) throw error;
+      
+      console.log('Payload:', payload.slice(0, 3), '... (total:', payload.length, 'items)');
+      
+      // Delete existing permissions for this role first, then insert new ones
+      const { error: deleteError } = await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('role', selectedRole);
+      
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw new Error(`Failed to clear existing permissions: ${deleteError.message}`);
+      }
+      
+      console.log('Existing permissions cleared');
+      
+      // Insert new permissions
+      const { error: insertError } = await supabase
+        .from('role_permissions')
+        .insert(payload);
+      
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw new Error(`Failed to save permissions: ${insertError.message}`);
+      }
+      
+      console.log('Permissions saved successfully');
     },
     onSuccess: () => {
       toast.success('Permissions updated');
       queryClient.invalidateQueries({ queryKey: ["role-permissions-editor", selectedRole] });
       queryClient.invalidateQueries({ queryKey: ["role-permissions", selectedRole] });
     },
-    onError: (e: any) => toast.error(`Failed to save: ${e.message}`)
+    onError: (e: any) => {
+      console.error('Save permissions error:', e);
+      toast.error(`Failed to save: ${e.message}`);
+    }
   });
 
   const togglePermission = (key: string) => setToggles(prev => ({ ...prev, [key]: !prev[key] }));
@@ -332,8 +603,12 @@ export function UserManagement() {
   };
 
   const handleCreateUser = () => {
-    if (!formData.full_name.trim() || !formData.email.trim()) {
-      toast.error("Please fill in required fields (name and email)");
+    if (!formData.full_name.trim() || !formData.email.trim() || !formData.password.trim()) {
+      toast.error("Please fill in all required fields (name, email, and password)");
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
       return;
     }
     createUserMutation.mutate(formData);
@@ -389,7 +664,7 @@ export function UserManagement() {
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>
-                  Create a user profile and assign a role. The user must first be created in Supabase Dashboard.
+                  Create a new user account with email, password, and role assignment.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -422,6 +697,19 @@ export function UserManagement() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="add_password">Password *</Label>
+                  <Input
+                    id="add_password"
+                    type="password"
+                    placeholder="Enter password (min 6 characters)"
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    User can change this password after first login
+                  </p>
+                </div>
+                <div>
                   <Label htmlFor="add_role">Role</Label>
                   <Select value={formData.role} onValueChange={(value: 'admin' | 'manager' | 'staff') => setFormData(prev => ({ ...prev, role: value }))}>
                     <SelectTrigger>
@@ -434,29 +722,14 @@ export function UserManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Note:</strong> The user must first be created in Supabase Dashboard (Authentication → Users) before you can assign a role here.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => window.open('YOUR_SUPABASE_URL_HERE/project/default/auth/users', '_blank')}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open Supabase Auth
-                  </Button>
-                  <Button 
-                    onClick={handleCreateUser}
-                    disabled={createUserMutation.isPending}
-                    className="flex-1"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {createUserMutation.isPending ? "Creating..." : "Create Profile"}
-                  </Button>
-                </div>
+                <Button 
+                  onClick={handleCreateUser}
+                  disabled={createUserMutation.isPending}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {createUserMutation.isPending ? "Creating..." : "Create User"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -664,6 +937,19 @@ export function UserManagement() {
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               />
+            </div>
+            <div>
+              <Label htmlFor="edit_password">New Password (optional)</Label>
+              <Input
+                id="edit_password"
+                type="password"
+                placeholder="Leave blank to keep current password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Only fill this if you want to change the user's password
+              </p>
             </div>
                          <div>
                <Label htmlFor="edit_role">Role</Label>

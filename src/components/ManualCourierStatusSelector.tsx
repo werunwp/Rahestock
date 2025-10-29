@@ -22,6 +22,7 @@ const COURIER_STATUSES = [
   { value: 'in_transit', label: 'In Transit', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   { value: 'out_for_delivery', label: 'Out for Delivery', color: 'bg-orange-100 text-orange-800 border-orange-200' },
   { value: 'delivered', label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-200' },
+  { value: 'payout_ready', label: 'Payout Ready', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   { value: 'returned', label: 'Returned', color: 'bg-red-100 text-red-800 border-red-200' },
   { value: 'lost', label: 'Lost', color: 'bg-red-100 text-red-800 border-red-200' },
   { value: 'cancelled', label: 'Cancelled', color: 'bg-gray-100 text-gray-800 border-gray-200' },
@@ -58,20 +59,20 @@ export function ManualCourierStatusSelector({
       }
 
       // Update payment status based on courier status
-      let paymentStatusUpdate = {};
-      if (newStatus === 'delivered') {
-        paymentStatusUpdate = { payment_status: 'paid' };
+      let paymentStatus: 'paid' | 'cancelled' | 'pending' | undefined;
+      if (['delivered', 'payout_ready'].includes(newStatus)) {
+        paymentStatus = 'paid';
       } else if (['returned', 'lost', 'cancelled'].includes(newStatus)) {
-        paymentStatusUpdate = { payment_status: 'cancelled' };
+        paymentStatus = 'cancelled';
+      } else {
+        paymentStatus = 'pending';
       }
 
-      // Update payment status if needed
-      if (Object.keys(paymentStatusUpdate).length > 0) {
-        await supabase
-          .from('sales')
-          .update(paymentStatusUpdate)
-          .eq('id', saleId);
-      }
+      // Update payment status to reflect current courier status
+      await supabase
+        .from('sales')
+        .update({ payment_status: paymentStatus })
+        .eq('id', saleId);
 
       // Log the status change
       await supabase

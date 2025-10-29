@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
-  const { needsRecovery, isLoading: roleLoading } = useUserRole();
+  const { needsRecovery, isLoading: roleLoading, userRole } = useUserRole();
 
   if (loading || roleLoading) {
     return (
@@ -24,7 +24,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (needsRecovery) {
+  // Only show recovery screen if user has NO role at all
+  // Don't show to managers, staff, or other valid roles
+  if (needsRecovery && !userRole) {
     return <AdminRecovery />;
   }
 

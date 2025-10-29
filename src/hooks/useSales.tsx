@@ -14,6 +14,8 @@ export interface Sale {
   customer_whatsapp: string | null;
   customer_address: string | null;
   additional_info?: string | null;
+  cn_number?: string | null;
+  courier_name?: string | null;
   subtotal: number;
   discount_percent: number;
   discount_amount: number;
@@ -51,6 +53,8 @@ export interface CreateSaleData {
   customer_whatsapp?: string;
   customer_address?: string;
   additional_info?: string;
+  cn_number?: string;
+  courier_name?: string;
   subtotal: number;
   discount_percent?: number;
   discount_amount?: number;
@@ -77,6 +81,9 @@ export interface UpdateSaleData {
   customer_phone?: string;
   customer_whatsapp?: string;
   customer_address?: string;
+  additional_info?: string;
+  cn_number?: string;
+  courier_name?: string;
   city?: string;
   zone?: string;
   area?: string;
@@ -100,7 +107,7 @@ export interface UpdateSaleData {
   }[];
 }
 
-export const useSales = () => {
+export const useSales = (queryKey: string = "sales") => {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
@@ -160,17 +167,43 @@ export const useSales = () => {
     data: sales = [],
     isLoading,
     error,
+    refetch,
   } = useQuery({
-    queryKey: ["sales"],
+    queryKey: [queryKey],
     queryFn: async () => {
-      // Since we're using hard delete, just fetch all sales
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        let { data, error } = await supabase
+          .from("sales")
+          .select("id, invoice_number, customer_id, customer_name, customer_phone, customer_whatsapp, customer_address, additional_info, cn_number, courier_name, payment_method, payment_status, courier_status, subtotal, discount_percent, discount_amount, grand_total, amount_paid, amount_due, fee, created_at, updated_at")
+          .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as Sale[];
+        // If courier_name column doesn't exist, retry without it
+        if (error && error.message?.includes('courier_name')) {
+          console.log("courier_name column not found, retrying without it");
+          const retryResult = await supabase
+            .from("sales")
+            .select("id, invoice_number, customer_id, customer_name, customer_phone, customer_whatsapp, customer_address, additional_info, cn_number, payment_method, payment_status, courier_status, subtotal, discount_percent, discount_amount, grand_total, amount_paid, amount_due, fee, created_at, updated_at")
+            .order("created_at", { ascending: false });
+          
+          data = retryResult.data;
+          error = retryResult.error;
+          
+          // Add courier_name as null for all sales if not found
+          if (data) {
+            data = data.map(sale => ({ ...sale, courier_name: null }));
+          }
+        }
+
+        if (error) {
+          console.error("Sales query error:", error);
+          throw error;
+        }
+        
+        return data as Sale[];
+      } catch (error) {
+        console.error("Failed to load sale data:", error);
+        throw error;
+      }
     },
     enabled: !!user,
   });
@@ -531,15 +564,37 @@ export const useSales = () => {
         setTimeout(() => reject(new Error('Database query timeout')), 8000)
       );
 
-      const salePromise = supabase
+      let salePromise = supabase
         .from("sales")
-        .select("*")
+        .select("id, invoice_number, customer_id, customer_name, customer_phone, customer_whatsapp, customer_address, additional_info, cn_number, courier_name, payment_method, payment_status, courier_status, subtotal, discount_percent, discount_amount, grand_total, amount_paid, amount_due, fee, created_at, updated_at")
         .eq("id", saleId)
         .single();
 
-      const { data: sale, error: saleError } = await Promise.race([salePromise, timeoutPromise]) as any;
+      let { data: sale, error: saleError } = await Promise.race([salePromise, timeoutPromise]) as any;
 
-      if (saleError) throw saleError;
+      // If courier_name column doesn't exist, retry without it
+      if (saleError && saleError.message?.includes('courier_name')) {
+        console.log("courier_name column not found in getSaleWithItems, retrying without it");
+        salePromise = supabase
+          .from("sales")
+          .select("id, invoice_number, customer_id, customer_name, customer_phone, customer_whatsapp, customer_address, additional_info, cn_number, payment_method, payment_status, courier_status, subtotal, discount_percent, discount_amount, grand_total, amount_paid, amount_due, fee, created_at, updated_at")
+          .eq("id", saleId)
+          .single();
+
+        const retryResult = await Promise.race([salePromise, timeoutPromise]) as any;
+        sale = retryResult.data;
+        saleError = retryResult.error;
+        
+        // Add courier_name as null if not found
+        if (sale) {
+          sale.courier_name = null;
+        }
+      }
+
+      if (saleError) {
+        console.error("Error fetching sale:", saleError);
+        throw saleError;
+      }
 
       const itemsPromise = supabase
         .from("sales_items")
@@ -560,7 +615,8 @@ export const useSales = () => {
         product_image_url: (item as any).products?.image_url || null
       }));
 
-      return { ...sale, items: itemsWithVariants };
+      // Return both 'items' (for dialogs) and 'sale_items' (for invoice template)
+      return { ...sale, items: itemsWithVariants, sale_items: itemsWithVariants };
     } catch (error) {
       console.error("Error in getSaleWithItems:", error);
       throw error;
@@ -606,6 +662,7 @@ export const useSales = () => {
     sales,
     isLoading,
     error,
+    refetch,
     createSale,
     updateSale,
     deleteSale,

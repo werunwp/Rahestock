@@ -127,8 +127,9 @@ export function AdminRecovery() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground text-center">
-            It looks like your admin privileges need to be restored after the app reset. 
-            Click the button below to restore your admin access and system settings.
+            Your account does not have a role assigned yet. 
+            This typically happens after an app reset or if you're the first user.
+            Click the button below to set up your account with admin access.
           </p>
           <Button 
             onClick={handleRestore}

@@ -90,7 +90,73 @@ export const useCustomers = () => {
 
       if (error) throw error;
 
-      return customersData as Customer[];
+      // Dynamically compute customer stats from sales to ensure up-to-date values
+      // Fetch minimal sales fields and aggregate on the client grouped by customer_id
+      const { data: salesData, error: salesError } = await supabase
+        .from("sales")
+        .select("customer_id, grand_total, created_at, payment_status, courier_status")
+        .in(
+          "customer_id",
+          (customersData || []).map((c) => c.id)
+        );
+
+      if (salesError) throw salesError;
+
+      const customerIdToStats: Record<string, {
+        orderCount: number;
+        deliveredCount: number;
+        cancelledCount: number;
+        totalSpent: number;
+        lastPurchaseDate: string | null;
+      }> = {};
+
+      (salesData || []).forEach((sale) => {
+        const key = sale.customer_id as string;
+        if (!customerIdToStats[key]) {
+          customerIdToStats[key] = {
+            orderCount: 0,
+            deliveredCount: 0,
+            cancelledCount: 0,
+            totalSpent: 0,
+            lastPurchaseDate: null,
+          };
+        }
+
+        const stats = customerIdToStats[key];
+        stats.orderCount += 1;
+        if ((sale as any).courier_status === "delivered") {
+          stats.deliveredCount += 1;
+          stats.totalSpent += Number(sale.grand_total) || 0;
+          if (
+            !stats.lastPurchaseDate ||
+            new Date(sale.created_at) > new Date(stats.lastPurchaseDate)
+          ) {
+            stats.lastPurchaseDate = sale.created_at as string;
+          }
+        } else if ((sale as any).courier_status === "cancelled") {
+          stats.cancelledCount += 1;
+        }
+      });
+
+      const merged = (customersData as Customer[]).map((c) => {
+        const s = customerIdToStats[c.id] || {
+          orderCount: 0,
+          deliveredCount: 0,
+          cancelledCount: 0,
+          totalSpent: 0,
+          lastPurchaseDate: null,
+        };
+        return {
+          ...c,
+          order_count: s.orderCount,
+          delivered_count: s.deliveredCount,
+          cancelled_count: s.cancelledCount,
+          total_spent: s.totalSpent,
+          last_purchase_date: s.lastPurchaseDate,
+        } as Customer;
+      });
+
+      return merged;
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000, // 2 minutes

@@ -43,6 +43,8 @@ export interface SaleFormData {
   customerAddress?: string;
   customer_address?: string;
   additional_info?: string;
+  cn_number?: string;
+  courier_name?: string;
   paymentMethod: string;
   payment_method?: string;
   paymentStatus: string;
@@ -95,6 +97,8 @@ export const BaseSaleDialog = ({
     customerWhatsapp: "",
     customerAddress: "",
     additional_info: "",
+    cn_number: "",
+    courier_name: "",
     paymentMethod: "cash",
     paymentStatus: "pending",
     amountPaid: 0,
@@ -122,6 +126,8 @@ export const BaseSaleDialog = ({
         customerWhatsapp: "",
         customerAddress: "",
         additional_info: "",
+        cn_number: "",
+        courier_name: "",
         paymentMethod: "cash",
         paymentStatus: "pending",
         amountPaid: 0,
@@ -145,6 +151,8 @@ export const BaseSaleDialog = ({
         customerWhatsapp: initialData.customerWhatsapp || initialData.customer_whatsapp || "",
         customerAddress: initialData.customerAddress || initialData.customer_address || "",
         additional_info: initialData.additional_info || "",
+        cn_number: initialData.cn_number || "",
+        courier_name: initialData.courier_name || "",
         paymentMethod: initialData.paymentMethod || initialData.payment_method || "cash",
         paymentStatus: initialData.paymentStatus || initialData.payment_status || "pending",
         amountPaid: initialData.amountPaid || initialData.amount_paid || 0,
@@ -190,7 +198,7 @@ export const BaseSaleDialog = ({
       includeScore: true,
       minMatchCharLength: 1
     });
-  }, [products, normalizeText]);
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
@@ -199,28 +207,26 @@ export const BaseSaleDialog = ({
       return products;
     }
 
-    const normalizedQuery = normalizeText(productSearchTerm.trim());
+    const searchTerm = productSearchTerm.trim().toLowerCase();
     
-    const exactMatches = products.filter(product => {
-      const normalizedName = normalizeText(product.name);
-      return normalizedName === normalizedQuery;
+    // First try simple string matching (faster)
+    const simpleMatches = products.filter(product => {
+      const name = product.name.toLowerCase();
+      const sku = (product.sku || '').toLowerCase();
+      return name.includes(searchTerm) || sku.includes(searchTerm);
     });
     
-    if (exactMatches.length > 0) {
-      return exactMatches;
+    // If we have matches, return them
+    if (simpleMatches.length > 0) {
+      return simpleMatches;
     }
     
+    // Otherwise use fuzzy search (slower but more flexible)
     if (!fuse) return [];
     
-    const searchResults = fuse.search(productSearchTerm.trim());
-    const matchedProductIds = new Set();
-    
-    searchResults.forEach(result => {
-      matchedProductIds.add(result.item.id);
-    });
-    
-    return products.filter(product => matchedProductIds.has(product.id));
-  }, [products, productSearchTerm, fuse, normalizeText]);
+    const searchResults = fuse.search(searchTerm);
+    return searchResults.slice(0, 50).map(result => result.item);
+  }, [products, productSearchTerm, fuse]);
 
   const selectedProduct = filteredProducts.find(p => p.id === selectedProductId);
   const { variants: currentVariants = [] } = useProductVariants(selectedProduct?.has_variants ? selectedProductId : undefined as any);
@@ -446,7 +452,7 @@ export const BaseSaleDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -548,23 +554,82 @@ export const BaseSaleDialog = ({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <Input
-                  value={formData.customerAddress || ""}
-                  onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
-                  placeholder="Address"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Input
+                    value={formData.customerAddress || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customerAddress: e.target.value }))}
+                    placeholder="Address"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Courier Name</Label>
+                    <Select
+                      value={formData.courier_name || "not_assigned"}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, courier_name: value === "not_assigned" ? "" : value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select courier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="not_assigned">Not Assigned</SelectItem>
+                      <SelectItem value="Sundorban">Sundorban</SelectItem>
+                      <SelectItem value="Janani">Janani</SelectItem>
+                      <SelectItem value="SR">SR</SelectItem>
+                      <SelectItem value="AJR">AJR</SelectItem>
+                      <SelectItem value="Karatoa">Karatoa</SelectItem>
+                      <SelectItem value="Bangladesh">Bangladesh</SelectItem>
+                      <SelectItem value="Ahmed">Ahmed</SelectItem>
+                      <SelectItem value="Steadfast">Steadfast</SelectItem>
+                      <SelectItem value="SA">SA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {/* Additional Info Field */}
-              <div className="space-y-2">
-                <Label>Additional Info</Label>
-                <Input
-                  value={formData.additional_info || ""}
-                  onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
-                  placeholder="Additional info"
-                />
+              {/* Additional Info, CN Number & Courier Name Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Additional Info</Label>
+                  <Input
+                    value={formData.additional_info || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, additional_info: e.target.value }))}
+                    placeholder="Additional info"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>CN Number</Label>
+                  <Input
+                    value={formData.cn_number || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cn_number: e.target.value }))}
+                    placeholder="Consignment number"
+                  />
+                </div>
+                {/* <div className="space-y-2">
+                  <Label>Courier Name</Label>
+                  <Select
+                    value={formData.courier_name || ""}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, courier_name: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select courier" />
+                    </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="not_assigned">Not Assigned</SelectItem>
+                      <SelectItem value="Sundorban">Sundorban</SelectItem>
+                      <SelectItem value="Janani">Janani</SelectItem>
+                      <SelectItem value="SR">SR</SelectItem>
+                      <SelectItem value="AJR">AJR</SelectItem>
+                      <SelectItem value="Karatoa">Karatoa</SelectItem>
+                      <SelectItem value="Bangladesh">Bangladesh</SelectItem>
+                      <SelectItem value="Ahmed">Ahmed</SelectItem>
+                      <SelectItem value="Steadfast">Steadfast</SelectItem>
+                      <SelectItem value="SA">SA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div> */}
               </div>
             </CardContent>
           </Card>

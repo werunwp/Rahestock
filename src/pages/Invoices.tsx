@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Plus, FileText, Download, Search, Filter, Eye, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +16,7 @@ import { SaleDetailsDialog } from "@/components/SaleDetailsDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { format, addDays } from "date-fns";
 import { toast } from "@/utils/toast";
-import { downloadInvoicePDF, downloadInvoiceHTML, generateInvoiceHTML, downloadInvoicePDFSimple } from "@/lib/simpleInvoiceGenerator";
+import { generateCashMemoHTML } from "@/lib/cashMemoTemplate";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const Invoices = () => {
@@ -21,6 +24,11 @@ const Invoices = () => {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [viewingSaleId, setViewingSaleId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [printHtml, setPrintHtml] = useState<string>("");
+  const [printOptions, setPrintOptions] = useState<{ size: 'A5' | 'A4'; orientation: 'portrait' | 'landscape'; }>(
+    { size: 'A5', orientation: 'portrait' }
+  );
   
   const { sales, isLoading, getSaleWithItems } = useSales();
   const { businessSettings } = useBusinessSettings();
@@ -237,6 +245,67 @@ const Invoices = () => {
         onOpenChange={handleCloseDetailsDialog}
         saleId={viewingSaleId}
       />
+
+      {/* Print Preview Dialog */}
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>Review the invoice and adjust print settings.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
+            {/* Preview */}
+            <div className="lg:col-span-3 border rounded overflow-auto h-[60vh] lg:h-full bg-white">
+              {/* Use iframe with srcdoc to sandbox styles */}
+              <iframe
+                title="Invoice Preview"
+                className="w-full h-full"
+                srcDoc={applyPrintOptionsToHtml(printHtml)}
+              />
+            </div>
+            {/* Settings */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="space-y-2">
+                <Label>Paper Size</Label>
+                <Select
+                  value={printOptions.size}
+                  onValueChange={(v) => setPrintOptions((p) => ({ ...p, size: v as 'A5' | 'A4' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A5">A5</SelectItem>
+                    <SelectItem value="A4">A4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Orientation</Label>
+                <Select
+                  value={printOptions.orientation}
+                  onValueChange={(v) => setPrintOptions((p) => ({ ...p, orientation: v as 'portrait' | 'landscape' }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select orientation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Tip: Use browser print dialog to choose printer, margins, and scale.
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmPrint}>Print</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -261,23 +330,12 @@ const Invoices = () => {
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
       
-      // Generate HTML invoice and open in new window for printing
-      const html = generateInvoiceHTML(saleWithItems, businessSettings, systemSettings);
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        
-        // Wait for content to load then print
-        printWindow.onload = () => {
-          printWindow.print();
-          printWindow.close();
-        };
-      }
-      
-      toast.success("Invoice sent to printer");
+      // Prepare HTML for preview dialog
+      const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+      setPrintHtml(html);
+      setIsPrintDialogOpen(true);
     } catch (error) {
-      toast.error("Failed to print invoice");
+      toast.error("Failed to open print preview");
       console.error("Print error:", error);
     }
   }
@@ -296,24 +354,42 @@ const Invoices = () => {
       toast.loading("Generating PDF invoice...");
       
       try {
-        await downloadInvoicePDF(saleWithItems, businessSettings, systemSettings);
-        toast.dismiss();
-        toast.success("Invoice PDF downloaded successfully");
+        const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+          import('html2canvas'),
+          import('jspdf')
+        ]);
+
+        const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+        const container = document.createElement('div');
+        container.innerHTML = html;
+        container.style.position = 'fixed';
+        container.style.top = '-9999px';
+        container.style.left = '-9999px';
+        container.style.width = '148mm';
+        container.style.backgroundColor = '#ffffff';
+        document.body.appendChild(container);
+
+        try {
+          await new Promise(r => setTimeout(r, 400));
+          const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = pdfWidth;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          const imgData = canvas.toDataURL('image/png', 1.0);
+          pdf.addImage(imgData, 'PNG', 0, Math.max(0, (pdfHeight - imgHeight) / 2), imgWidth, imgHeight);
+          pdf.save(`invoice-${saleWithItems.invoice_number}.pdf`);
+          toast.dismiss();
+          toast.success("Invoice PDF downloaded successfully");
+        } finally {
+          if (document.body.contains(container)) document.body.removeChild(container);
+        }
       } catch (error) {
         toast.dismiss();
         console.error("PDF download error:", error);
-        
-        // Try the simple fallback method
-        try {
-          toast.loading("Trying alternative method...");
-          await downloadInvoicePDFSimple(saleWithItems, businessSettings, systemSettings);
-          toast.dismiss();
-          toast.success("Invoice downloaded as image successfully");
-        } catch (fallbackError) {
-          toast.dismiss();
-          console.error("Fallback method also failed:", fallbackError);
-          toast.error("Failed to download invoice. Please try downloading as HTML instead.");
-        }
+        toast.error("Failed to download invoice. Please try downloading as HTML instead.");
       }
     } catch (error) {
       toast.error("Failed to download invoice");
@@ -330,11 +406,54 @@ const Invoices = () => {
 
       // Get sale with items for complete data
       const saleWithItems = await getSaleWithItems(sale.id);
-      await downloadInvoiceHTML(saleWithItems, businessSettings, systemSettings);
+      const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${saleWithItems.invoice_number}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       toast.success("Invoice HTML downloaded successfully");
     } catch (error) {
       toast.error("Failed to download invoice");
       console.error("Download error:", error);
+    }
+  }
+
+  function applyPrintOptionsToHtml(html: string) {
+    try {
+      // Adjust @page size/orientation by replacing size directive
+      const sizeToken = printOptions.size + (printOptions.orientation === 'landscape' ? ' landscape' : '');
+      const updated = html.replace(/@page\s*\{[^}]*size:[^;]*;?/m, (match) => {
+        // Replace size property inside existing @page block
+        if (/size:/.test(match)) {
+          return match.replace(/size:[^;]*;/, `size: ${sizeToken};`);
+        }
+        return match.replace(/\{/, `{ size: ${sizeToken};`);
+      });
+      return updated;
+    } catch {
+      return html;
+    }
+  }
+
+  function handleConfirmPrint() {
+    try {
+      const finalHtml = applyPrintOptionsToHtml(printHtml);
+      const w = window.open('', '_blank');
+      if (!w) return;
+      w.document.write(finalHtml);
+      w.document.close();
+      w.onload = () => {
+        w.focus();
+        w.print();
+      };
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to start printing');
     }
   }
 
@@ -358,7 +477,34 @@ const Invoices = () => {
         for (const sale of filteredSales) {
           try {
             const saleWithItems = await getSaleWithItems(sale.id);
-            await downloadInvoicePDF(saleWithItems, businessSettings, systemSettings);
+            // Use the same template for batch export via PDF
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+              import('html2canvas'),
+              import('jspdf')
+            ]);
+            const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+            const container = document.createElement('div');
+            container.innerHTML = html;
+            container.style.position = 'fixed';
+            container.style.top = '-9999px';
+            container.style.left = '-9999px';
+            container.style.width = '148mm';
+            container.style.backgroundColor = '#ffffff';
+            document.body.appendChild(container);
+            try {
+              await new Promise(r => setTimeout(r, 200));
+              const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+              const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = pdf.internal.pageSize.getHeight();
+              const imgWidth = pdfWidth;
+              const imgHeight = (canvas.height * imgWidth) / canvas.width;
+              const imgData = canvas.toDataURL('image/png', 1.0);
+              pdf.addImage(imgData, 'PNG', 0, Math.max(0, (pdfHeight - imgHeight) / 2), imgWidth, imgHeight);
+              pdf.save(`invoice-${saleWithItems.invoice_number}.pdf`);
+            } finally {
+              if (document.body.contains(container)) document.body.removeChild(container);
+            }
           } catch (error) {
             console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
           }
@@ -369,7 +515,16 @@ const Invoices = () => {
         for (const sale of filteredSales) {
           try {
             const saleWithItems = await getSaleWithItems(sale.id);
-            downloadInvoiceHTML(saleWithItems, businessSettings, systemSettings);
+            const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `invoice-${saleWithItems.invoice_number}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
           } catch (error) {
             console.error(`Error exporting invoice ${sale.invoice_number}:`, error);
           }

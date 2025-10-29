@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Trash2, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Plus, Edit, Eye, TrendingUp, TrendingDown, DollarSign, RefreshCw, Trash2, Search, Printer } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSales } from "@/hooks/useSales";
@@ -22,6 +24,11 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { ManualCourierStatusSelector } from "@/components/ManualCourierStatusSelector";
+// import { CourierNameSelector } from "@/components/CourierNameSelector";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { generateInvoiceHTML } from "@/lib/simpleInvoiceGenerator";
+import { generateCashMemoHTML } from "@/lib/cashMemoTemplate";
 
 // Function to restore inventory when an order is cancelled
 const restoreInventoryForCancelledOrder = async (saleId: string) => {
@@ -154,30 +161,22 @@ export default function Sales() {
   const [isRefreshingStatuses, setIsRefreshingStatuses] = useState(false);
   const [refreshingIndividual, setRefreshingIndividual] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [courierStatusFilter, setCourierStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
   
   const { formatAmount } = useCurrency();
   const queryClient = useQueryClient();
-  const { deleteSale } = useSales();
+  const { sales = [], isLoading, error, refetch, deleteSale, getSaleWithItems, createSale } = useSales();
   const { isAdmin } = useUserRole();
+  const { businessSettings } = useBusinessSettings();
+  const { systemSettings } = useSystemSettings();
   
   // Enable auto-refresh for courier statuses
   useStatusAutoRefresh();
   
   // Enable real-time updates for courier statuses
   useCourierStatusRealtime();
-
-  const { data: sales = [], isLoading, error, refetch } = useQuery({
-    queryKey: ["sales"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data as Sale[];
-    },
-  });
 
   // Listen for sales data updates to refresh without page reload
   useEffect(() => {
@@ -192,6 +191,11 @@ export default function Sales() {
   const { webhookSettings } = useWebhookSettings();
 
   const handleManualStatusUpdate = (saleId: string, newStatus: string) => {
+    // Trigger a page refresh to update the UI
+    refetch();
+  };
+
+  const handleCourierNameUpdate = (saleId: string, newCourierName: string) => {
     // Trigger a page refresh to update the UI
     refetch();
   };
@@ -280,7 +284,7 @@ export default function Sales() {
       console.log('Status normalization:', { original: newStatus, normalized: normalizedStatus, display: displayStatus });
         
       // Map courier status to payment status for business logic
-      let paymentStatusUpdate = {};
+      let paymentStatusUpdate = {} as { payment_status: 'paid' | 'cancelled' | 'pending' };
       if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
         paymentStatusUpdate = { payment_status: 'paid' };
         console.log('Setting payment status to: paid');
@@ -289,7 +293,8 @@ export default function Sales() {
         paymentStatusUpdate = { payment_status: 'cancelled' };
         console.log('Setting payment status to: cancelled');
       } else {
-        console.log('No payment status update needed for status:', normalizedStatus);
+        paymentStatusUpdate = { payment_status: 'pending' };
+        console.log('Setting payment status to: pending');
       }
       
       console.log('Payment status update object:', paymentStatusUpdate);
@@ -373,13 +378,37 @@ export default function Sales() {
           (sale.customer_whatsapp && sale.customer_whatsapp.toLowerCase().includes(searchLower)) ||
           sale.payment_status.toLowerCase().includes(searchLower) ||
           (sale.courier_status && sale.courier_status.toLowerCase().includes(searchLower)) ||
-          (sale.consignment_id && sale.consignment_id.toLowerCase().includes(searchLower))
+          (sale.consignment_id && sale.consignment_id.toLowerCase().includes(searchLower)) ||
+          (sale.courier_name && sale.courier_name.toLowerCase().includes(searchLower))
         );
       });
     }
 
+    // Apply courier status filter
+    if (courierStatusFilter !== "all") {
+      filtered = filtered.filter((sale) => {
+        if (courierStatusFilter === "not_sent") {
+          return !sale.courier_status || sale.courier_status === "not_sent";
+        }
+        return sale.courier_status === courierStatusFilter;
+      });
+    }
+
     return filtered;
-  }, [sales, dateRange, searchTerm]);
+  }, [sales, dateRange, searchTerm, courierStatusFilter]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  const paginatedSales = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredSales.slice(startIndex, endIndex);
+  }, [filteredSales, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, courierStatusFilter, dateRange]);
 
   const currentMonthSales = useMemo(() => {
     const now = new Date();
@@ -393,7 +422,12 @@ export default function Sales() {
   }, [sales]);
 
   const stats = useMemo(() => {
-    const validSales = filteredSales.filter(sale => sale.payment_status !== 'cancelled');
+    // Exclude sales ONLY based on courier statuses of cancelled, returned, or lost
+    // (not based on payment_status)
+    const validSales = filteredSales.filter(sale => {
+      const excludedCourierStatuses = ['cancelled', 'returned', 'lost'];
+      return !excludedCourierStatuses.includes(sale.courier_status?.toLowerCase() || '');
+    });
     const totalRevenue = validSales.reduce((sum, sale) => sum + (sale.grand_total || 0), 0);
     
     // Calculate paid amount based on payment status OR delivered courier status
@@ -427,6 +461,38 @@ export default function Sales() {
   const handleDeleteSale = (saleId: string) => {
     if (confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
       deleteSale.mutate(saleId);
+    }
+  };
+
+  const handlePrintInvoice = async (sale: Sale) => {
+    try {
+      if (!businessSettings || !systemSettings) {
+        toast.error("Settings not loaded");
+        return;
+      }
+
+      // Get sale with items for complete data
+      const saleWithItems = await getSaleWithItems(sale.id);
+      
+      // Generate Cash Memo HTML and open in new window for printing
+      const html = generateCashMemoHTML(saleWithItems, businessSettings, systemSettings);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        // Wait for content to load then print
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 500); // Small delay to ensure fonts and styles are loaded
+        };
+      }
+      
+      toast.success("Cash Memo sent to printer");
+    } catch (error) {
+      toast.error("Failed to print cash memo");
+      console.error("Print error:", error);
     }
   };
 
@@ -517,16 +583,37 @@ export default function Sales() {
         )}
       </div>
 
-      {/* Search Field */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Search sales by invoice, customer, phone, status..." 
-            className="pl-9" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* Search and Filter Fields */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input 
+              placeholder="Search sales by invoice, customer, phone, courier name, status..." 
+              className="pl-9" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={courierStatusFilter} onValueChange={setCourierStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="not_sent">Not Sent</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_transit">In Transit</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="returned">Returned</SelectItem>
+                <SelectItem value="lost">Lost</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredSales.length} of {sales.length} sales
         </div>
       </div>
 
@@ -550,24 +637,39 @@ export default function Sales() {
                     <TableHead className="whitespace-nowrap">Customer</TableHead>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
                     <TableHead className="whitespace-nowrap">Amount</TableHead>
+                    <TableHead className="whitespace-nowrap">Courier Name</TableHead>
+                    <TableHead className="whitespace-nowrap">CN Number</TableHead>
                     <TableHead className="whitespace-nowrap">Courier Status</TableHead>
                     <TableHead className="whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
-                {filteredSales.length === 0 ? (
+                {paginatedSales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No sales found
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      {filteredSales.length === 0 ? "No sales found" : "No sales on this page"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredSales.map((sale) => (
+                  paginatedSales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-medium whitespace-nowrap">{sale.invoice_number}</TableCell>
                       <TableCell className="max-w-[150px] truncate" title={sale.customer_name}>{sale.customer_name}</TableCell>
                       <TableCell className="whitespace-nowrap">{format(new Date(sale.created_at), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="whitespace-nowrap">{formatCurrencyAmount(sale.grand_total || 0)}</TableCell>
+                      <TableCell>
+                        {/* <CourierNameSelector
+                          saleId={sale.id}
+                          currentCourierName={sale.courier_name}
+                          onCourierNameUpdate={(newCourierName) => handleCourierNameUpdate(sale.id, newCourierName)}
+                          variant="inline"
+                          size="sm"
+                        /> */}
+                        {sale.courier_name || '-'}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {sale.cn_number || '-'}
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-2">
                           <ManualCourierStatusSelector
@@ -599,6 +701,14 @@ export default function Sales() {
                             onClick={() => handleViewDetails(sale.id)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrintInvoice(sale)}
+                            title="Print Invoice"
+                          >
+                            <Printer className="h-4 w-4" />
                           </Button>
                            {sale.consignment_id && (
                             <Button
@@ -633,6 +743,62 @@ export default function Sales() {
             </div>
           )}
         </CardContent>
+        
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            {totalPages > 1 ? (
+              <>Page {currentPage} of {totalPages} ({filteredSales.length} total sales)</>
+            ) : (
+              <>Showing {filteredSales.length} sale{filteredSales.length !== 1 ? 's' : ''}</>
+            )}
+          </div>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+                
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNumber;
+                  if (totalPages <= 5) {
+                    pageNumber = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNumber = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNumber = totalPages - 4 + i;
+                  } else {
+                    pageNumber = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(pageNumber)}
+                        isActive={currentPage === pageNumber}
+                        className="cursor-pointer"
+                      >
+                        {pageNumber}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
       </Card>
 
       <SaleDialog open={showSaleDialog} onOpenChange={setShowSaleDialog} />

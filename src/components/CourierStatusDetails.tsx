@@ -13,6 +13,7 @@ interface CourierStatusDetailsProps {
     id: string;
     invoice_number: string;
     customer_name: string;
+    cn_number?: string;
     consignment_id?: string;
     courier_status?: string;
     tracking_number?: string;
@@ -56,6 +57,8 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
     switch (status) {
       case 'delivered':
         return 'bg-green-100 text-green-800 border-green-200';
+      case 'payout_ready':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'in_transit':
       case 'out_for_delivery':
         return 'bg-blue-100 text-blue-800 border-blue-200';
@@ -73,6 +76,8 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
     switch (status) {
       case 'delivered':
         return '✅';
+      case 'payout_ready':
+        return '💰';
       case 'in_transit':
         return '🚚';
       case 'out_for_delivery':
@@ -148,6 +153,7 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
             {sale.courier_status === 'not_sent' ? 'Not Sent' : 
              sale.courier_status === 'in_transit' ? 'In Transit' :
              sale.courier_status === 'out_for_delivery' ? 'Out for Delivery' :
+             sale.courier_status === 'payout_ready' ? 'Payout Ready' :
              sale.courier_status === 'returned' ? 'Returned' :
              sale.courier_status === 'lost' ? 'Lost' :
              sale.courier_status?.replace('_', ' ').toUpperCase() || 'PENDING'}
@@ -197,6 +203,14 @@ export function CourierStatusDetails({ sale, onRefreshStatus, isRefreshing = fal
               <Truck className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Tracking Number:</span>
               <code className="text-sm bg-muted px-2 py-1 rounded">{sale.tracking_number}</code>
+            </div>
+          )}
+
+          {sale.cn_number && (
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">CN Number:</span>
+              <code className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded font-mono">{sale.cn_number}</code>
             </div>
           )}
         </div>

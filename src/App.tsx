@@ -24,6 +24,7 @@ import Invoices from "./pages/Invoices";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import AdminFix from "./pages/AdminFix";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -117,6 +118,13 @@ const AppRoutes = () => {
         <ProtectedRoute>
           <Layout>
             <Admin />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/admin-fix" element={
+        <ProtectedRoute>
+          <Layout>
+            <AdminFix />
           </Layout>
         </ProtectedRoute>
       } />

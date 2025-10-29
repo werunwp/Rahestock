@@ -273,7 +273,7 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh]">
+      <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Product" : "Add New Product"}</DialogTitle>
           <DialogDescription>
@@ -281,7 +281,7 @@ export const ProductDialog = ({ open, onOpenChange, product }: ProductDialogProp
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="name">Product Name *</Label>
             <Input

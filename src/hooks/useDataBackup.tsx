@@ -197,11 +197,11 @@ export const useDataBackup = () => {
         let totalTables = 0;
         
         // Define import order (reverse of export order for dependencies)
+        // Import dependencies first, then dependents (ensures FKs resolve)
         const importOrder = [
-          'dismissed_alerts', 'user_preferences', 'inventory_logs', 'sales_items', 
-          'sales', 'customers', 'product_variants', 'product_attribute_values', 
-          'product_attributes', 'products', 'profiles', 'user_roles', 
-          'business_settings', 'system_settings'
+          'system_settings', 'business_settings', 'user_roles', 'profiles',
+          'products', 'product_attributes', 'product_attribute_values', 'product_variants',
+          'customers', 'sales', 'sales_items', 'inventory_logs', 'user_preferences', 'dismissed_alerts'
         ];
         
         // Sort tables according to import order
@@ -252,9 +252,9 @@ export const useDataBackup = () => {
               }
               
               // Check if table exists and has data
-              const { data: existingData, error: checkError } = await supabase
+              const { count: existingCount, error: checkError } = await supabase
                 .from(tableName as any)
-                .select('count', { count: 'exact', head: true });
+                .select('*', { count: 'exact', head: true });
               
               if (checkError) {
                 console.error(`Error checking ${tableName}:`, checkError);
@@ -267,7 +267,7 @@ export const useDataBackup = () => {
                 continue;
               }
               
-              const hasExistingData = existingData && (existingData as any) > 0;
+              const hasExistingData = typeof existingCount === 'number' && existingCount > 0;
               
               if (hasExistingData && !overwriteExisting && skipConflicts) {
                 // Skip if data exists and we're not overwriting

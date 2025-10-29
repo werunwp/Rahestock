@@ -15,6 +15,8 @@ interface ProductVariant {
   stock_quantity: number;
   low_stock_threshold: number | null;
   attributes: Record<string, string>;
+  rate?: number | null;
+  cost?: number | null;
 }
 
 interface InventoryProductCardProps {
@@ -27,6 +29,7 @@ interface InventoryProductCardProps {
     low_stock_threshold: number | null;
     image_url: string | null;
     rate?: number | null;
+    cost?: number | null;
     variants: ProductVariant[];
   };
   onImageClick: (imageUrl: string) => void;
@@ -88,7 +91,13 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
                 <span className="text-sm font-medium">Stock: {product.stock_quantity}</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                Stock Value: <span className="font-medium text-foreground">{formatAmount((product.stock_quantity || 0) * (product.rate || 0))}</span>
+                {(() => {
+                  const unitPrice = (product.rate ?? 0) as number;
+                  const value = (product.stock_quantity || 0) * unitPrice;
+                  return (
+                    <>Stock Value: <span className="font-medium text-foreground">{formatAmount(value)}</span></>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -98,7 +107,7 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
   }
 
   // For products with variants
-  const totalStock = product.variants.reduce((sum, variant) => sum + variant.stock_quantity, 0);
+  const totalStock = product.variants.reduce((sum, variant) => sum + (variant.stock_quantity || 0), 0);
   
   // Get unique attribute keys from all variants
   const attributeKeys = Array.from(
@@ -168,7 +177,15 @@ export const InventoryProductCard = ({ product, onImageClick }: InventoryProduct
               <span className="text-sm font-medium">Total Stock: {totalStock}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Stock Value: <span className="font-medium text-foreground">{formatAmount(totalStock * (product.rate || 0))}</span>
+              {(() => {
+                const totalValue = product.variants.reduce((sum, v) => {
+                  const unitPrice = (v.rate ?? product.rate ?? 0) as number;
+                  return sum + (v.stock_quantity || 0) * unitPrice;
+                }, 0);
+                return (
+                  <>Stock Value: <span className="font-medium text-foreground">{formatAmount(totalValue)}</span></>
+                );
+              })()}
             </div>
           </div>
         </div>

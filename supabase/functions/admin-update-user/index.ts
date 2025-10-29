@@ -48,7 +48,7 @@ serve(async (req) => {
       throw new Error('Unauthorized: Admin access required')
     }
 
-    const { userId, full_name, email, phone, role } = await req.json()
+    const { userId, full_name, email, phone, role, password } = await req.json()
 
     if (!userId) {
       throw new Error('User ID is required')
@@ -56,16 +56,20 @@ serve(async (req) => {
 
     console.log(`Admin ${user.email} updating user ${userId}`)
 
-    // Update email in auth if provided
-    if (email) {
-      const { error: emailUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        email: email
-      })
+    // Update email and/or password in auth if provided
+    const authUpdates: any = {}
+    if (email) authUpdates.email = email
+    if (password && password.trim().length > 0) authUpdates.password = password
+    
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, authUpdates)
 
-      if (emailUpdateError) {
-        console.error('Email update error:', emailUpdateError)
-        throw new Error(`Failed to update email: ${emailUpdateError.message}`)
+      if (authUpdateError) {
+        console.error('Auth update error:', authUpdateError)
+        throw new Error(`Failed to update authentication: ${authUpdateError.message}`)
       }
+      
+      console.log('Auth updated successfully:', Object.keys(authUpdates))
     }
 
     // Update profile

@@ -208,8 +208,9 @@ export const useStatusAutoRefresh = () => {
               console.log('Normalized display status:', displayStatus);
               
               // Map courier status to payment status
-              let paymentStatusUpdate = {};
-              if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed')) {
+              let paymentStatusUpdate = {} as { payment_status: 'paid' | 'cancelled' | 'pending' };
+              if (normalizedStatus.includes('delivered') || normalizedStatus.includes('completed') || 
+                  normalizedStatus.includes('payout_ready')) {
                 paymentStatusUpdate = { payment_status: 'paid' };
                 console.log('Auto-refresh: Setting payment status to: paid');
               } else if (normalizedStatus.includes('returned') || normalizedStatus.includes('lost') || 
@@ -218,7 +219,8 @@ export const useStatusAutoRefresh = () => {
                 paymentStatusUpdate = { payment_status: 'cancelled' };
                 console.log('Auto-refresh: Setting payment status to: cancelled');
               } else {
-                console.log('Auto-refresh: No payment status update needed for status:', normalizedStatus);
+                paymentStatusUpdate = { payment_status: 'pending' };
+                console.log('Auto-refresh: Setting payment status to: pending');
               }
               
               console.log('Auto-refresh: Payment status update object:', paymentStatusUpdate);

@@ -97,6 +97,8 @@ const Inventory = () => {
         stock_quantity: product.stock_quantity,
         low_stock_threshold: product.low_stock_threshold,
         image_url: product.image_url,
+        rate: (product as any).rate || null,
+        cost: (product as any).cost || null,
         variants: []
       });
     });
@@ -141,7 +143,9 @@ const Inventory = () => {
             sku: variant.sku || product.sku,
             stock_quantity: variant.stock_quantity,
             low_stock_threshold: variant.low_stock_threshold,
-            attributes: variant.attributes || {}
+            attributes: variant.attributes || {},
+            rate: (variant as any).rate || null,
+            cost: (variant as any).cost || null
           }))
         });
       } else {
@@ -154,6 +158,8 @@ const Inventory = () => {
           stock_quantity: product.stock_quantity,
           low_stock_threshold: product.low_stock_threshold,
           image_url: product.image_url,
+          rate: (product as any).rate || null,
+          cost: (product as any).cost || null,
           variants: []
         });
       }

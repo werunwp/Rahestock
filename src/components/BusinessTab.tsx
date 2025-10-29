@@ -39,7 +39,7 @@ export const BusinessTab = () => {
         email: businessSettings.email || "",
         facebook: businessSettings.facebook || "",
         address: businessSettings.address || "",
-        invoice_prefix: businessSettings.invoice_prefix || "INV",
+        invoice_prefix: businessSettings.invoice_prefix || "",
         invoice_footer_message: businessSettings.invoice_footer_message || "",
         brand_color: businessSettings.brand_color || "#2c7be5",
         primary_email: businessSettings.primary_email || "",
