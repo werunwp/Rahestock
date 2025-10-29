@@ -8,6 +8,8 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useProducts } from "@/hooks/useProducts";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useSales } from "@/hooks/useSales";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 import { SimpleDateRangeFilter } from "@/components/SimpleDateRangeFilter";
 
@@ -26,7 +28,20 @@ const Reports = () => {
   const { customers, isLoading: customersLoading } = useCustomers();
   const { sales, isLoading: salesLoading } = useSales();
 
-  const isAnyLoading = dashboardLoading || productsLoading || customersLoading || salesLoading;
+  // Fetch all sales items for the reports
+  const { data: salesItems, isLoading: salesItemsLoading } = useQuery({
+    queryKey: ['sales-items'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales_items')
+        .select('*');
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const isAnyLoading = dashboardLoading || productsLoading || customersLoading || salesLoading || salesItemsLoading;
 
   // Generate histogram data based on date range
   const chartData = useMemo(() => {
@@ -294,7 +309,75 @@ const Reports = () => {
     ? filteredSalesData.totalRevenue / filteredSalesData.successfulOrders 
     : 0;
 
+  // Calculate items sold within the date range
+  const itemsSoldData = useMemo(() => {
+    if (!sales || !products || !salesItems) return [];
 
+    // Filter sales by date range
+    let filteredSales = sales;
+    if (dateRange.from || dateRange.to) {
+      filteredSales = sales.filter(sale => {
+        const saleDate = new Date(sale.created_at);
+        
+        if (dateRange.from && dateRange.to) {
+          return saleDate >= dateRange.from && saleDate <= dateRange.to;
+        } else if (dateRange.from) {
+          return saleDate >= dateRange.from;
+        } else if (dateRange.to) {
+          return saleDate <= dateRange.to;
+        }
+        
+        return true;
+      });
+    }
+
+    // Get IDs of successful sales (non-cancelled)
+    const successfulSaleIds = new Set(
+      filteredSales
+        .filter(sale => {
+          const courierStatus = (sale.courier_status || '').toLowerCase();
+          return !(courierStatus.includes('cancel') || courierStatus.includes('return') || courierStatus.includes('lost'));
+        })
+        .map(sale => sale.id)
+    );
+
+    // Aggregate sales items by product for successful sales only
+    const productSales = new Map<string, {
+      productId: string;
+      productName: string;
+      imageUrl: string | null;
+      totalQuantity: number;
+      totalValue: number;
+    }>();
+
+    salesItems.forEach((item: any) => {
+      // Only include items from successful sales in the date range
+      if (!successfulSaleIds.has(item.sale_id)) return;
+
+      const productId = item.product_id;
+      const existing = productSales.get(productId);
+
+      if (existing) {
+        existing.totalQuantity += item.quantity || 0;
+        existing.totalValue += item.total || 0;
+      } else {
+        // Find product details
+        const product = products.find(p => p.id === productId);
+        
+        productSales.set(productId, {
+          productId,
+          productName: item.product_name || product?.name || 'Unknown Product',
+          imageUrl: product?.image_url || null,
+          totalQuantity: item.quantity || 0,
+          totalValue: item.total || 0
+        });
+      }
+    });
+
+    // Convert to array and sort by total value (descending)
+    return Array.from(productSales.values())
+      .sort((a, b) => b.totalValue - a.totalValue);
+  }, [sales, products, salesItems, dateRange]);
 
   return (
     <div className="space-y-6 w-full max-w-none overflow-x-hidden">
@@ -382,6 +465,83 @@ const Reports = () => {
           </>
         )}
       </div>
+
+      {/* Items Sold Section */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-xl">Items Sold</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Products sold within the selected date range
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isAnyLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="p-4">
+                  <div className="flex gap-4">
+                    <Skeleton className="h-16 w-16 rounded-md" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : itemsSoldData.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {itemsSoldData.map((item) => (
+                <Card key={item.productId} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.productName}
+                            className="h-16 w-16 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="h-16 w-16 rounded-md bg-muted flex items-center justify-center">
+                            <Package className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate mb-2" title={item.productName}>
+                          {item.productName}
+                        </h3>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">Qty:</span>
+                            <span className="font-semibold">{item.totalQuantity}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">Value:</span>
+                            <span className="font-semibold text-green-600">
+                              {formatAmount(item.totalValue)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No items sold in the selected period</p>
+              <p className="text-sm text-muted-foreground mt-2">Try adjusting the date range</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Comprehensive Business Overview Chart */}
       <Card className="w-full">
