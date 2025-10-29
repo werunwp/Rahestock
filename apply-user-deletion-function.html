@@ -203,7 +203,91 @@
         const SUPABASE_URL = 'https://default.supabase.rahedeen.com';
 
         const SQL_MIGRATION = `
--- Create delete_user_safely function
+-- Step 1: Fix foreign key constraints to enable CASCADE deletion
+-- Fix user_roles foreign key
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'user_roles_user_id_fkey'
+    ) THEN
+        ALTER TABLE public.user_roles DROP CONSTRAINT user_roles_user_id_fkey;
+    END IF;
+    
+    ALTER TABLE public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey
+    FOREIGN KEY (user_id)
+    REFERENCES auth.users(id)
+    ON DELETE CASCADE;
+END $$;
+
+-- Fix profiles foreign key
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'profiles_id_fkey'
+    ) THEN
+        ALTER TABLE public.profiles DROP CONSTRAINT profiles_id_fkey;
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'profiles'
+    ) THEN
+        ALTER TABLE public.profiles
+        ADD CONSTRAINT profiles_id_fkey
+        FOREIGN KEY (id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Fix user_preferences foreign key
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'user_preferences_id_fkey'
+    ) THEN
+        ALTER TABLE public.user_preferences DROP CONSTRAINT user_preferences_id_fkey;
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'user_preferences'
+    ) THEN
+        ALTER TABLE public.user_preferences
+        ADD CONSTRAINT user_preferences_id_fkey
+        FOREIGN KEY (id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Fix dismissed_alerts foreign key
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'dismissed_alerts_id_fkey'
+    ) THEN
+        ALTER TABLE public.dismissed_alerts DROP CONSTRAINT dismissed_alerts_id_fkey;
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'dismissed_alerts'
+    ) THEN
+        ALTER TABLE public.dismissed_alerts
+        ADD CONSTRAINT dismissed_alerts_id_fkey
+        FOREIGN KEY (id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Step 2: Create delete_user_safely function
 CREATE OR REPLACE FUNCTION public.delete_user_safely(target_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
