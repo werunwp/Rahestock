@@ -42,8 +42,9 @@ BEGIN
     DELETE FROM public.profiles WHERE id = target_user_id;
   END IF;
 
-  -- Note: We don't delete from auth.users here
-  -- That's handled by the admin-delete-user Edge Function
+  -- Finally, delete from auth.users
+  -- SECURITY DEFINER allows this function to delete from auth schema
+  DELETE FROM auth.users WHERE id = target_user_id;
 END;
 $$;
 

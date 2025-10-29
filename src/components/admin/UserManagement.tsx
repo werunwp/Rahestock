@@ -482,50 +482,18 @@ export function UserManagement() {
     mutationFn: async (userId: string) => {
       console.log('Deleting user:', userId);
       
-      // Step 1: Delete from database first using helper function
-      console.log('Step 1: Deleting user data from database...');
-      const { data: dbResult, error: dbError } = await supabase
+      // Delete user using the delete_user_safely function
+      // This function handles deletion from both database tables AND auth.users
+      const { error } = await supabase
         .rpc('delete_user_safely', { target_user_id: userId });
       
-      if (dbError) {
-        console.error('Database deletion error:', dbError);
-        throw new Error(`Failed to delete user data: ${dbError.message}`);
+      if (error) {
+        console.error('User deletion error:', error);
+        throw new Error(`Failed to delete user: ${error.message}`);
       }
       
-      if (dbResult && !dbResult.success) {
-        console.error('Database deletion failed:', dbResult.error);
-        throw new Error(dbResult.error || 'Failed to delete user data');
-      }
-      
-      console.log('User data deleted from database successfully');
-      
-      // Step 2: Try to delete from Supabase Auth using Edge Function
-      console.log('Step 2: Attempting to delete from authentication...');
-      try {
-        const { data, error } = await supabase.functions.invoke('admin-delete-user', {
-          body: { userId }
-        });
-
-        if (error) {
-          console.error('Edge Function error:', error);
-          throw new Error(`Failed to delete from auth: ${error.message}`);
-        }
-        
-        if (data?.error) {
-          console.error('Edge Function returned error:', data.error);
-          throw new Error(data.error);
-        }
-
-        console.log('User deleted from authentication successfully');
-        return { success: true, message: 'User deleted completely' };
-      } catch (edgeFunctionError: any) {
-        console.error('Edge Function failed:', edgeFunctionError);
-        // Database deletion was successful, auth deletion failed
-        return { 
-          success: true, 
-          message: 'User data removed (auth user may still exist but cannot access app)' 
-        };
-      }
+      console.log('User deleted successfully');
+      return { success: true, message: 'User deleted completely' };
     },
     onSuccess: async () => {
       toast.success("User deleted successfully!");
