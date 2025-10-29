@@ -269,6 +269,22 @@ export function UserManagement() {
         // Wait a bit for the trigger to complete (profile creation)
         await new Promise(resolve => setTimeout(resolve, 1000));
 
+        // Ensure profile is created/updated with full name and phone
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authData.user.id,
+            full_name: userData.full_name,
+            phone: userData.phone || null
+          }, {
+            onConflict: 'id'
+          });
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Continue anyway - profile might have been created by trigger
+        }
+
         // Update the role - first delete the old one, then insert the new one
         const { error: deleteError } = await supabase
           .from('user_roles')
