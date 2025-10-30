@@ -135,6 +135,8 @@ const Inventory = () => {
           stock_quantity: null,
           low_stock_threshold: null,
           image_url: product.image_url,
+          rate: (product as any).rate || null,
+          cost: (product as any).cost || null,
           variants: productVariants.map(variant => ({
             id: variant.id,
             name: Object.entries(variant.attributes || {})
