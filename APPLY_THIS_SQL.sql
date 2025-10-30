@@ -52,6 +52,7 @@ END $$;
 -- Fix user_preferences foreign key (if it exists)
 DO $$ 
 BEGIN
+    -- Drop old incorrect constraint if it exists
     IF EXISTS (
         SELECT 1 FROM pg_constraint 
         WHERE conname = 'user_preferences_id_fkey'
@@ -59,13 +60,22 @@ BEGIN
         ALTER TABLE public.user_preferences DROP CONSTRAINT user_preferences_id_fkey;
     END IF;
     
+    -- Drop existing user_id constraint if it exists
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'user_preferences_user_id_fkey'
+    ) THEN
+        ALTER TABLE public.user_preferences DROP CONSTRAINT user_preferences_user_id_fkey;
+    END IF;
+    
+    -- Add correct constraint: user_id references auth.users(id)
     IF EXISTS (
         SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'public' AND table_name = 'user_preferences'
     ) THEN
         ALTER TABLE public.user_preferences
-        ADD CONSTRAINT user_preferences_id_fkey
-        FOREIGN KEY (id)
+        ADD CONSTRAINT user_preferences_user_id_fkey
+        FOREIGN KEY (user_id)
         REFERENCES auth.users(id)
         ON DELETE CASCADE;
     END IF;
@@ -171,6 +181,35 @@ CREATE POLICY "Users can delete their own profile"
   FOR DELETE
   TO authenticated
   USING (true);
+
+-- User Preferences table - Allow users to manage their own preferences
+DROP POLICY IF EXISTS "Users can select own preferences" ON public.user_preferences;
+CREATE POLICY "Users can select own preferences"
+  ON public.user_preferences
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users can insert own preferences" ON public.user_preferences;
+CREATE POLICY "Users can insert own preferences"
+  ON public.user_preferences
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users can update own preferences" ON public.user_preferences;
+CREATE POLICY "Users can update own preferences"
+  ON public.user_preferences
+  FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Users can delete own preferences" ON public.user_preferences;
+CREATE POLICY "Users can delete own preferences"
+  ON public.user_preferences
+  FOR DELETE
+  TO authenticated
+  USING (user_id = auth.uid());
 
 -- User roles table - Allow admins to update any role
 DROP POLICY IF EXISTS "Admins can update any role" ON public.user_roles;
