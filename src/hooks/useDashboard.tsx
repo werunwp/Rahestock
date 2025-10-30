@@ -92,6 +92,14 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
         stats.unitsSold = salesItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
       }
 
+      // Get business settings for low stock threshold
+      const { data: businessSettings } = await supabase
+        .from("business_settings")
+        .select("low_stock_alert_quantity")
+        .single();
+      
+      const globalLowStockThreshold = businessSettings?.low_stock_alert_quantity || 10;
+
       // Get total products
       const { data: products } = await supabase
         .from("products")
@@ -101,8 +109,14 @@ export const useDashboard = (startDate?: Date, endDate?: Date) => {
         stats.totalProducts = products.length;
         
         // Get low stock products
+        // Use product's individual threshold if set, otherwise use global threshold
+        // Only show products with stock > 0 and <= threshold
         stats.lowStockProducts = products
-          .filter(product => product.stock_quantity <= product.low_stock_threshold)
+          .filter(product => {
+            const stockQty = product.stock_quantity || 0;
+            const threshold = product.low_stock_threshold ?? globalLowStockThreshold;
+            return stockQty > 0 && stockQty <= threshold;
+          })
           .slice(0, 5)
           .map(product => ({
             id: product.id,
